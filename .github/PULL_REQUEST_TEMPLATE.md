@@ -14,6 +14,7 @@ Describe what changed and why.
 
 - [ ] `npm run lint`
 - [ ] `npm run typecheck`
+- [ ] `npm run test:unit`
 - [ ] `npm run build`
 - [ ] Manual UX verification for impacted screens
 

@@ -26,12 +26,13 @@ Open http://localhost:3000
 ```bash
 npm run lint
 npm run typecheck
+npm run test:unit
 npm run build
 ```
 
 ## CI
 
-GitHub Actions runs lint, typecheck, and build on every push and pull request to `main`.
+GitHub Actions runs lint, typecheck, unit tests, and build on every push and pull request to `main`.
 
 See `.github/workflows/ci.yml`.
 
