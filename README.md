@@ -21,6 +21,24 @@ npm run dev
 
 Open http://localhost:3000
 
+## Quality Checks
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+## CI
+
+GitHub Actions runs lint, typecheck, and build on every push and pull request to `main`.
+
+See `.github/workflows/ci.yml`.
+
+## Contributing
+
+See `CONTRIBUTING.md` for branching, commit message standards, and PR expectations.
+
 ## Current MVP
 
 - Family Dashboard
