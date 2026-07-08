@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Parent Companion">
+  <rect width="256" height="256" rx="48" fill="#1d4ed8" />
+  <path d="M54 164c0-31 21-52 50-52 14 0 26 5 34 15 8-10 20-15 34-15 29 0 50 21 50 52h-24c0-18-10-29-26-29-11 0-20 6-24 16h-20c-4-10-13-16-24-16-16 0-26 11-26 29H54zm74-70a23 23 0 1 1 0-46 23 23 0 0 1 0 46zm0-22a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" fill="#fff" />
+</svg>

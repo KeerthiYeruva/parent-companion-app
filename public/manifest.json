@@ -1,0 +1,16 @@
+{
+  "name": "Parent Companion App",
+  "short_name": "ParentCompanion",
+  "description": "A family dashboard for school tasks, tests, and activities.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
