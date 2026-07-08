@@ -76,6 +76,7 @@ Release workflow: `.github/workflows/release.yml`.
 - Planning selectors are colocated in `src/features/planning/selectors/planning-selectors.ts`.
 - Children management screen entry point is `src/features/children/components/children-management-view.tsx`.
 - Documents repository screen entry point is `src/features/documents/components/documents-repository-view.tsx`.
+- Import pipeline contracts and orchestration live under `src/features/import/`.
 - Core entities (`children`, `items`, `documents`) are hydrated from Dexie via `src/store/use-app-store.ts`.
 - Dexie access is centralized through `src/db/repositories/app-repository.ts` for future sync/backend adapter expansion.
 - `src/components/dashboard-view.tsx` and `src/store/selectors.ts` are compatibility re-exports during migration.
