@@ -76,6 +76,7 @@ Release workflow: `.github/workflows/release.yml`.
 - Children management screen entry point is `src/features/children/components/children-management-view.tsx`.
 - Documents repository screen entry point is `src/features/documents/components/documents-repository-view.tsx`.
 - Core entities (`children`, `items`, `documents`) are hydrated from Dexie via `src/store/use-app-store.ts`.
+- Dexie access is centralized through `src/db/repositories/app-repository.ts` for future sync/backend adapter expansion.
 - `src/components/dashboard-view.tsx` and `src/store/selectors.ts` are compatibility re-exports during migration.
 - `src/components/children-page.tsx` and `src/components/documents-page.tsx` remain compatibility re-exports during migration.
 

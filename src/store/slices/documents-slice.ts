@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import type { StateCreator } from "zustand";
-import { db } from "@/lib/db";
+import { appRepository } from "@/db/repositories/app-repository";
 import type { AppState, UploadedDocument } from "@/types/domain";
 
 type DocumentsSlice = Pick<AppState, "documents" | "importIssues" | "addDocument">;
@@ -17,7 +17,7 @@ export const createDocumentsSlice: StateCreator<AppState, [], [], DocumentsSlice
       uploadedAt: dayjs().toISOString(),
     };
 
-    db.documents.put(newDoc).catch(() => {
+    appRepository.upsertDocument(newDoc).catch(() => {
       // Dexie sync is best-effort for local backups.
     });
 

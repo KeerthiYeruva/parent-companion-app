@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import { db } from "@/lib/db";
+import { appRepository } from "@/db/repositories/app-repository";
 import { deriveStatus } from "@/lib/status";
 import type { AppState, SchoolItem } from "@/types/domain";
 
@@ -16,7 +16,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
       status: deriveStatus(item.dueDate),
     };
 
-    db.items.put(newItem).catch(() => {
+    appRepository.upsertItem(newItem).catch(() => {
       // Dexie sync is best-effort for local backups.
     });
 
@@ -38,7 +38,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
           status: deriveStatus(item.dueDate, completedAt),
         };
 
-        db.items.put(nextItem).catch(() => {
+        appRepository.upsertItem(nextItem).catch(() => {
           // Dexie sync is best-effort for local backups.
         });
 

@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { db } from "@/lib/db";
+import { appRepository } from "@/db/repositories/app-repository";
 import { demoChildren, demoDocuments, demoItems } from "@/lib/seed";
 import type { AppState } from "@/types/domain";
 import { createChildrenSlice } from "@/store/slices/children-slice";
@@ -23,13 +23,13 @@ export const useAppStore = create<AppState>()(
         const state = get();
 
         if (state.children.length > 0 || state.items.length > 0 || state.documents.length > 0) {
-          db.children.bulkPut(state.children).catch(() => {
+          appRepository.upsertChildren(state.children).catch(() => {
             // Dexie sync is best-effort for local backups.
           });
-          db.items.bulkPut(state.items).catch(() => {
+          appRepository.upsertItems(state.items).catch(() => {
             // Dexie sync is best-effort for local backups.
           });
-          db.documents.bulkPut(state.documents).catch(() => {
+          appRepository.upsertDocuments(state.documents).catch(() => {
             // Dexie sync is best-effort for local backups.
           });
           return;
@@ -39,7 +39,7 @@ export const useAppStore = create<AppState>()(
           return;
         }
 
-        hydrationPromise = Promise.all([db.children.toArray(), db.items.toArray(), db.documents.toArray()])
+        hydrationPromise = Promise.all([appRepository.listChildren(), appRepository.listItems(), appRepository.listDocuments()])
           .then(([children, items, documents]) => {
             if (children.length > 0 || items.length > 0 || documents.length > 0) {
               const selectedChildIds =
@@ -54,13 +54,13 @@ export const useAppStore = create<AppState>()(
               return;
             }
 
-            db.children.bulkPut(demoChildren).catch(() => {
+            appRepository.upsertChildren(demoChildren).catch(() => {
               // Dexie sync is best-effort for local backups.
             });
-            db.items.bulkPut(demoItems).catch(() => {
+            appRepository.upsertItems(demoItems).catch(() => {
               // Dexie sync is best-effort for local backups.
             });
-            db.documents.bulkPut(demoDocuments).catch(() => {
+            appRepository.upsertDocuments(demoDocuments).catch(() => {
               // Dexie sync is best-effort for local backups.
             });
 

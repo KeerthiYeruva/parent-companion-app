@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import { db } from "@/lib/db";
+import { appRepository } from "@/db/repositories/app-repository";
 import type { AppState, ChildProfile } from "@/types/domain";
 
 const childColors = ["bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500"];
@@ -14,7 +14,7 @@ export const createChildrenSlice: StateCreator<AppState, [], [], ChildrenSlice> 
     const colorTag = childColors[get().children.length % childColors.length];
     const newChild = { ...child, id: createId("child"), colorTag };
 
-    db.children.put(newChild).catch(() => {
+    appRepository.upsertChild(newChild).catch(() => {
       // Dexie sync is best-effort for local backups.
     });
 
