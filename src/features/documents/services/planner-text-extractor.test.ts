@@ -778,6 +778,26 @@ describe("extractPlannerRows", () => {
     ]));
   });
 
+  it("prefers shared grade range hints over single-grade aliases on unit-test circulars", () => {
+    const rows = extractPlannerRows({
+      relativePath: "1782974912050_EXAM_CIRCULAR_UT_12026.pdf",
+      childNames: ["grade 1", "grade 5", "GRADE 1-5"],
+      contentText: [
+        "CIRCULAR/41/2026-27/GRADE 1-5 02/07/2026",
+        "Kindly note the Examination schedule for the UT1.",
+        "DATE DAY SUBJECT",
+        "17/07/2026 FRIDAY COMPUTER",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ childName: "GRADE 1-5", category: "UnitTest", subject: "Computer Science", title: "Computer Science Unit Test" }),
+    ]));
+    expect(rows).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ childName: "grade 1" }),
+    ]));
+  });
+
   it("maps the grade 1-5 unit-test circular table as a separate schedule document", () => {
     const rows = extractPlannerRows({
       relativePath: "CIRCULAR_41_2026_27_GRADE_1_5_UT1.pdf",

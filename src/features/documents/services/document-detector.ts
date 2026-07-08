@@ -6,9 +6,11 @@ import type { FolderScanFile, PlannerExtractionSummary } from "@/features/docume
 const extractChildHints = (relativePath: string, contentText?: string) => {
   const hints = new Set<string>();
   const source = `${relativePath} ${contentText ?? ""}`;
+  const gradeRangeMatch = source.match(/\b(?:grade|class)[\s_-]*[-:]?\s*(?:[0-9]{1,2}|i{1,3}|iv|v|vi{0,3}|ix|x|xi|xii)[\s_-]*[-–][\s_-]*(?:[0-9]{1,2}|i{1,3}|iv|v|vi{0,3}|ix|x|xi|xii)\b/gi) ?? [];
   const gradeMatch = source.match(/\b(?:grade|class)\s*[-:]?\s*(?:[0-9]{1,2}|i{1,3}|iv|v|vi{0,3}|ix|x|xi|xii)\b/gi) ?? [];
   const sectionMatch = source.match(/\b(?:section|sec)\s*[-:]?\s*[a-z]\b/gi) ?? [];
 
+  gradeRangeMatch.forEach((match) => hints.add(match.trim().replace(/[\s_-]*[-–][\s_-]*/g, "-")));
   gradeMatch.forEach((match) => hints.add(match.trim()));
   sectionMatch.forEach((match) => hints.add(match.trim()));
 

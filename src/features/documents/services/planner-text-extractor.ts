@@ -283,7 +283,7 @@ const extractDelimitedRow = (
 
 const inferChildName = (text: string, relativePath: string, childAliases: string[]) => {
   const haystack = `${relativePath}\n${text}`.toLowerCase();
-  const match = childAliases.find((childName) => {
+  const match = [...childAliases].sort((first, second) => second.length - first.length).find((childName) => {
     const escapedAlias = childName.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
     return new RegExp(`(^|[^a-z0-9])${escapedAlias}([^a-z0-9]|$)`, "i").test(haystack);
   });
