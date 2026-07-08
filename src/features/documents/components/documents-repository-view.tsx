@@ -2,6 +2,7 @@
 
 import dayjs from "dayjs";
 import { UploadDocumentForm } from "@/components/forms/upload-document-form";
+import { ImportPlannerRowsForm } from "@/features/import";
 import { NavShell } from "@/components/nav-shell";
 import { useAppStore } from "@/store/use-app-store";
 
@@ -17,6 +18,7 @@ export function DocumentsRepositoryView() {
         </div>
 
         <UploadDocumentForm />
+        <ImportPlannerRowsForm />
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="mb-2 font-semibold">Uploaded References</h3>

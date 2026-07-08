@@ -67,6 +67,7 @@ Release workflow: `.github/workflows/release.yml`.
 - Activities Center
 - Child Profiles
 - Documents (reference-first flow)
+- Documents screen supports paste-preview-import flow for planner rows using the typed import pipeline
 - Local persistence with Dexie (IndexedDB) as source of truth
 - Zustand localStorage persistence limited to UI selection preferences
 
