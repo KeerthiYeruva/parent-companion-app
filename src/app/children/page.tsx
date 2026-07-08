@@ -1,5 +1,5 @@
-import { ChildrenPage } from "@/components/children-page";
+import { ChildrenManagementView } from "@/features/children/components/children-management-view";
 
 export default function Page() {
-  return <ChildrenPage />;
+  return <ChildrenManagementView />;
 }

@@ -73,7 +73,10 @@ Release workflow: `.github/workflows/release.yml`.
 
 - App Router planning screens now use the feature module entry point at `src/features/planning/components/planning-view.tsx`.
 - Planning selectors are colocated in `src/features/planning/selectors/planning-selectors.ts`.
+- Children management screen entry point is `src/features/children/components/children-management-view.tsx`.
+- Documents repository screen entry point is `src/features/documents/components/documents-repository-view.tsx`.
 - `src/components/dashboard-view.tsx` and `src/store/selectors.ts` are compatibility re-exports during migration.
+- `src/components/children-page.tsx` and `src/components/documents-page.tsx` remain compatibility re-exports during migration.
 
 ## Note
 

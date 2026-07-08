@@ -1,5 +1,5 @@
-import { DocumentsPage } from "@/components/documents-page";
+import { DocumentsRepositoryView } from "@/features/documents/components/documents-repository-view";
 
 export default function Page() {
-  return <DocumentsPage />;
+  return <DocumentsRepositoryView />;
 }
