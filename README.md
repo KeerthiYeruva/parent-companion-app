@@ -128,6 +128,24 @@ Release workflow: `.github/workflows/release.yml`.
 
 Every feature should answer: does this help get from PDF to weekly plan?
 
+## Functionality-First Roadmap
+
+Phase 1 is parser and planning trust. Do not prioritize visual polish until the app can reliably take school PDFs, extract clean rows, assign the right child, create dated tasks, and show useful Today, Week, and Month plans.
+
+Current focus:
+
+- Table parsing for school PDFs
+- Category extraction for homework, home study, class tests, unit tests, activities, and projects
+- Date extraction from table cells
+- Child-document ownership from grade/class signals
+- Review exceptions only for genuine ambiguity
+- Today priorities, upcoming tests, and overdue work
+- Completion tracking across Today, Week, Month, and Kids
+
+Phase 2 is mobile-first UX refinement after parser quality is high enough to trust with real school PDFs. Optimize whether a parent can understand today, this week, and tomorrow's tests in a few seconds.
+
+Phase 3 is visual polish: spacing, typography, color system, icons, motion, empty states, and illustrations. UI polish should improve a trusted workflow, not hide parser artifacts.
+
 ## Zero-Touch Import Contract
 
 The default workflow is:
