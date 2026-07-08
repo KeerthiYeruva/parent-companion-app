@@ -120,6 +120,10 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
       .filter((item) => testCategories.includes(item.category) && item.status !== "Completed" && !dayjs(item.dueDate).isBefore(dayjs(), "day"))
       .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
       .slice(0, 10);
+    const monthPlanItems = monthItems
+      .filter((item) => item.status !== "Completed")
+      .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
+      .slice(0, 20);
     const weekSummary = summarizeItems(weekItems);
     const monthSummary = summarizeItems(monthItems);
 
@@ -142,6 +146,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
         ))}
         <SummarySection title="Upcoming Tests" subtitle="This month" items={upcomingTests} emptyText="No upcoming tests this month." showDates />
         <SummarySection title="Upcoming Work" subtitle="Next 3 days" items={upcomingItems} emptyText="No upcoming priorities in the next 3 days." showDates />
+        <SummarySection title="This Month Plan" subtitle="Imported school items" items={monthPlanItems} emptyText="No imported items for this month." showDates />
         <section className="grid gap-3 sm:grid-cols-2">
           <PlanSummaryCard title="This Week" summary={weekSummary} />
           <PlanSummaryCard title="This Month" summary={monthSummary} />
