@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import type { ChildProfile, SchoolItem } from "@/types/domain";
+import type { ChildProfile, ScanSessionFileRecord, SchoolItem, UploadedDocument } from "@/types/domain";
 
 export const bySelectedChildren = (items: SchoolItem[], selectedChildIds: string[]) => {
   if (selectedChildIds.length === 0) {
@@ -54,5 +54,31 @@ export const childSummary = (child: ChildProfile, items: SchoolItem[]) => {
     pendingTasks,
     upcomingTests,
     activityTomorrow,
+  };
+};
+
+export const childMonthReadiness = (child: ChildProfile, documents: UploadedDocument[]) => {
+  const currentMonthLabel = dayjs().format("MMMM");
+  const childDocuments = documents.filter((document) => document.childIds.includes(child.id) || document.childIds.length === 0);
+  const monthDocuments = childDocuments.filter((document) => document.extractedMonth === currentMonthLabel);
+
+  return {
+    currentMonthLabel,
+    documentCount: monthDocuments.length,
+    isReady: monthDocuments.length > 0,
+  };
+};
+
+export const childReviewSummary = (child: ChildProfile, scanQueue: ScanSessionFileRecord[]) => {
+  const childKey = child.name.toLowerCase();
+  const matchingFiles = scanQueue.filter((file) => {
+    const pathMatch = file.relativePath.toLowerCase().includes(childKey);
+    const hintMatch = file.childHints.some((hint) => hint.toLowerCase().includes(child.grade.toLowerCase()) || hint.toLowerCase().includes(childKey));
+    return pathMatch || hintMatch;
+  });
+
+  return {
+    fileCount: matchingFiles.length,
+    reviewCount: matchingFiles.filter((file) => file.status === "review").length,
   };
 };

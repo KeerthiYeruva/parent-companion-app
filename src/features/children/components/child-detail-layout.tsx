@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { NavShell } from "@/components/nav-shell";
-import { childSummary, monthlyCounts } from "@/features/planning/selectors/planning-selectors";
+import { childMonthReadiness, childReviewSummary, childSummary, monthlyCounts } from "@/features/planning/selectors/planning-selectors";
 import { useAppStore } from "@/store/use-app-store";
 
 const buildLinks = (childId: string) => [
@@ -20,6 +20,8 @@ export function ChildDetailLayout({ childId, title, children }: { childId: strin
   const pathname = usePathname();
   const child = useAppStore((state) => state.children.find((entry) => entry.id === childId));
   const items = useAppStore((state) => state.items);
+  const documents = useAppStore((state) => state.documents);
+  const scanQueue = useAppStore((state) => state.scanQueue);
 
   if (!child) {
     notFound();
@@ -28,6 +30,8 @@ export function ChildDetailLayout({ childId, title, children }: { childId: strin
   const childItems = items.filter((item) => item.childId === child.id);
   const summary = childSummary(child, items);
   const month = monthlyCounts(childItems);
+  const readiness = childMonthReadiness(child, documents);
+  const review = childReviewSummary(child, scanQueue);
   const links = buildLinks(child.id);
 
   return (
@@ -44,6 +48,17 @@ export function ChildDetailLayout({ childId, title, children }: { childId: strin
             <p>{summary.upcomingTests} upcoming tests</p>
             <p>{month.homework} homework this month</p>
             <p>{month.activities} activities this month</p>
+          </div>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+              <p className="font-medium text-slate-900">{readiness.currentMonthLabel} readiness</p>
+              <p>{readiness.documentCount} current-month documents imported</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+              <p className="font-medium text-slate-900">Scan review</p>
+              <p>{review.fileCount} matched scanned files</p>
+              <p>{review.reviewCount} still need review</p>
+            </div>
           </div>
         </div>
 
