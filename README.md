@@ -68,6 +68,7 @@ Release workflow: `.github/workflows/release.yml`.
 - Child Profiles
 - Documents (reference-first flow)
 - Documents screen supports paste-preview-import flow for planner rows using the typed import pipeline
+- Manual planner row imports support inline review and revalidation for unmatched child/category/date issues
 - Documents screen supports first-pass smart file scan with document type detection, month extraction, and duplicate/change fingerprinting
 - Local persistence with Dexie (IndexedDB) as source of truth
 - Zustand localStorage persistence limited to UI selection preferences

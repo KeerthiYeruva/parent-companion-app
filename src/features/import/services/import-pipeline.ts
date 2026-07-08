@@ -11,6 +11,7 @@ export const importPipeline: ImportPipeline = {
     const items = importItemBuilder.buildItems(validRecords);
 
     return {
+      normalizedRecords: normalized,
       items,
       issues,
       summary: {

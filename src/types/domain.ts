@@ -60,6 +60,7 @@ export interface UploadedDocument {
 export interface ImportIssue {
   id: string;
   documentId: string;
+  rowIndex?: number;
   fieldName: string;
   issue: string;
   resolved: boolean;

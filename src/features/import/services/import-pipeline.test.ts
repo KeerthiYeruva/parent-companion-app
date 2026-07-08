@@ -28,6 +28,8 @@ describe("importPipeline", () => {
       issuesCount: 0,
     });
 
+    expect(result.normalizedRecords).toHaveLength(1);
+
     expect(result.items).toEqual([
       {
         childId: "child-1",
@@ -60,6 +62,7 @@ describe("importPipeline", () => {
     );
 
     expect(result.items).toEqual([]);
+    expect(result.normalizedRecords).toHaveLength(1);
     expect(result.summary.validRecords).toBe(0);
     expect(result.summary.issuesCount).toBe(4);
     expect(result.issues.map((issue) => issue.fieldName).sort()).toEqual(["category", "childName", "dueDate", "title"]);

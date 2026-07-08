@@ -38,6 +38,7 @@ export interface ImportPipelineSummary {
 }
 
 export interface ImportPipelineResult {
+  normalizedRecords: NormalizedImportRecord[];
   items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>;
   issues: ImportIssue[];
   summary: ImportPipelineSummary;

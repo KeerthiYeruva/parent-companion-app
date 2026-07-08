@@ -7,6 +7,7 @@ const createIssue = (options: ImportPipelineOptions, index: number, fieldName: s
   return {
     id: `import-issue-${crypto.randomUUID()}`,
     documentId: options.documentId,
+    rowIndex: index,
     fieldName,
     issue: `Row ${index + 1}: ${issue}`,
     resolved: false,
