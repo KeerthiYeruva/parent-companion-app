@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Product Discussion
+    url: https://github.com/KeerthiYeruva/parent-companion-app/discussions
+    about: Use discussions for open product or UX brainstorming.

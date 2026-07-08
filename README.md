@@ -39,6 +39,23 @@ See `.github/workflows/ci.yml`.
 
 See `CONTRIBUTING.md` for branching, commit message standards, and PR expectations.
 
+## Issue Templates
+
+GitHub issue forms are available for bug reports and feature requests in `.github/ISSUE_TEMPLATE/`.
+
+Labels can be synchronized using the `Sync Labels` workflow in `.github/workflows/labels.yml`.
+
+## Releases
+
+Push a semantic version tag to trigger an automated GitHub release:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Release workflow: `.github/workflows/release.yml`.
+
 ## Current MVP
 
 - Family Dashboard

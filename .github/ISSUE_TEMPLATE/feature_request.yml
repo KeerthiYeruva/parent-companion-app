@@ -1,0 +1,71 @@
+name: Feature Request
+description: Propose a product enhancement for parent planning workflows.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What parent pain point are we solving?
+      placeholder: As a parent, I struggle with...
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired Outcome
+      description: What should improve after this feature?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed UX and behavior.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Primary Module
+      options:
+        - Family Dashboard
+        - Week View
+        - Month View
+        - Tests Center
+        - Homework Center
+        - Activities Center
+        - Children Management
+        - Documents Repository
+        - Calendar View
+        - Settings
+        - Data Import
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 Critical
+        - P1 High
+        - P2 Medium
+        - P3 Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Bullet points that define done.
+      placeholder: |
+        - User can ...
+        - System shows ...
+        - Works on mobile/tablet/desktop

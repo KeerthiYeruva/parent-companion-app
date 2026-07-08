@@ -1,0 +1,68 @@
+name: Sync Labels
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/labels.yml
+
+permissions:
+  issues: write
+
+jobs:
+  labels:
+    name: Ensure Repository Labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              { name: "bug", color: "d73a4a", description: "Something is not working" },
+              { name: "enhancement", color: "a2eeef", description: "New feature or request" },
+              { name: "documentation", color: "0075ca", description: "Improvements or additions to docs" },
+              { name: "priority:P0", color: "b60205", description: "Critical priority" },
+              { name: "priority:P1", color: "d93f0b", description: "High priority" },
+              { name: "priority:P2", color: "fbca04", description: "Medium priority" },
+              { name: "priority:P3", color: "0e8a16", description: "Low priority" },
+              { name: "module:dashboard", color: "5319e7", description: "Family Dashboard scope" },
+              { name: "module:week", color: "1d76db", description: "Week View scope" },
+              { name: "module:month", color: "0052cc", description: "Month View scope" },
+              { name: "module:tests", color: "006b75", description: "Tests Center scope" },
+              { name: "module:homework", color: "0366d6", description: "Homework Center scope" },
+              { name: "module:activities", color: "0e8a16", description: "Activities Center scope" },
+              { name: "module:children", color: "c2e0c6", description: "Children Management scope" },
+              { name: "module:documents", color: "bfdadc", description: "Documents Repository scope" },
+              { name: "module:calendar", color: "c5def5", description: "Calendar View scope" },
+              { name: "module:settings", color: "fef2c0", description: "Settings scope" },
+              { name: "needs-design", color: "f9d0c4", description: "Requires UX/design decisions" }
+            ];
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name
+                });
+
+                await github.rest.issues.updateLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+              } catch (error) {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+              }
+            }
