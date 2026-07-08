@@ -1,5 +1,5 @@
-import { DashboardView } from "@/components/dashboard-view";
+import { PlanningView } from "@/features/planning/components/planning-view";
 
 export default function ActivitiesPage() {
-  return <DashboardView mode="activities" />;
+  return <PlanningView mode="activities" />;
 }

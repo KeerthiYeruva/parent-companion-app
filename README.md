@@ -69,6 +69,12 @@ Release workflow: `.github/workflows/release.yml`.
 - Local persistence with Zustand + localStorage
 - IndexedDB document backup via Dexie
 
+## Architecture Notes
+
+- App Router planning screens now use the feature module entry point at `src/features/planning/components/planning-view.tsx`.
+- Planning selectors are colocated in `src/features/planning/selectors/planning-selectors.ts`.
+- `src/components/dashboard-view.tsx` and `src/store/selectors.ts` are compatibility re-exports during migration.
+
 ## Note
 
 This app is designed as a **Parent Companion App**, not a document management system. Parents should use dashboards first and documents only as backup references.
