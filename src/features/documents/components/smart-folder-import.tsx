@@ -646,14 +646,14 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         simple ? (
           <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
             <p className="font-medium text-emerald-700">
-              Ready for planning: {scanTotals.ready} item{scanTotals.ready === 1 ? "" : "s"}
+              Imported for planning: {scanTotals.ready} item{scanTotals.ready === 1 ? "" : "s"}
             </p>
             <p className="mt-1 text-slate-600">
-              Found {scanTotals.items} school item{scanTotals.items === 1 ? "" : "s"} from {scanQueue.length} document{scanQueue.length === 1 ? "" : "s"}.
+              Added matched school items from {scanQueue.length} document{scanQueue.length === 1 ? "" : "s"} to Today, Week, Month, and Kids.
             </p>
             {scanTotals.skipped > 0 ? (
-              <p className="mt-1 text-amber-800">
-                Skipped {scanTotals.skipped} item{scanTotals.skipped === 1 ? "" : "s"} because no matching child profile exists.
+              <p className="mt-1 text-slate-500">
+                Ignored {scanTotals.skipped} row{scanTotals.skipped === 1 ? "" : "s"} for grades or children that are not set up in this app.
               </p>
             ) : null}
             <div className="mt-2 grid gap-2 md:grid-cols-2">
