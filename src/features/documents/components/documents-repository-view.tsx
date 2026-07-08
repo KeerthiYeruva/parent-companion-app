@@ -2,6 +2,7 @@
 
 import dayjs from "dayjs";
 import { UploadDocumentForm } from "@/components/forms/upload-document-form";
+import { SmartFolderImport } from "@/features/documents/components/smart-folder-import";
 import { ImportPlannerRowsForm } from "@/features/import";
 import { NavShell } from "@/components/nav-shell";
 import { useAppStore } from "@/store/use-app-store";
@@ -18,6 +19,7 @@ export function DocumentsRepositoryView() {
         </div>
 
         <UploadDocumentForm />
+        <SmartFolderImport />
         <ImportPlannerRowsForm />
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">

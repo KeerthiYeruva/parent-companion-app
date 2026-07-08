@@ -50,6 +50,10 @@ export interface UploadedDocument {
   uploadedAt: string;
   fileName?: string;
   fileSize?: number;
+  fileHash?: string;
+  relativePath?: string;
+  modifiedAt?: string;
+  extractedMonth?: string;
 }
 
 export interface ImportIssue {

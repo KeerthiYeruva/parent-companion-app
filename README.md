@@ -68,6 +68,7 @@ Release workflow: `.github/workflows/release.yml`.
 - Child Profiles
 - Documents (reference-first flow)
 - Documents screen supports paste-preview-import flow for planner rows using the typed import pipeline
+- Documents screen supports first-pass smart file scan with document type detection, month extraction, and duplicate/change fingerprinting
 - Local persistence with Dexie (IndexedDB) as source of truth
 - Zustand localStorage persistence limited to UI selection preferences
 
@@ -77,6 +78,7 @@ Release workflow: `.github/workflows/release.yml`.
 - Planning selectors are colocated in `src/features/planning/selectors/planning-selectors.ts`.
 - Children management screen entry point is `src/features/children/components/children-management-view.tsx`.
 - Documents repository screen entry point is `src/features/documents/components/documents-repository-view.tsx`.
+- Document intelligence services live under `src/features/documents/services/`.
 - Import pipeline contracts and orchestration live under `src/features/import/`.
 - Core entities (`children`, `items`, `documents`) are hydrated from Dexie via `src/store/use-app-store.ts`.
 - Dexie access is centralized through `src/db/repositories/app-repository.ts` for future sync/backend adapter expansion.

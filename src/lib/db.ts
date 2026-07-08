@@ -9,6 +9,10 @@ export interface StoredDocument {
   uploadedAt: string;
   fileName?: string;
   fileSize?: number;
+  fileHash?: string;
+  relativePath?: string;
+  modifiedAt?: string;
+  extractedMonth?: string;
 }
 
 class ParentCompanionDB extends Dexie {
@@ -25,7 +29,7 @@ class ParentCompanionDB extends Dexie {
     this.version(2).stores({
       children: "id, grade, academicYear",
       items: "id, childId, category, dueDate, status, [childId+dueDate]",
-      documents: "id, type, uploadedAt",
+      documents: "id, type, uploadedAt, fileHash, relativePath, extractedMonth",
     });
   }
 }
