@@ -2,6 +2,13 @@ import { useRef, useState } from "react";
 import type { PlannerBackup } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
 
+type StorageDiagnostics = {
+  indexedDb: "available" | "unavailable";
+  localStorageBytes: number;
+  counts?: Record<string, number>;
+  message?: string;
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null;
 };
@@ -28,6 +35,7 @@ export function DataBackupPanel() {
   const selectedChildIds = useAppStore((state) => state.selectedChildIds);
   const importBackupData = useAppStore((state) => state.importBackupData);
   const [message, setMessage] = useState<string>();
+  const [diagnostics, setDiagnostics] = useState<StorageDiagnostics>();
 
   const exportData = () => {
     const backup: PlannerBackup = {
@@ -67,6 +75,40 @@ export function DataBackupPanel() {
     }
   };
 
+  const checkStorage = async () => {
+    const localStorageBytes = localStorage.getItem("parent-companion-store")?.length ?? 0;
+
+    if (!("indexedDB" in window)) {
+      setDiagnostics({ indexedDb: "unavailable", localStorageBytes, message: "IndexedDB is not available in this browser." });
+      return;
+    }
+
+    try {
+      const request = indexedDB.open("parentCompanionDB");
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onerror = () => reject(request.error ?? new Error("IndexedDB open failed."));
+        request.onsuccess = () => resolve(request.result);
+      });
+      const storeNames = Array.from(database.objectStoreNames);
+      const counts: Record<string, number> = {};
+
+      await Promise.all(storeNames.map((storeName) => new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction(storeName, "readonly");
+        const countRequest = transaction.objectStore(storeName).count();
+        countRequest.onerror = () => reject(countRequest.error ?? new Error(`Could not count ${storeName}.`));
+        countRequest.onsuccess = () => {
+          counts[storeName] = countRequest.result;
+          resolve();
+        };
+      })));
+
+      database.close();
+      setDiagnostics({ indexedDb: "available", localStorageBytes, counts });
+    } catch (error) {
+      setDiagnostics({ indexedDb: "unavailable", localStorageBytes, message: error instanceof Error ? error.message : "IndexedDB check failed." });
+    }
+  };
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -80,6 +122,9 @@ export function DataBackupPanel() {
           </button>
           <button type="button" onClick={() => inputRef.current?.click()} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white">
             Import Data
+          </button>
+          <button type="button" onClick={() => void checkStorage()} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Check Storage
           </button>
         </div>
       </div>
@@ -98,6 +143,14 @@ export function DataBackupPanel() {
       <p className="mt-3 text-sm text-slate-600">
         Current browser: {children.length} child profile{children.length === 1 ? "" : "s"}, {items.length} item{items.length === 1 ? "" : "s"}, {documents.length} document{documents.length === 1 ? "" : "s"}.
       </p>
+      {diagnostics ? (
+        <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+          <p className="font-medium text-slate-900">IndexedDB: {diagnostics.indexedDb}</p>
+          {diagnostics.counts ? <p className="mt-1">Saved records: {Object.entries(diagnostics.counts).map(([name, count]) => `${name}: ${count}`).join(" • ")}</p> : null}
+          <p className="mt-1">Local settings: {diagnostics.localStorageBytes} bytes</p>
+          {diagnostics.message ? <p className="mt-1 text-amber-800">{diagnostics.message}</p> : null}
+        </div>
+      ) : null}
       {message ? <p className="mt-2 text-sm font-medium text-emerald-700">{message}</p> : null}
     </section>
   );
