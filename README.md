@@ -1,16 +1,54 @@
-# Parent Companion App
+# Parent Companion
 
-A local-first parent dashboard that turns school planners and circulars into clear daily, weekly, and monthly actions.
+School sends PDFs.
+Parent Companion automatically converts school PDFs into week-wise and month-wise plans for each child, so parents only need to track completion, not manage documents.
+
+The app automatically:
+
+- Finds school documents
+- Extracts homework, tests, activities, and projects
+- Groups work by child
+- Organizes work by week and month
+- Tracks completion
+
+The goal is to help parents answer:
+
+"What does each child need to do this week?"
+
+## Problem
+
+Schools send monthly planners, co-scholastic planners, class test portions, unit test portions, and exam circular PDFs. Parents should not need to open every PDF, create tasks manually, assign categories, assign children, or remember each child's weekly plan.
+
+## Goal
+
+The successful workflow is:
+
+- Receive school PDFs
+- Drop them into a folder or upload them together
+- Open Parent Companion
+- See this week's tasks and this month's plan
+- Mark work complete
+
+The failed workflow is:
+
+- Upload PDFs
+- Assign child manually
+- Assign category manually
+- Enter dates manually
+- Fix most rows
+- Review everything before import
+
+If the parent is building the plan, the app is not solving the problem. The app should build the plan.
 
 ## Stack
 
-- Next.js 15 + TypeScript
+- React + Vite + TypeScript
 - Tailwind CSS
 - Zustand (state)
 - React Hook Form + Zod (forms + validation)
 - Dayjs (date handling)
 - Dexie (IndexedDB for document metadata)
-- next-pwa (PWA support)
+- Static web manifest + service worker registration for local-first PWA support
 
 ## Run
 
@@ -19,7 +57,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000
+Open the Vite URL printed in the terminal, usually http://localhost:5173
 
 ## Quality Checks
 
@@ -57,19 +95,62 @@ git push origin v1.0.0
 
 Release workflow: `.github/workflows/release.yml`.
 
+## Product Filter
+
+Every feature should answer: does this help get from PDF to weekly plan?
+
+## Zero-Touch Import Contract
+
+The default workflow is:
+
+- Upload school PDFs
+- Understand the PDFs deterministically
+- Auto-assign child from grade/class signals
+- Auto-map category from school labels
+- Auto-link unit test portions to exam circular dates
+- Import ready items into Dashboard, This Week, This Month, and Kids
+
+Review is an exception path only. Use review when a row is genuinely ambiguous, such as:
+
+- two children share the same grade
+- no date exists in the uploaded files
+- extracted PDF text is empty, corrupt, or low confidence
+- child, type, subject, title, or date cannot be mapped safely
+
+Missing child profiles are not review work. If a Grade 3 document is scanned but the family only has Grade 1 and Grade 5 child profiles, the Grade 3 rows should be skipped and reported as "No matching child profile found." Do not assign them to an existing child.
+
+Do not ask parents to assign children, categories, or dates when that information already exists in the uploaded school documents.
+
+Deterministic mappings should prefer source text over guessing:
+
+- CLASS TEST -> ClassTest
+- UNIT TEST -> UnitTest
+- GRADED PROJECT -> Project
+- GRADED ACTIVITY -> Activity
+- DANCE, MUSIC, YOGA, KARATE, ART & CRAFT, PHYSICAL EDUCATION -> Activity
+- HOME STUDY, REVISION -> HomeStudy
+
+Core screens:
+
+- Dashboard: what should my kids do today?
+- This Week: what needs to be completed this week?
+- This Month: what is planned for this month?
+- Kids: what does each child need to do?
+
+Setup screens stay secondary and are used when a new school PDF arrives:
+
+- School Files
+- Documents
+- Profiles
+
 ## Current MVP
 
-- Family Dashboard
-- Week View
-- Month View
-- Tests Center
-- Homework Center
-- Activities Center
-- Child Profiles
-- Documents (reference-first flow)
-- Documents screen supports paste-preview-import flow for planner rows using the typed import pipeline
-- Manual planner row imports support inline review and revalidation for unmatched child/category/date issues
-- Documents screen supports first-pass smart file scan with document type detection, month extraction, and duplicate/change fingerprinting
+- Family Dashboard organized by child, today, tomorrow, and later this week
+- Week View grouped by child and target type
+- Month View grouped by child and week
+- Kids overview and child-specific plans
+- School file import that extracts homework, tests, activities, projects, and revision tasks
+- Completion tracking for weekly and monthly work
 - Local persistence with Dexie (IndexedDB) as source of truth
 - Zustand localStorage persistence limited to UI selection preferences
 
@@ -88,4 +169,4 @@ Release workflow: `.github/workflows/release.yml`.
 
 ## Note
 
-This app is designed as a **Parent Companion App**, not a document management system. Parents should use dashboards first and documents only as backup references.
+This app is designed as a **Parent Companion App**, not a document management system. Parents should use dashboards first and setup screens only when new school files arrive.

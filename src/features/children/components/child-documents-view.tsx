@@ -1,11 +1,13 @@
 "use client";
 
 import dayjs from "dayjs";
+import { useMemo } from "react";
 import { ChildDetailLayout } from "@/features/children/components/child-detail-layout";
 import { useAppStore } from "@/store/use-app-store";
 
 export function ChildDocumentsView({ childId }: { childId: string }) {
-  const documents = useAppStore((state) => state.documents.filter((doc) => doc.childIds.includes(childId) || doc.childIds.length === 0));
+  const allDocuments = useAppStore((state) => state.documents);
+  const documents = useMemo(() => allDocuments.filter((doc) => doc.childIds.includes(childId)), [allDocuments, childId]);
 
   return (
     <ChildDetailLayout childId={childId} title="Documents">

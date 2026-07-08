@@ -74,4 +74,66 @@ describe("hydration helpers", () => {
 
     expect(snapshot.selectedChildIds).toEqual([]);
   });
+
+  it("filters legacy unit test portion rows out of the visible plan", () => {
+    const scheduleItem: SchoolItem = {
+      id: "item-2",
+      childId: "child-1",
+      category: "UnitTest",
+      subject: "Computer Science",
+      title: "Computer Science Unit Test",
+      dueDate: "2026-07-17",
+      status: "Pending",
+    };
+    const legacyPortionItem: SchoolItem = {
+      id: "item-3",
+      childId: "child-1",
+      category: "UnitTest",
+      subject: "Computer Science",
+      title: "Unit Test Portion: Computer A Machine",
+      dueDate: "2026-07-10",
+      status: "Pending",
+    };
+
+    const snapshot = buildHydratedSnapshot({
+      children,
+      items: [scheduleItem, legacyPortionItem],
+      documents,
+      selectedChildIds: [],
+    });
+
+    expect(snapshot.items).toEqual([scheduleItem]);
+  });
+
+  it("normalizes and deduplicates legacy date-weekday subject rows", () => {
+    const duplicateRows: SchoolItem[] = [
+      {
+        id: "item-4",
+        childId: "child-1",
+        category: "HomeStudy",
+        title: "3 Wednesday Kannada",
+        dueDate: "2026-07-08",
+        status: "Pending",
+      },
+      {
+        id: "item-5",
+        childId: "child-1",
+        category: "HomeStudy",
+        title: "3 Wednesday Kannada",
+        dueDate: "2026-07-08",
+        status: "Pending",
+      },
+    ];
+
+    const snapshot = buildHydratedSnapshot({
+      children,
+      items: duplicateRows,
+      documents,
+      selectedChildIds: [],
+    });
+
+    expect(snapshot.items).toEqual([
+      expect.objectContaining({ subject: "Kannada", title: "Study Kannada" }),
+    ]);
+  });
 });

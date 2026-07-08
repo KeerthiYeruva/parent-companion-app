@@ -3,7 +3,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { appRepository } from "@/db/repositories/app-repository";
-import { demoChildren, demoDocuments, demoItems } from "@/lib/seed";
 import type { AppState } from "@/types/domain";
 import { buildHydratedSnapshot, hasInMemoryEntities } from "@/store/hydration";
 import { createChildrenSlice } from "@/store/slices/children-slice";
@@ -26,7 +25,7 @@ export const useAppStore = create<AppState>()(
       ...createScanSlice(set, get, store),
       ...createReviewSlice(set, get, store),
       ...createSelectionSlice(set, get, store),
-      seedDemoData: () => {
+      hydrateLocalData: () => {
         const state = get();
 
         if (hasInMemoryEntities(state)) {
@@ -39,7 +38,6 @@ export const useAppStore = create<AppState>()(
           appRepository.upsertDocuments(state.documents).catch(() => {
             get().pushPersistenceWarning("Documents could not be saved to local database.");
           });
-          return;
         }
 
         if (hydrationPromise) {
@@ -50,24 +48,10 @@ export const useAppStore = create<AppState>()(
           .then(([children, items, documents]) => {
             if (children.length > 0 || items.length > 0 || documents.length > 0) {
               set(buildHydratedSnapshot({ children, items, documents, selectedChildIds: state.selectedChildIds }));
-              return;
             }
-
-            appRepository.upsertChildren(demoChildren).catch(() => {
-              get().pushPersistenceWarning("Default children could not be seeded into local database.");
-            });
-            appRepository.upsertItems(demoItems).catch(() => {
-              get().pushPersistenceWarning("Default items could not be seeded into local database.");
-            });
-            appRepository.upsertDocuments(demoDocuments).catch(() => {
-              get().pushPersistenceWarning("Default documents could not be seeded into local database.");
-            });
-
-            set(buildHydratedSnapshot({ children: demoChildren, items: demoItems, documents: demoDocuments, selectedChildIds: [] }));
           })
           .catch(() => {
-            get().pushPersistenceWarning("Local database is unavailable. Showing in-memory defaults for this session.");
-            set(buildHydratedSnapshot({ children: demoChildren, items: demoItems, documents: demoDocuments, selectedChildIds: [] }));
+            get().pushPersistenceWarning("Local database is unavailable. Changes may stay in memory for this session.");
           })
           .finally(() => {
             hydrationPromise = null;

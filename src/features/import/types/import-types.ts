@@ -10,6 +10,7 @@ export interface RawImportRecord {
   dueDate?: string;
   description?: string;
   sourceDocumentId?: string;
+  parserIssue?: string;
 }
 
 export interface NormalizedImportRecord {
@@ -22,6 +23,7 @@ export interface NormalizedImportRecord {
   dueDate?: string;
   description?: string;
   sourceDocumentId?: string;
+  parserIssue?: string;
 }
 
 export interface ImportPipelineOptions {

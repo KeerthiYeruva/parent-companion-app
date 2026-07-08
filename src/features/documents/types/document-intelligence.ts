@@ -21,6 +21,9 @@ export interface FolderScanResult {
   childHints: string[];
   status: "new" | "changed" | "duplicate";
   importPreview?: ImportPipelineResult;
+  extractionStatus?: "success" | "empty" | "failed";
+  extractionError?: string;
+  extractedTextPreview?: string;
 }
 
 export interface PlannerExtractionSummary {

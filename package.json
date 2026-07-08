@@ -1,13 +1,13 @@
 {
   "name": "parent-companion-app",
   "version": "1.0.0",
-  "description": "Parent Companion App built with Next.js 15, Tailwind, Zustand, RHF, Zod, Dayjs, Dexie, and PWA support",
+  "description": "Parent Companion App built with React, Vite, Tailwind, Zustand, RHF, Zod, Dayjs, Dexie, and local-first PWA support",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "start": "vite preview",
+    "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest"
@@ -21,24 +21,28 @@
     "dayjs": "^1.11.21",
     "dexie": "^4.4.4",
     "dexie-react-hooks": "^4.4.0",
-    "next": "^15.5.20",
-    "next-pwa": "^5.6.0",
     "pdfjs-dist": "^6.1.200",
     "postcss": "^8.5.16",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.81.0",
+    "react-router-dom": "^7.18.1",
     "tailwindcss": "^3.4.17",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.2.10",
+    "globals": "^17.7.0",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.63.0",
+    "vite": "^7.3.6",
     "vitest": "^4.1.10"
   }
 }

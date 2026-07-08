@@ -16,13 +16,13 @@ export function ScanHistoryView() {
     <NavShell>
       <section className="space-y-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-xl font-semibold text-slate-900">Scan History</h2>
-          <p className="text-sm text-slate-600">Recent scan sessions and their summary counts.</p>
+          <h2 className="text-xl font-semibold text-slate-900">Import History</h2>
+          <p className="text-sm text-slate-600">Recent school-file checks and their summary counts.</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           {scanHistory.length === 0 ? (
-            <p className="text-sm text-slate-500">No scan history yet.</p>
+            <p className="text-sm text-slate-500">No import history yet.</p>
           ) : (
             <ul className="space-y-2">
               {scanHistory.map((run) => (

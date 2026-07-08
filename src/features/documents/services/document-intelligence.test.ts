@@ -26,6 +26,7 @@ describe("document intelligence", () => {
     });
 
     expect(result.detectedType).toBe("ScholasticPlanner");
+    expect(result.title).toBe("Grade 5 Scholastic Planner");
     expect(result.monthLabel).toBe("July");
     expect(result.childHints).toContain("Grade 5");
     expect(result.fileHash).toHaveLength(40);

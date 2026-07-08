@@ -18,11 +18,44 @@ export const hasInMemoryEntities = ({ children, items, documents }: HydrationInp
   return children.length > 0 || items.length > 0 || documents.length > 0;
 };
 
+const isLegacyUndatedUnitTestPortionItem = (item: SchoolItem) => {
+  return item.category === "UnitTest" && /^Unit Test Portion:/i.test(item.title);
+};
+
+const normalizeLegacyPlannerTitle = (item: SchoolItem): SchoolItem => {
+  const match = item.title.match(/^\d{1,2}\s+(?:mon|monday|tue|tues|tuesday|wed|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday|sun|sunday)\s+(.+)$/i);
+  if (!match?.[1]) {
+    return item;
+  }
+
+  const subject = item.subject ?? match[1].trim();
+  return {
+    ...item,
+    subject,
+    title: `Study ${subject}`,
+  };
+};
+
+const dedupeItems = (items: SchoolItem[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = [item.childId, item.category, item.subject ?? "", item.title, item.dueDate].join("|").toLowerCase();
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
 export const buildHydratedSnapshot = ({ children, items, documents, selectedChildIds }: HydrationInput): HydrationResult => {
+  const visibleItems = dedupeItems(items.filter((item) => !isLegacyUndatedUnitTestPortionItem(item)).map(normalizeLegacyPlannerTitle));
+
   if (children.length === 0) {
     return {
       children,
-      items,
+      items: visibleItems,
       documents,
       selectedChildIds: [],
     };
@@ -33,7 +66,7 @@ export const buildHydratedSnapshot = ({ children, items, documents, selectedChil
 
   return {
     children,
-    items,
+    items: visibleItems,
     documents,
     selectedChildIds: normalizedSelectedChildIds,
   };

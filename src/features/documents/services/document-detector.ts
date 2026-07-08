@@ -1,12 +1,16 @@
 import { classifyPlannerDocument } from "@/features/documents/services/planner-classifier";
+import { formatSchoolDocumentTitle } from "@/features/documents/services/document-title";
 import { extractMonthLabel } from "@/features/documents/services/month-extractor";
 import type { FolderScanFile, PlannerExtractionSummary } from "@/features/documents/types/document-intelligence";
 
 const extractChildHints = (relativePath: string, contentText?: string) => {
   const hints = new Set<string>();
-  const gradeMatch = `${relativePath} ${contentText ?? ""}`.match(/grade\s*([0-9]+)/gi) ?? [];
+  const source = `${relativePath} ${contentText ?? ""}`;
+  const gradeMatch = source.match(/\b(?:grade|class)\s*[-:]?\s*(?:[0-9]{1,2}|i{1,3}|iv|v|vi{0,3}|ix|x|xi|xii)\b/gi) ?? [];
+  const sectionMatch = source.match(/\b(?:section|sec)\s*[-:]?\s*[a-z]\b/gi) ?? [];
 
   gradeMatch.forEach((match) => hints.add(match.trim()));
+  sectionMatch.forEach((match) => hints.add(match.trim()));
 
   return Array.from(hints);
 };
@@ -28,7 +32,7 @@ export const detectPlannerDocument = async (file: FolderScanFile): Promise<Plann
   const detectedType = classifyPlannerDocument(file.name, file.contentText);
   const monthLabel = extractMonthLabel(file.name, file.contentText);
   const childHints = extractChildHints(file.relativePath, file.contentText);
-  const title = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ").trim();
+  const title = formatSchoolDocumentTitle(file.name, detectedType);
   const fileHash = await buildFileHash(file);
 
   return {

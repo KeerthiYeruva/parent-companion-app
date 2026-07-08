@@ -83,12 +83,19 @@ export interface ScanSessionFileRecord {
   rawRows?: ReviewDraftRecord[];
   importPreviewItems?: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>;
   importPreviewIssues?: ImportIssue[];
+  importPreviewCategoryCounts?: Partial<Record<ItemCategory, number>>;
+  skippedImportCount?: number;
+  skippedImportReason?: string;
+  confidence?: "high" | "review" | "low";
   importPreviewSummary?: {
     totalRecords: number;
     normalizedRecords: number;
     validRecords: number;
     issuesCount: number;
   };
+  extractionStatus?: "success" | "empty" | "failed";
+  extractionError?: string;
+  extractedTextPreview?: string;
 }
 
 export interface ScanRunRecord {
@@ -111,6 +118,7 @@ export interface ReviewDraftRecord {
   dueDate?: string;
   description?: string;
   sourceDocumentId?: string;
+  parserIssue?: string;
 }
 
 export interface AppState {
@@ -138,9 +146,11 @@ export interface AppState {
   clearReviewDraftsForDocument: (documentId: string) => void;
   markDocumentReviewed: (documentId: string) => void;
   addChild: (child: Omit<ChildProfile, "id" | "colorTag">) => void;
+  updateChild: (id: string, updates: Omit<ChildProfile, "id" | "colorTag">) => void;
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => void;
   toggleItemComplete: (id: string) => void;
+  setItemPrepStatus: (id: string, prepStatus: NonNullable<SchoolItem["prepStatus"]>) => void;
   addDocument: (document: Omit<UploadedDocument, "id" | "uploadedAt">) => void;
   setSelectedChildIds: (childIds: string[]) => void;
-  seedDemoData: () => void;
+  hydrateLocalData: () => void;
 }

@@ -36,6 +36,10 @@ export const importValidator: ImportValidator = {
         issues.push(createIssue(options, index, "dueDate", "Due date is invalid or missing"));
       }
 
+      if (record.parserIssue) {
+        issues.push(createIssue(options, index, "dueDate", record.parserIssue));
+      }
+
       const hasErrorsForRecord = issues.some((issue) => issue.issue.startsWith(`Row ${index + 1}:`));
       if (!hasErrorsForRecord) {
         validRecords.push(record);

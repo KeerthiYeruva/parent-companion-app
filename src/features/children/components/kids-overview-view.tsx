@@ -1,34 +1,42 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
+import Link from "@/components/routing";
 import { AddChildForm } from "@/components/forms/add-child-form";
 import { NavShell } from "@/components/nav-shell";
-import { childMonthReadiness, childReviewSummary, childSummary, monthlyCounts } from "@/features/planning/selectors/planning-selectors";
+import { childSummary, completionProgress, thisMonthItems, thisWeekItems } from "@/features/planning/selectors/planning-selectors";
 import { useAppStore } from "@/store/use-app-store";
 
 export function KidsOverviewView() {
+  const [showAddChild, setShowAddChild] = useState(false);
   const children = useAppStore((state) => state.children);
   const items = useAppStore((state) => state.items);
-  const documents = useAppStore((state) => state.documents);
-  const scanQueue = useAppStore((state) => state.scanQueue);
 
   return (
     <NavShell>
       <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-xl font-semibold text-slate-900">Kids</h2>
-          <p className="text-sm text-slate-600">Open a child-specific dashboard, tests, homework, activities, and documents view.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">My Kids</h2>
+            <p className="text-sm text-slate-600">See each child&apos;s weekly and monthly growth from uploaded school documents.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAddChild((value) => !value)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            {showAddChild ? "Hide Add Child" : "Add Child"}
+          </button>
         </div>
 
-        <AddChildForm />
+        {showAddChild ? <AddChildForm /> : null}
 
         <div className="grid gap-3 md:grid-cols-2">
           {children.map((child) => {
             const childItems = items.filter((item) => item.childId === child.id);
             const summary = childSummary(child, items);
-            const month = monthlyCounts(childItems);
-            const readiness = childMonthReadiness(child, documents);
-            const review = childReviewSummary(child, scanQueue);
+            const weekProgress = completionProgress(thisWeekItems(childItems));
+            const monthProgress = completionProgress(thisMonthItems(childItems));
 
             return (
               <article key={child.id} className="rounded-xl border border-slate-200 bg-white p-4">
@@ -46,31 +54,14 @@ export function KidsOverviewView() {
                 </div>
 
                 <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-                  <p>{summary.pendingTasks} pending tasks</p>
+                  <p>{summary.pendingTasks} to do</p>
                   <p>{summary.upcomingTests} upcoming tests</p>
-                  <p>{month.homework} homework this month</p>
-                  <p>{month.activities} activities this month</p>
-                </div>
-
-                <div className="mt-3 grid gap-2 md:grid-cols-2">
-                  <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                    <p className="font-medium text-slate-900">{readiness.currentMonthLabel} readiness</p>
-                    <p>{readiness.documentCount} month documents detected</p>
-                    <p>{readiness.isReady ? "Month has imported references" : "No current-month files imported yet"}</p>
-                  </div>
-                  <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                    <p className="font-medium text-slate-900">Scan status</p>
-                    <p>{review.fileCount} scanned files matched</p>
-                    <p>{review.reviewCount} need review</p>
-                  </div>
+                  <p>{weekProgress.label} this week</p>
+                  <p>{monthProgress.label} this month</p>
                 </div>
               </article>
             );
           })}
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          Need to edit child profile details? Use <Link href="/children" className="text-blue-700">Manage Profiles</Link>.
         </div>
       </section>
     </NavShell>

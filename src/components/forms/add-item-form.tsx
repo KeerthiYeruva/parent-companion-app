@@ -6,7 +6,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAppStore } from "@/store/use-app-store";
 import type { ItemCategory } from "@/types/domain";
 
-const categories: ItemCategory[] = ["Homework", "HomeStudy", "Activity", "ClassTest", "UnitTest", "Exam", "Project", "Circular"];
+const categoryOptions: Array<{ label: string; value: ItemCategory }> = [
+  { label: "Homework", value: "Homework" },
+  { label: "Tests", value: "UnitTest" },
+  { label: "Activities", value: "Activity" },
+  { label: "Projects", value: "Project" },
+  { label: "Study tasks", value: "HomeStudy" },
+];
+
+const categories = categoryOptions.map((option) => option.value) as [ItemCategory, ...ItemCategory[]];
 
 const schema = z.object({
   childId: z.string().min(1, "Select a child"),
@@ -48,9 +56,9 @@ export function AddItemForm() {
         ))}
       </select>
       <select className="rounded-lg border border-slate-300 px-3 py-2" {...register("category")}>
-        {categories.map((category) => (
-          <option key={category} value={category}>
-            {category}
+        {categoryOptions.map((category) => (
+          <option key={category.value} value={category.value}>
+            {category.label}
           </option>
         ))}
       </select>

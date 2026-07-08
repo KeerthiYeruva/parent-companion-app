@@ -1,6 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChildProfile, SchoolItem } from "@/types/domain";
-import { bySelectedChildren, childSummary, monthlyCounts, thisWeekItems, todayItems } from "./planning-selectors";
+import {
+  bySelectedChildren,
+  childSummary,
+  completionProgress,
+  itemsByTaskBucket,
+  itemsByChild,
+  monthlyCounts,
+  monthItemsByWeek,
+  splitOpenAndCompletedItems,
+  thisMonthItems,
+  thisWeekItems,
+  todayItems,
+} from "./planning-selectors";
 
 const childA: ChildProfile = {
   id: "child-a",
@@ -110,5 +122,50 @@ describe("planning selectors", () => {
       upcomingTests: 0,
       activityTomorrow: true,
     });
+  });
+
+  it("computes completion progress", () => {
+    expect(completionProgress(baseItems)).toEqual({
+      completed: 1,
+      total: 5,
+      label: "1/5 completed",
+      percent: 20,
+    });
+  });
+
+  it("splits open and completed tasks", () => {
+    const split = splitOpenAndCompletedItems(baseItems);
+
+    expect(split.open.map((item) => item.id)).toEqual(["i-1", "i-2", "i-3", "i-4"]);
+    expect(split.completed.map((item) => item.id)).toEqual(["i-5"]);
+  });
+
+  it("groups selected items by child with progress", () => {
+    const groups = itemsByChild([childA, childB], baseItems);
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0].child.id).toBe(childA.id);
+    expect(groups[0].progress.label).toBe("1/3 completed");
+    expect(groups[1].child.id).toBe(childB.id);
+    expect(groups[1].progress.label).toBe("0/2 completed");
+  });
+
+  it("groups internal categories into parent-facing task buckets", () => {
+    const buckets = itemsByTaskBucket(baseItems);
+
+    expect(buckets.map((bucket) => bucket.bucket)).toEqual(["Homework", "Tests", "Activities", "Projects", "Study tasks"]);
+    expect(buckets.find((bucket) => bucket.bucket === "Homework")?.items).toHaveLength(2);
+    expect(buckets.find((bucket) => bucket.bucket === "Tests")?.items).toHaveLength(1);
+    expect(buckets.find((bucket) => bucket.bucket === "Activities")?.items).toHaveLength(1);
+    expect(buckets.find((bucket) => bucket.bucket === "Projects")?.items).toHaveLength(1);
+  });
+
+  it("groups month items into weeks with progress", () => {
+    const monthItems = thisMonthItems(baseItems);
+    const groups = monthItemsByWeek(monthItems);
+
+    expect(groups.length).toBeGreaterThan(0);
+    expect(groups[0].progress.total).toBeGreaterThan(0);
+    expect(groups.reduce((total, group) => total + group.items.length, 0)).toBe(monthItems.length);
   });
 });

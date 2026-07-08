@@ -62,6 +62,7 @@ export const importNormalizer: ImportNormalizer = {
         dueDate: normalizeDueDate(record.dueDate),
         description: record.description?.trim(),
         sourceDocumentId: record.sourceDocumentId ?? options.documentId,
+        parserIssue: record.parserIssue,
       };
     });
   },

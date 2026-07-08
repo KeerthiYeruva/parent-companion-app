@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractPlannerRows } from "@/features/documents/services/planner-text-extractor";
+import { importPipeline } from "@/features/import/services/import-pipeline";
 
 describe("extractPlannerRows", () => {
   it("extracts dated planner rows with inferred child name and categories", () => {
@@ -51,6 +52,22 @@ describe("extractPlannerRows", () => {
     expect(rows).toEqual([]);
   });
 
+  it("skips timetable and school-note artifacts from generic planner parsing", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/July/Scholastic Planner.pdf",
+      childNames: ["Grade 1"],
+      contentText: [
+        "July 2026 Planner",
+        "Home Study",
+        "13.07.26 (Monday) 14.07.26 (Tuesday) 15.07.26 (Wednesday) 16.07.26 (Thursday) 17.07.26 (Friday)",
+        "17.07.26 (FRIDAY) COMPUTER SCIENCE",
+        "~ All books and notebooks will be sent on to home for UT-I.",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([]);
+  });
+
   it("extracts section-based planner rows using month context and active category headers", () => {
     const rows = extractPlannerRows({
       relativePath: "Aarav/July/Monthly Planner.pdf",
@@ -58,12 +75,12 @@ describe("extractPlannerRows", () => {
       contentText: [
         "July 2026 Planner",
         "Homework",
-        "10 Mon Math worksheet chapter 3",
-        "11 Tue English reading pages 10-12",
+        "10 Fri Math worksheet chapter 3",
+        "11 Sat English reading pages 10-12",
         "Class Test",
-        "12 Wed Science revision lesson 4",
+        "12 Sun Science revision lesson 4",
         "Activities",
-        "14 Fri Dance practice",
+        "14 Tue Dance practice",
       ].join("\n"),
     });
 
@@ -74,7 +91,7 @@ describe("extractPlannerRows", () => {
         subject: "Math",
         title: "worksheet chapter 3",
         dueDate: "2026-07-10",
-        description: "10 Mon Math worksheet chapter 3",
+        description: "10 Fri Math worksheet chapter 3",
       },
       {
         childName: "Aarav",
@@ -82,7 +99,7 @@ describe("extractPlannerRows", () => {
         subject: "English",
         title: "reading pages 10-12",
         dueDate: "2026-07-11",
-        description: "11 Tue English reading pages 10-12",
+        description: "11 Sat English reading pages 10-12",
       },
       {
         childName: "Aarav",
@@ -90,7 +107,7 @@ describe("extractPlannerRows", () => {
         subject: "Science",
         title: "revision lesson 4",
         dueDate: "2026-07-12",
-        description: "12 Wed Science revision lesson 4",
+        description: "12 Sun Science revision lesson 4",
       },
       {
         childName: "Aarav",
@@ -98,7 +115,7 @@ describe("extractPlannerRows", () => {
         subject: "Dance",
         title: "practice",
         dueDate: "2026-07-14",
-        description: "14 Fri Dance practice",
+        description: "14 Tue Dance practice",
       },
     ]);
   });
@@ -147,14 +164,27 @@ describe("extractPlannerRows", () => {
     ]);
   });
 
+  it("turns date-and-subject-only planner rows into useful study titles", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/July/Scholastic Planner.pdf",
+      childNames: ["grade 1"],
+      contentText: ["July 2026 Planner", "Home Study", "3 Wednesday Kannada", "4 Thursday Hindi"].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ subject: "Kannada", title: "Study Kannada", dueDate: "2026-07-03", parserIssue: "Date and weekday mismatch" }),
+      expect.objectContaining({ subject: "Hindi", title: "Study Hindi", dueDate: "2026-07-04", parserIssue: "Date and weekday mismatch" }),
+    ]);
+  });
+
   it("parses table-like rows with delimited date, category, and title columns", () => {
     const rows = extractPlannerRows({
       relativePath: "Aarav/September/Table Planner.pdf",
       childNames: ["Aarav"],
       contentText: [
         "September 2026",
-        "10 Mon | Homework | English worksheet",
-        "11 Tue | Activity | Football practice",
+        "10 Thu | Homework | English worksheet",
+        "11 Fri | Activity | Football practice",
       ].join("\n"),
     });
 
@@ -165,7 +195,7 @@ describe("extractPlannerRows", () => {
         subject: "English",
         title: "worksheet",
         dueDate: "2026-09-10",
-        description: "10 Mon | Homework | English worksheet",
+        description: "10 Thu | Homework | English worksheet",
       },
       {
         childName: "Aarav",
@@ -173,8 +203,238 @@ describe("extractPlannerRows", () => {
         subject: undefined,
         title: "Football practice",
         dueDate: "2026-09-11",
-        description: "11 Tue | Activity | Football practice",
+        description: "11 Fri | Activity | Football practice",
       },
     ]);
+  });
+
+  it("prefers explicit dot-separated row dates over contextual date logic", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/July/Scholastic Planner.pdf",
+      childNames: ["Grade 1"],
+      contentText: [
+        "July 2026 Planner",
+        "Home Study",
+        "03.07.2026 Friday Computer",
+        "09.07.2026 Thursday Hindi",
+        "10.07.2026 Friday English Learn Creative Writing 1 and 2",
+      ].join("\n"),
+    });
+
+    expect(rows.map((row) => row.dueDate)).toEqual(["2026-07-03", "2026-07-09", "2026-07-10"]);
+    expect(rows.map((row) => row.parserIssue)).toEqual([undefined, undefined, undefined]);
+  });
+
+  it("routes explicit date and weekday mismatches to review", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/July/Scholastic Planner.pdf",
+      childNames: ["Grade 1"],
+      contentText: ["July 2026 Planner", "Home Study", "03.07.2026 Thursday Computer"].join("\n"),
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      dueDate: "2026-07-03",
+      parserIssue: "Date and weekday mismatch",
+    });
+
+    const result = importPipeline.run(rows, {
+      sourceType: "future-pdf",
+      documentId: "doc-1",
+      childNameToIdMap: { "grade 1": "child-1" },
+    });
+
+    expect(result.items).toEqual([]);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        fieldName: "dueDate",
+        issue: "Row 1: Date and weekday mismatch",
+      }),
+    ]);
+    expect(result.summary).toMatchObject({ validRecords: 0, issuesCount: 1 });
+  });
+
+  it("routes contextual weekend dates with weekday mismatches to review", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/July/Scholastic Planner.pdf",
+      childNames: ["Grade 1"],
+      contentText: ["July 2026 Planner", "Home Study", "5 Friday Computer"].join("\n"),
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      dueDate: "2026-07-05",
+      parserIssue: "Date and weekday mismatch",
+    });
+  });
+
+  it("extracts co-scholastic planner subjects as activity records", () => {
+    const rows = extractPlannerRows({
+      relativePath: "GRADE_5_JULY_COSCHOLASTIC_PLANNER.pdf",
+      childNames: ["grade_5"],
+      contentText: [
+        "JULY COSCHOLASTIC MONTHLY PLANNER (2026-2027)",
+        "CLASS -V",
+        "ACTIVITIES JULY 1st WEEK",
+        "PHYSICAL EDUCATION",
+        "Warmup and basic exercises locomotor skills Running",
+        "DANCE",
+        "Basic steps Rhythm understanding Choreography",
+        "ART & CRAFT",
+        "Tangram art",
+        "MUSIC",
+        "Patriotic songs",
+        "YOGA",
+        "Yogic walking & jogging",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ category: "Activity", subject: "Physical Education", title: expect.stringContaining("Warmup") }),
+      expect.objectContaining({ category: "Activity", subject: "Dance", title: expect.stringContaining("Basic steps") }),
+      expect.objectContaining({ category: "Activity", subject: "Art & Craft", title: expect.stringContaining("Tangram") }),
+      expect.objectContaining({ category: "Activity", subject: "Music", title: expect.stringContaining("Patriotic") }),
+      expect.objectContaining({ category: "Activity", subject: "Yoga", title: expect.stringContaining("Yogic") }),
+    ]);
+  });
+
+  it("extracts unit test portions as UnitTest preparation records", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade_1_Unit_Test_Portion_20262027.pdf",
+      childNames: ["grade 1"],
+      contentText: [
+        "UNIT TEST - I (2026-2027)",
+        "GRADE 1",
+        "S. No Subject Chapter No. Chapter Name",
+        "English Literature Grammar Poem Creative Writing",
+        "Hindi varnamala matra",
+        "Mathematics Chapter -1 Chapter- 5 Numbers Up to 50 Numbers Up to 100",
+        "Science Chapter -1 Chapter -2 Things Around Us How Things Move",
+        "Computer Science Chapter-1 Chapter-4 Computer A Machine Using Computers Do's and Don't",
+        "General knowledge Chapter-1 Chapter-2 Knowing India Festivals are Fun",
+        "Kannada Poem Letters Ondu Eradu",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ category: "UnitTest", subject: "English", title: expect.stringContaining("Creative Writing") }),
+      expect.objectContaining({ category: "UnitTest", subject: "Hindi" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Mathematics", title: expect.stringContaining("Numbers Up to 100") }),
+      expect.objectContaining({ category: "UnitTest", subject: "Science", title: expect.stringContaining("How Things Move") }),
+      expect.objectContaining({ category: "UnitTest", subject: "Computer Science" }),
+      expect.objectContaining({ category: "UnitTest", subject: "General knowledge" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Kannada" }),
+    ]);
+    expect(rows.every((row) => row.dueDate === undefined)).toBe(true);
+    expect(rows.map((row) => row.parserIssue)).toEqual(rows.map(() => "Unit test portion found without an exam schedule date"));
+  });
+
+  it("extracts circular unit test schedule dates without inventing a 10 July test", () => {
+    const rows = extractPlannerRows({
+      relativePath: "1782974912050_EXAM_CIRCULAR_UT_12026.pdf",
+      childNames: ["grade 1"],
+      contentText: [
+        "CIRCULAR/41/2026-27/GRADE 1-5 02/07/2026",
+        "Kindly note the Examination schedule for the UT1.",
+        "DATE DAY SUBJECT",
+        "17/07/2026 FRIDAY COMPUTER",
+        "20/07/2026 MONDAY MATHEMATICS",
+        "21/07/2026 TUESDAY HINDI",
+        "22/07/2026 WEDNESDAY SCIENCE",
+        "23/07/2026 THURSDAY KANNADA",
+        "24/07/2026 FRIDAY SOCIAL STUDIES",
+        "27/07/2026 MONDAY ENGLISH",
+        "28/07/2026 TUESDAY GK",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ category: "UnitTest", subject: "Computer Science", title: "Computer Science Unit Test", dueDate: "2026-07-17" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Mathematics", title: "Mathematics Unit Test", dueDate: "2026-07-20" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Hindi", title: "Hindi Unit Test", dueDate: "2026-07-21" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Science", title: "Science Unit Test", dueDate: "2026-07-22" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Kannada", title: "Kannada Unit Test", dueDate: "2026-07-23" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Social Studies", title: "Social Studies Unit Test", dueDate: "2026-07-24" }),
+      expect.objectContaining({ category: "UnitTest", subject: "English", title: "English Unit Test", dueDate: "2026-07-27" }),
+      expect.objectContaining({ category: "UnitTest", subject: "General knowledge", title: "General knowledge Unit Test", dueDate: "2026-07-28" }),
+    ]);
+    expect(rows.some((row) => row.dueDate === "2026-07-10")).toBe(false);
+  });
+
+  it("extracts graded lab activities and projects from scholastic activity sections", () => {
+    const rows = extractPlannerRows({
+      relativePath: "GRADE_1JULY_SCHOLASTIC_PLANNER.pdf",
+      childNames: ["grade 1"],
+      contentText: [
+        "JULY 2026 SCHOLASTIC PLANNER CLASS I",
+        "ACTIVITIES OF THE MONTH - JULY",
+        "MATHEMATICS Chapter -5 Numbers up to 100 Graded Lab activity - Comparison of two-digit numbers",
+        "SCIENCE Chapter -2 How Things Move Graded Project - Things need air to move",
+        "CCA 09.07.2026 Clay Modeling",
+        "Talk the Talk 15.07.2026 Safety",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: "Activity", subject: "Mathematics", title: "Comparison of two-digit numbers" }),
+      expect.objectContaining({ category: "Project", subject: "Science", title: "Things need air to move" }),
+      expect.objectContaining({ category: "Activity", subject: "CCA", title: "Clay Modeling", dueDate: "2026-07-09" }),
+      expect.objectContaining({ category: "Activity", subject: "Talk the Talk", title: "Safety", dueDate: "2026-07-15" }),
+    ]));
+  });
+
+  it("extracts broader scholastic graded skills and project references", () => {
+    const rows = extractPlannerRows({
+      relativePath: "GRADE_5_JULY_SCHOLASTIC_PLANNER.pdf",
+      childNames: ["grade 5"],
+      contentText: [
+        "JULY 2026 SCHOLASTIC PLANNER CLASS V",
+        "Hindi Coursebook work Graded Listening Skill",
+        "Kannada Graded Speaking skills",
+        "Science Project: Seed germination observation",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: "Activity", title: "Graded Listening Skill" }),
+      expect.objectContaining({ category: "Activity", title: "Graded Speaking skills" }),
+      expect.objectContaining({ category: "Project", title: "Seed germination observation" }),
+    ]));
+  });
+
+  it("maps explicit school labels without guessing categories", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 5/July/Planner.pdf",
+      childNames: ["grade 5"],
+      contentText: [
+        "July 2026 Planner",
+        "CLASS TEST 10.07.2026 English",
+        "GRADED PROJECT Things need air to move",
+        "DANCE Contemporary Style",
+        "REVISION Chapter 1 and Chapter 2",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ category: "ClassTest", subject: "English", title: "Study English", dueDate: "2026-07-10" }),
+      expect.objectContaining({ category: "Project", title: "Things need air to move", parserIssue: "Date needs confirmation" }),
+      expect.objectContaining({ category: "Activity", subject: "Dance", title: "Contemporary Style", parserIssue: "Date needs confirmation" }),
+      expect.objectContaining({ category: "HomeStudy", title: "Chapter 1 and Chapter 2", parserIssue: "Date needs confirmation" }),
+    ]));
+  });
+
+  it("does not turn timetable fragments and school notes into tasks", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/July/Planner.pdf",
+      childNames: ["grade 1"],
+      contentText: [
+        "Class Test",
+        ".07.26 (Monday) 14.07.26 (Tuesday) 15.07.26 (Wednesday) 16.07.26 (Thursday) 17.07.26 (Friday)",
+        "~ All books and notebooks will be sent on to home for UT-I.",
+        "(FRIDAY) COMPUTER SCIENCE",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([]);
   });
 });

@@ -2,17 +2,223 @@
 
 import type { InputHTMLAttributes } from "react";
 import { useMemo, useState } from "react";
-import { buildChildAliasMap } from "@/features/documents/services/child-alias-map";
+import Link from "@/components/routing";
+import { buildChildAliasMap, normalizeGrade } from "@/features/documents/services/child-alias-map";
 import { detectPlannerDocument } from "@/features/documents/services/document-detector";
+import { formatSchoolDocumentTitle } from "@/features/documents/services/document-title";
 import { extractPdfText } from "@/features/documents/services/pdf-parser";
 import { extractPlannerRows } from "@/features/documents/services/planner-text-extractor";
 import { importPipeline } from "@/features/import";
+import type { RawImportRecord } from "@/features/import";
+import { appRepository } from "@/db/repositories/app-repository";
 import { useAppStore } from "@/store/use-app-store";
-import type { ScanSessionFileRecord } from "@/types/domain";
+import type { ChildProfile, ImportIssue, ItemCategory, ScanSessionFileRecord } from "@/types/domain";
 
-export function SmartFolderImport() {
+const itemCategories: ItemCategory[] = ["Homework", "HomeStudy", "Activity", "ClassTest", "UnitTest", "Exam", "Project", "Circular"];
+
+const createConfidenceIssue = (documentId: string, issue: string): ImportIssue => ({
+  id: `scan-confidence-${crypto.randomUUID()}`,
+  documentId,
+  fieldName: "parser",
+  issue,
+  resolved: false,
+});
+
+const countRowsByCategory = (rows: Array<{ category?: string }>) => {
+  return rows.reduce<Partial<Record<ItemCategory, number>>>((counts, row) => {
+    if (itemCategories.includes(row.category as ItemCategory)) {
+      const category = row.category as ItemCategory;
+      counts[category] = (counts[category] ?? 0) + 1;
+    }
+
+    return counts;
+  }, {});
+};
+
+const buildScanConfidenceIssues = ({
+  documentId,
+  contentText,
+  extractionStatus,
+  categoryCounts,
+  detectedType,
+}: {
+  documentId: string;
+  contentText: string;
+  extractionStatus: ScanSessionFileRecord["extractionStatus"];
+  categoryCounts: Partial<Record<ItemCategory, number>>;
+  detectedType: ScanSessionFileRecord["detectedType"];
+}) => {
+  const issues: ImportIssue[] = [];
+  const hasExtractedText = extractionStatus === "success" && contentText.trim().length > 0;
+  const totalRows = Object.values(categoryCounts).reduce((sum, count) => sum + (count ?? 0), 0);
+
+  if (hasExtractedText && totalRows === 0) {
+    issues.push(createConfidenceIssue(documentId, "Text was extracted, but no actionable school tasks were found."));
+  }
+
+  if (/co\s*scholastic|physical\s+education|art\s*&\s*craft|karate|yoga/i.test(contentText) && !categoryCounts.Activity) {
+    issues.push(createConfidenceIssue(documentId, "Co-scholastic activity content was detected, but no Activity items were extracted."));
+  }
+
+  if (detectedType === "UnitTestPortion" && /unit\s*test/i.test(contentText) && /chapter\s+name|portion/i.test(contentText) && !categoryCounts.UnitTest) {
+    issues.push(createConfidenceIssue(documentId, "Unit test portion content was detected, but no UnitTest items were extracted."));
+  }
+
+  if (/graded\s+project/i.test(contentText) && !categoryCounts.Project) {
+    issues.push(createConfidenceIssue(documentId, "Graded project content was detected, but no Project item was extracted."));
+  }
+
+  if (/graded\s+lab\s+activity/i.test(contentText) && !categoryCounts.Activity) {
+    issues.push(createConfidenceIssue(documentId, "Graded lab activity content was detected, but no Activity item was extracted."));
+  }
+
+  return issues;
+};
+
+const formatCategoryCounts = (counts?: Partial<Record<ItemCategory, number>>) => {
+  if (!counts) {
+    return "No items found yet";
+  }
+
+  const entries = itemCategories.map((category) => [category, counts[category] ?? 0] as const).filter(([, count]) => count > 0);
+  return entries.length > 0 ? entries.map(([category, count]) => `${category}: ${count}`).join(" • ") : "No weekly or monthly targets found";
+};
+
+const countExtractedItems = (counts?: Partial<Record<ItemCategory, number>>) => {
+  return Object.values(counts ?? {}).reduce((sum, count) => sum + (count ?? 0), 0);
+};
+
+const countChildAssignmentIssues = (issues?: ImportIssue[]) => {
+  return (issues ?? []).filter((issue) => issue.fieldName === "childName").length;
+};
+
+const formatCounts = (counts: Record<string, number>) => {
+  const entries = Object.entries(counts).filter(([, count]) => count > 0);
+  return entries.length > 0 ? entries.map(([label, count]) => `${label}: ${count}`).join(" • ") : "None yet";
+};
+
+const normalizeSubjectKey = (value?: string) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+
+const isGradeOrClassHint = (value: string) => /^(grade|class)\b/i.test(value.trim());
+
+const normalizeRowChildNames = (rows: RawImportRecord[], children: ChildProfile[], childNameToIdMap: Record<string, string>) => {
+  const childNameById = new Map(children.map((child) => [child.id, child.name]));
+
+  return rows.map((row) => {
+    const childId = row.childName ? childNameToIdMap[row.childName.trim().toLowerCase()] : undefined;
+    return childId ? { ...row, childName: childNameById.get(childId) ?? row.childName } : row;
+  });
+};
+
+const classifyRowsByChildProfile = (rows: RawImportRecord[], children: ChildProfile[], childNameToIdMap: Record<string, string>) => {
+  const childrenByGrade = children.reduce<Record<string, ChildProfile[]>>((acc, child) => {
+    const grade = normalizeGrade(child.grade);
+    acc[grade] = [...(acc[grade] ?? []), child];
+    return acc;
+  }, {});
+
+  return rows.reduce<{ importRows: RawImportRecord[]; skippedRows: RawImportRecord[]; ambiguousRows: RawImportRecord[]; skippedReason?: string }>((result, row) => {
+    const rawChildName = row.childName?.trim();
+    if (!rawChildName || childNameToIdMap[rawChildName.toLowerCase()]) {
+      result.importRows.push(row);
+      return result;
+    }
+
+    const grade = normalizeGrade(rawChildName);
+    const gradeChildren = childrenByGrade[grade] ?? [];
+    if (gradeChildren.length === 0) {
+      result.skippedRows.push(row);
+      result.skippedReason = `${rawChildName}: no matching child profile found`;
+      return result;
+    }
+
+    result.ambiguousRows.push(row);
+    result.importRows.push(row);
+    return result;
+  }, { importRows: [], skippedRows: [], ambiguousRows: [] });
+};
+
+const attachUnitTestDatesFromSchedule = (fileRows: RawImportRecord[][]) => {
+  const scheduleBySubject = new Map<string, string>();
+  const portionSubjects = new Set<string>();
+
+  fileRows.flat().forEach((row) => {
+    if (row.category !== "UnitTest" || !row.subject) {
+      return;
+    }
+
+    if (row.dueDate) {
+      scheduleBySubject.set(normalizeSubjectKey(row.subject), row.dueDate);
+    }
+
+    if (/unit test portion found without an exam schedule date/i.test(row.parserIssue ?? "")) {
+      portionSubjects.add(normalizeSubjectKey(row.subject));
+    }
+  });
+
+  return fileRows.map((rows) =>
+    rows.flatMap((row) => {
+      if (row.category === "UnitTest" && row.dueDate && portionSubjects.has(normalizeSubjectKey(row.subject))) {
+        return [];
+      }
+
+      if (row.category !== "UnitTest" || row.dueDate || !row.subject) {
+        return [row];
+      }
+
+      const scheduleDate = scheduleBySubject.get(normalizeSubjectKey(row.subject));
+      if (!scheduleDate || !/unit test portion found without an exam schedule date/i.test(row.parserIssue ?? "")) {
+        return [row];
+      }
+
+      return [{
+        ...row,
+        title: `${row.subject} Unit Test`,
+        description: (row.title ?? row.description ?? `${row.subject} portions`).replace(/^Unit Test Portion:\s*/i, "Portions: "),
+        dueDate: scheduleDate,
+        parserIssue: undefined,
+      }];
+    }),
+  );
+};
+
+const buildConfidence = ({
+  extractionStatus,
+  issueCount,
+  categoryCounts,
+}: {
+  extractionStatus: ScanSessionFileRecord["extractionStatus"];
+  issueCount: number;
+  categoryCounts: Partial<Record<ItemCategory, number>>;
+}): ScanSessionFileRecord["confidence"] => {
+  const totalRows = Object.values(categoryCounts).reduce((sum, count) => sum + (count ?? 0), 0);
+  if (issueCount > 0) {
+    return "review";
+  }
+
+  if (extractionStatus === "success" && totalRows > 0) {
+    return "high";
+  }
+
+  return "low";
+};
+
+const formatConfidence = (confidence?: ScanSessionFileRecord["confidence"]) => {
+  if (confidence === "high") {
+    return "High Confidence";
+  }
+
+  if (confidence === "review") {
+    return "Needs Review";
+  }
+
+  return "Low Confidence";
+};
+
+export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
   const children = useAppStore((state) => state.children);
   const documents = useAppStore((state) => state.documents);
+  const items = useAppStore((state) => state.items);
   const addDocument = useAppStore((state) => state.addDocument);
   const addItem = useAppStore((state) => state.addItem);
   const scanQueue = useAppStore((state) => state.scanQueue);
@@ -25,10 +231,6 @@ export function SmartFolderImport() {
     webkitdirectory: "",
     directory: "",
   };
-
-  const childNameToIdMap = useMemo(() => {
-    return buildChildAliasMap(children);
-  }, [children]);
 
   const existingByHash = useMemo(() => {
     const map = new Map<string, { modifiedAt?: string }>();
@@ -49,6 +251,56 @@ export function SmartFolderImport() {
       );
     });
   }, [documents, scanQueue]);
+
+  const existingItemKeys = useMemo(() => {
+    return new Set(items.map((item) => [
+      item.childId,
+      item.category,
+      item.subject ?? "",
+      item.title.trim().toLowerCase(),
+      item.dueDate,
+      item.sourceDocumentId ?? "",
+    ].join("__")));
+  }, [items]);
+
+  const readyUnimportedCount = useMemo(() => {
+    return scanQueue.reduce((count, result) => {
+      return count + (result.importPreviewItems ?? []).filter((item) => !existingItemKeys.has([
+        item.childId,
+        item.category,
+        item.subject ?? "",
+        item.title.trim().toLowerCase(),
+        item.dueDate,
+        item.sourceDocumentId ?? "",
+      ].join("__"))).length;
+    }, 0);
+  }, [existingItemKeys, scanQueue]);
+
+  const scanTotals = useMemo(() => {
+    return scanQueue.reduce(
+      (totals, result) => {
+        const extractedItems = countExtractedItems(result.importPreviewCategoryCounts);
+        const childAssignmentIssues = countChildAssignmentIssues(result.importPreviewIssues);
+        const readyItems = result.importPreviewItems ?? [];
+        readyItems.forEach((item) => {
+          const childName = children.find((child) => child.id === item.childId)?.name ?? "Matched child";
+          totals.byChild[childName] = (totals.byChild[childName] ?? 0) + 1;
+          totals.byCategory[item.category] = (totals.byCategory[item.category] ?? 0) + 1;
+        });
+
+        return {
+          items: totals.items + extractedItems,
+          ready: totals.ready + readyItems.length,
+          skipped: totals.skipped + (result.skippedImportCount ?? 0),
+          assignmentIssues: totals.assignmentIssues + childAssignmentIssues,
+          otherIssues: totals.otherIssues + Math.max((result.importPreviewIssues?.length ?? 0) - childAssignmentIssues, 0),
+          byChild: totals.byChild,
+          byCategory: totals.byCategory,
+        };
+      },
+      { items: 0, ready: 0, skipped: 0, assignmentIssues: 0, otherIssues: 0, byChild: {} as Record<string, number>, byCategory: {} as Record<string, number> },
+    );
+  }, [children, scanQueue]);
 
   const scanFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) {
@@ -74,14 +326,21 @@ export function SmartFolderImport() {
 
       const firstRelativePath = (pdfFiles[0] as File & { webkitRelativePath?: string }).webkitRelativePath;
       const rootFolderName = firstRelativePath?.split("/")[0] || "Selected folder";
-      const nextResults = [];
+      const scannedFiles = [];
+      const scanChildren = children.length > 0 ? children : await appRepository.listChildren().catch(() => []);
+      const scanChildNameToIdMap = buildChildAliasMap(scanChildren);
 
       for (const file of pdfFiles) {
         let contentText = "";
+        let extractionStatus: ScanSessionFileRecord["extractionStatus"] = "empty";
+        let extractionError: string | undefined;
         try {
           contentText = await extractPdfText(file);
-        } catch {
-          pushPersistenceWarning(`PDF text extraction failed for ${file.name}. Classification may be incomplete.`);
+          extractionStatus = contentText.trim().length > 0 ? "success" : "empty";
+        } catch (error) {
+          extractionStatus = "failed";
+          extractionError = error instanceof Error ? error.message : "PDF text extraction failed in browser runtime.";
+          pushPersistenceWarning(`PDF text extraction failed for ${file.name}: ${extractionError}. Classification may be incomplete.`);
         }
 
         const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
@@ -97,18 +356,57 @@ export function SmartFolderImport() {
           ? extractPlannerRows({
               contentText,
               relativePath,
-              childNames: Object.keys(childNameToIdMap),
+              childNames: [...Object.keys(scanChildNameToIdMap), ...detected.childHints.filter(isGradeOrClassHint)],
             })
           : [];
+
+        scannedFiles.push({ file, contentText, extractionStatus, extractionError, relativePath, detected, rawRows });
+      }
+
+      const scheduledRowsByFile = attachUnitTestDatesFromSchedule(scannedFiles.map((entry) => normalizeRowChildNames(entry.rawRows, scanChildren, scanChildNameToIdMap)));
+      const nextResults = [];
+
+      for (const [index, scannedFile] of scannedFiles.entries()) {
+        const { file, contentText, extractionStatus, extractionError, relativePath, detected } = scannedFile;
+        const allRawRows = scheduledRowsByFile[index];
+        const classifiedRows = classifyRowsByChildProfile(allRawRows, scanChildren, scanChildNameToIdMap);
+        const rawRows = classifiedRows.importRows;
 
         const importPreview =
           rawRows.length > 0
             ? importPipeline.run(rawRows, {
                 sourceType: "future-pdf",
                 documentId: detected.fileHash,
-                childNameToIdMap,
+                childNameToIdMap: scanChildNameToIdMap,
               })
             : undefined;
+        const categoryCounts = countRowsByCategory(allRawRows);
+        const confidenceIssues = buildScanConfidenceIssues({
+          documentId: detected.fileHash,
+          contentText,
+          extractionStatus,
+          categoryCounts,
+          detectedType: detected.detectedType,
+        });
+        const importPreviewIssues = [...(importPreview?.issues ?? []), ...confidenceIssues];
+        const importPreviewSummary = importPreview
+          ? {
+              ...importPreview.summary,
+              issuesCount: importPreview.issues.length + confidenceIssues.length,
+            }
+          : confidenceIssues.length > 0
+            ? {
+                totalRecords: rawRows.length,
+                normalizedRecords: rawRows.length,
+                validRecords: 0,
+                issuesCount: confidenceIssues.length,
+              }
+            : undefined;
+        const confidence = buildConfidence({
+          extractionStatus,
+          issueCount: importPreviewIssues.length,
+          categoryCounts,
+        });
 
         const existing = existingByHash.get(detected.fileHash);
         const derivedStatus: ScanSessionFileRecord["status"] = existing
@@ -116,7 +414,7 @@ export function SmartFolderImport() {
             ? "duplicate"
             : "changed"
           : "new";
-        const status: ScanSessionFileRecord["status"] = importPreview && importPreview.issues.length > 0 && derivedStatus !== "duplicate" ? "review" : derivedStatus;
+        const status: ScanSessionFileRecord["status"] = importPreviewIssues.length > 0 && derivedStatus !== "duplicate" ? "review" : derivedStatus;
 
         nextResults.push({
           documentId: detected.fileHash,
@@ -132,6 +430,9 @@ export function SmartFolderImport() {
           status,
           scannedAt,
           scanRunId,
+          extractionStatus,
+          extractionError,
+          extractedTextPreview: contentText.trim().slice(0, 500),
           rawRows: rawRows.map((row, index) => ({
             documentId: detected.fileHash,
             rowIndex: index,
@@ -142,10 +443,15 @@ export function SmartFolderImport() {
             dueDate: row.dueDate,
             description: row.description,
             sourceDocumentId: row.sourceDocumentId,
+            parserIssue: row.parserIssue,
           })),
           importPreviewItems: importPreview?.items,
-          importPreviewIssues: importPreview?.issues,
-          importPreviewSummary: importPreview?.summary,
+          importPreviewIssues,
+          importPreviewCategoryCounts: categoryCounts,
+          skippedImportCount: classifiedRows.skippedRows.length,
+          skippedImportReason: classifiedRows.skippedReason,
+          confidence,
+          importPreviewSummary,
         });
       }
 
@@ -160,10 +466,11 @@ export function SmartFolderImport() {
     saveableResults
       .filter((result) => result.status !== "duplicate")
       .forEach((result) => {
+        const childIds = Array.from(new Set((result.importPreviewItems ?? []).map((item) => item.childId)));
         addDocument({
           title: result.title,
           type: result.detectedType === "Unknown" ? "Circular" : result.detectedType,
-          childIds: [],
+          childIds,
           fileName: result.fileName,
           fileSize: result.fileSize,
           fileHash: result.fileHash,
@@ -177,7 +484,10 @@ export function SmartFolderImport() {
   const importExtractedItems = () => {
     scanQueue.forEach((result) => {
       result.importPreviewItems?.forEach((item) => {
-        addItem(item);
+        const key = [item.childId, item.category, item.subject ?? "", item.title.trim().toLowerCase(), item.dueDate, item.sourceDocumentId ?? ""].join("__");
+        if (!existingItemKeys.has(key)) {
+          addItem(item);
+        }
       });
     });
   };
@@ -185,9 +495,11 @@ export function SmartFolderImport() {
   return (
     <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       <div>
-        <h3 className="font-semibold text-slate-900">Smart Folder Import</h3>
+        <h3 className="font-semibold text-slate-900">{simple ? "Upload School Documents" : "Add School Files"}</h3>
         <p className="text-sm text-slate-600">
-          Choose a parent school folder from Downloads or any local location. The app scans its PDF files, reads subfolder paths, detects planner type, extracts month hints, and flags duplicates.
+          {simple
+            ? "Choose the folder or PDFs from school. The app extracts targets and updates Dashboard, This Week, This Month, and My Kids."
+            : "Choose a school folder and Parent Companion will turn planner PDFs into tasks, tests, activities, and projects."}
         </p>
       </div>
 
@@ -201,7 +513,7 @@ export function SmartFolderImport() {
             className="hidden"
             {...directoryPickerProps}
           />
-          Choose School Folder
+          {simple ? "Upload Documents" : "Choose Folder"}
         </label>
         <button
           type="button"
@@ -209,38 +521,93 @@ export function SmartFolderImport() {
           disabled={saveableResults.length === 0}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Save Detected Files
+          {simple ? "Save Documents" : "Save Files"}
         </button>
         <button
           type="button"
           onClick={importExtractedItems}
-          disabled={!scanQueue.some((result) => (result.importPreviewItems?.length ?? 0) > 0)}
+          disabled={readyUnimportedCount === 0}
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Import Extracted Items
+          {simple ? (scanTotals.ready > 0 && readyUnimportedCount === 0 ? "Imported to Dashboard" : "Import Ready Items") : "Add Tasks to Calendar"}
         </button>
       </div>
 
-      {isScanning ? <p className="text-sm text-slate-600">Scanning files and extracting text...</p> : null}
+      {isScanning ? <p className="text-sm text-slate-600">Reading school files and building the family calendar...</p> : null}
 
       {!isScanning && scanQueue.length > 0 ? (
-        <p className="text-sm text-slate-600">
-          {saveableResults.length > 0
-            ? `${saveableResults.length} scanned file${saveableResults.length > 1 ? "s are" : " is"} ready to save as document references.`
-            : "All scanned files are already saved as document references."}
-        </p>
+        simple ? (
+          <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+            <p className="font-medium text-emerald-700">
+              Ready for Dashboard: {scanTotals.ready} item{scanTotals.ready === 1 ? "" : "s"}
+            </p>
+            <p className="mt-1 text-slate-600">
+              Found {scanTotals.items} school item{scanTotals.items === 1 ? "" : "s"} from {scanQueue.length} document{scanQueue.length === 1 ? "" : "s"}.
+            </p>
+            {scanTotals.skipped > 0 ? (
+              <p className="mt-1 text-amber-800">
+                Skipped {scanTotals.skipped} item{scanTotals.skipped === 1 ? "" : "s"} because no matching child profile exists.
+              </p>
+            ) : null}
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              <div className="rounded-md bg-white p-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">By Child</p>
+                <p className="mt-1 text-sm text-slate-700">{formatCounts(scanTotals.byChild)}</p>
+              </div>
+              <div className="rounded-md bg-white p-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">By Type</p>
+                <p className="mt-1 text-sm text-slate-700">{formatCounts(scanTotals.byCategory)}</p>
+              </div>
+            </div>
+            {scanTotals.assignmentIssues > 0 ? (
+              <p className="mt-2 text-amber-800">Review exceptions: assign {scanTotals.assignmentIssues} item{scanTotals.assignmentIssues === 1 ? "" : "s"} to a child.</p>
+            ) : null}
+            {scanTotals.otherIssues > 0 ? (
+              <p className="mt-1 text-rose-700">Review exceptions: {scanTotals.otherIssues} detail{scanTotals.otherIssues === 1 ? "" : "s"} need cleanup.</p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {scanTotals.assignmentIssues > 0 || scanTotals.otherIssues > 0 ? (
+                <Link href="/scan/review" className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white">
+                  Review Exceptions
+                </Link>
+              ) : null}
+              <Link href="/" className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900">
+                Go to Dashboard
+              </Link>
+              <Link href="/kids" className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900">
+                Check My Kids
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-600">
+            {saveableResults.length > 0
+              ? `${saveableResults.length} school file${saveableResults.length > 1 ? "s are" : " is"} ready to save.`
+              : "All selected school files are saved."}
+          </p>
+        )
       ) : null}
 
-      {scanQueue.length > 0 ? (
+      {scanQueue.length > 0 && !simple ? (
         <div className="space-y-2">
           {scanQueue.map((result) => (
             <article key={result.documentId} className="rounded-lg border border-slate-200 p-3">
+              {(() => {
+                const extractedItems = countExtractedItems(result.importPreviewCategoryCounts);
+                const childAssignmentIssues = countChildAssignmentIssues(result.importPreviewIssues);
+                return (
+                  <>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium text-slate-900">{result.title}</p>
+                  <p className="font-medium text-slate-900">{formatSchoolDocumentTitle(result.fileName, result.detectedType)}</p>
                   <p className="text-sm text-slate-600">
                     {result.detectedType} • {result.monthLabel ?? "Month unknown"} • {result.relativePath}
                   </p>
+                  {result.skippedImportCount ? (
+                    <p className="mt-1 text-sm text-amber-800">
+                      Skipped {result.skippedImportCount} item{result.skippedImportCount === 1 ? "" : "s"}: {result.skippedImportReason ?? "no matching child profile found"}.
+                    </p>
+                  ) : null}
                 </div>
                 <span
                   className={`rounded-full px-2 py-1 text-xs font-medium ${
@@ -259,20 +626,30 @@ export function SmartFolderImport() {
               ) : null}
               {result.importPreviewSummary ? (
                 <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm text-slate-700">
-                  <p>
-                    Extracted items: {result.importPreviewSummary.validRecords} | Issues: {result.importPreviewSummary.issuesCount}
+                  <p className="font-medium text-emerald-700">Items found: {extractedItems}</p>
+                  <p className={`mt-1 text-xs font-semibold ${result.confidence === "high" ? "text-emerald-700" : result.confidence === "review" ? "text-amber-700" : "text-rose-700"}`}>
+                    {formatConfidence(result.confidence)}
                   </p>
-                  {result.importPreviewIssues && result.importPreviewIssues.length > 0 ? (
-                    <ul className="mt-1 space-y-1">
-                      {result.importPreviewIssues.slice(0, 3).map((issue) => (
-                        <li key={issue.id} className="text-rose-700">
-                          {issue.issue}
-                        </li>
-                      ))}
-                    </ul>
+                  <p className="mt-1 text-xs text-slate-600">{formatCategoryCounts(result.importPreviewCategoryCounts)}</p>
+                  {childAssignmentIssues > 0 ? (
+                    <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-amber-800">
+                      Child assignment needed for {childAssignmentIssues} item{childAssignmentIssues > 1 ? "s" : ""}.
+                    </p>
+                  ) : null}
+                  {(result.importPreviewIssues?.length ?? 0) > childAssignmentIssues ? (
+                    <p className="mt-2 rounded-md bg-rose-50 px-2 py-1 text-rose-700">
+                      {(result.importPreviewIssues?.length ?? 0) - childAssignmentIssues} detail{(result.importPreviewIssues?.length ?? 0) - childAssignmentIssues > 1 ? "s" : ""} need cleanup before import.
+                    </p>
                   ) : null}
                 </div>
               ) : null}
+              <p className="mt-2 text-xs text-slate-500">
+                Extraction: {result.extractionStatus ?? "unknown"}
+                {result.extractionError ? ` • ${result.extractionError}` : ""}
+              </p>
+                  </>
+                );
+              })()}
             </article>
           ))}
         </div>
