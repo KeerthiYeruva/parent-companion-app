@@ -5,6 +5,7 @@ export interface ScanRepository {
   saveScanRun: (run: ScanRunRecord, files: ScanSessionFileRecord[]) => Promise<void>;
   listScanRuns: () => Promise<ScanRunRecord[]>;
   listScanFilesByRun: (scanRunId: string) => Promise<ScanSessionFileRecord[]>;
+  getScanFileByDocumentId: (documentId: string) => Promise<ScanSessionFileRecord | undefined>;
 }
 
 export const scanRepository: ScanRepository = {
@@ -20,5 +21,8 @@ export const scanRepository: ScanRepository = {
   },
   listScanFilesByRun: async (scanRunId) => {
     return db.scanFiles.where("scanRunId").equals(scanRunId).toArray();
+  },
+  getScanFileByDocumentId: async (documentId) => {
+    return db.scanFiles.get(documentId);
   },
 };

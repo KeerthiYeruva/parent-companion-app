@@ -131,6 +131,7 @@ export interface AppState {
   setConnectedFolderName: (folderName: string) => void;
   setScanQueue: (files: ScanSessionFileRecord[], scannedAt: string) => void;
   updateScanFile: (documentId: string, updater: (file: ScanSessionFileRecord) => ScanSessionFileRecord) => void;
+  hydrateScanFile: (documentId: string) => Promise<ScanSessionFileRecord | undefined>;
   clearScanQueue: () => void;
   hydrateScanHistory: () => Promise<void>;
   upsertReviewDraft: (draft: ReviewDraftRecord) => void;

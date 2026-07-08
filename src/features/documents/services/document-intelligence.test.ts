@@ -16,8 +16,8 @@ describe("document intelligence", () => {
     expect(extractMonthLabel("planner.pdf", "No month here")).toBeUndefined();
   });
 
-  it("detects planner summary metadata and stable hash", () => {
-    const result = detectPlannerDocument({
+  it("detects planner summary metadata and stable hash", async () => {
+    const result = await detectPlannerDocument({
       name: "Grade5_July_Scholastic_Planner.pdf",
       relativePath: "Kid1/July/Grade5_July_Scholastic_Planner.pdf",
       size: 1024,

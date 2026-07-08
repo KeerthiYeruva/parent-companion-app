@@ -1,5 +1,6 @@
 "use client";
 
+import type { InputHTMLAttributes } from "react";
 import { useMemo, useState } from "react";
 import { buildChildAliasMap } from "@/features/documents/services/child-alias-map";
 import { detectPlannerDocument } from "@/features/documents/services/document-detector";
@@ -20,6 +21,11 @@ export function SmartFolderImport() {
   const pushPersistenceWarning = useAppStore((state) => state.pushPersistenceWarning);
   const [isScanning, setIsScanning] = useState(false);
 
+  const directoryPickerProps: InputHTMLAttributes<HTMLInputElement> & { webkitdirectory?: string; directory?: string } = {
+    webkitdirectory: "",
+    directory: "",
+  };
+
   const childNameToIdMap = useMemo(() => {
     return buildChildAliasMap(children);
   }, [children]);
@@ -34,6 +40,16 @@ export function SmartFolderImport() {
     return map;
   }, [documents]);
 
+  const saveableResults = useMemo(() => {
+    return scanQueue.filter((result) => {
+      return !documents.some(
+        (doc) =>
+          (result.fileHash && doc.fileHash === result.fileHash) ||
+          (result.relativePath && doc.relativePath === result.relativePath),
+      );
+    });
+  }, [documents, scanQueue]);
+
   const scanFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) {
       return;
@@ -44,20 +60,32 @@ export function SmartFolderImport() {
     try {
       const scannedAt = new Date().toISOString();
       const scanRunId = `scan-run-${crypto.randomUUID()}`;
+      const allFiles = Array.from(files);
+      const pdfFiles = allFiles.filter((file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+
+      if (pdfFiles.length === 0) {
+        pushPersistenceWarning("No PDF files were found in the selected folder.");
+        return;
+      }
+
+      if (pdfFiles.length < allFiles.length) {
+        pushPersistenceWarning("Only PDF files are scanned. Non-PDF files were skipped.");
+      }
+
+      const firstRelativePath = (pdfFiles[0] as File & { webkitRelativePath?: string }).webkitRelativePath;
+      const rootFolderName = firstRelativePath?.split("/")[0] || "Selected folder";
       const nextResults = [];
 
-      for (const file of Array.from(files)) {
+      for (const file of pdfFiles) {
         let contentText = "";
-        if (file.type === "application/pdf") {
-          try {
-            contentText = await extractPdfText(file);
-          } catch {
-            pushPersistenceWarning(`PDF text extraction failed for ${file.name}. Classification may be incomplete.`);
-          }
+        try {
+          contentText = await extractPdfText(file);
+        } catch {
+          pushPersistenceWarning(`PDF text extraction failed for ${file.name}. Classification may be incomplete.`);
         }
 
         const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
-        const detected = detectPlannerDocument({
+        const detected = await detectPlannerDocument({
           name: file.name,
           relativePath,
           size: file.size,
@@ -121,7 +149,7 @@ export function SmartFolderImport() {
         });
       }
 
-      setConnectedFolderName("Selected PDF files");
+      setConnectedFolderName(rootFolderName);
       setScanQueue(nextResults, scannedAt);
     } finally {
       setIsScanning(false);
@@ -129,7 +157,7 @@ export function SmartFolderImport() {
   };
 
   const importScannedDocuments = () => {
-    scanQueue
+    saveableResults
       .filter((result) => result.status !== "duplicate")
       .forEach((result) => {
         addDocument({
@@ -159,19 +187,26 @@ export function SmartFolderImport() {
       <div>
         <h3 className="font-semibold text-slate-900">Smart Folder Import</h3>
         <p className="text-sm text-slate-600">
-          Select multiple PDFs from your school folder. The app fingerprints each file, detects planner type, extracts month hints, and flags duplicates.
+          Choose a parent school folder from Downloads or any local location. The app scans its PDF files, reads subfolder paths, detects planner type, extracts month hints, and flags duplicates.
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
         <label className="inline-flex cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">
-          <input type="file" multiple accept="application/pdf,.pdf" onChange={(event) => scanFiles(event.target.files)} className="hidden" />
-          Scan Files
+          <input
+            type="file"
+            multiple
+            accept="application/pdf,.pdf"
+            onChange={(event) => scanFiles(event.target.files)}
+            className="hidden"
+            {...directoryPickerProps}
+          />
+          Choose School Folder
         </label>
         <button
           type="button"
           onClick={importScannedDocuments}
-          disabled={scanQueue.length === 0}
+          disabled={saveableResults.length === 0}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           Save Detected Files
@@ -187,6 +222,14 @@ export function SmartFolderImport() {
       </div>
 
       {isScanning ? <p className="text-sm text-slate-600">Scanning files and extracting text...</p> : null}
+
+      {!isScanning && scanQueue.length > 0 ? (
+        <p className="text-sm text-slate-600">
+          {saveableResults.length > 0
+            ? `${saveableResults.length} scanned file${saveableResults.length > 1 ? "s are" : " is"} ready to save as document references.`
+            : "All scanned files are already saved as document references."}
+        </p>
+      ) : null}
 
       {scanQueue.length > 0 ? (
         <div className="space-y-2">

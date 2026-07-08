@@ -11,10 +11,17 @@ export const createDocumentsSlice: StateCreator<AppState, [], [], DocumentsSlice
   documents: [],
   importIssues: [],
   addDocument: (document: Omit<UploadedDocument, "id" | "uploadedAt">) => {
-    const newDoc = {
+    const existingDocument = get().documents.find(
+      (entry) =>
+        (document.fileHash && entry.fileHash === document.fileHash) ||
+        (document.relativePath && entry.relativePath === document.relativePath) ||
+        (document.fileName && entry.fileName === document.fileName && entry.title === document.title),
+    );
+
+    const newDoc: UploadedDocument = {
       ...document,
-      id: createId("doc"),
-      uploadedAt: dayjs().toISOString(),
+      id: existingDocument?.id ?? createId("doc"),
+      uploadedAt: existingDocument?.uploadedAt ?? dayjs().toISOString(),
     };
 
     appRepository.upsertDocument(newDoc).catch(() => {
@@ -22,7 +29,7 @@ export const createDocumentsSlice: StateCreator<AppState, [], [], DocumentsSlice
     });
 
     set((state) => ({
-      documents: [newDoc, ...state.documents],
+      documents: [newDoc, ...state.documents.filter((entry) => entry.id !== newDoc.id)],
     }));
   },
 });

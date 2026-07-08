@@ -1,11 +1,28 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { NavShell } from "@/components/nav-shell";
 import { useAppStore } from "@/store/use-app-store";
+import type { ScanSessionFileRecord } from "@/types/domain";
 
 export function FileReviewView({ documentId }: { documentId: string }) {
-  const file = useAppStore((state) => state.scanQueue.find((entry) => entry.documentId === documentId));
+  const queuedFile = useAppStore((state) => state.scanQueue.find((entry) => entry.documentId === documentId));
+  const hydrateScanFile = useAppStore((state) => state.hydrateScanFile);
+  const [persistedFile, setPersistedFile] = useState<ScanSessionFileRecord | undefined>(queuedFile);
+
+  useEffect(() => {
+    if (queuedFile) {
+      setPersistedFile(queuedFile);
+      return;
+    }
+
+    void hydrateScanFile(documentId).then((file) => {
+      setPersistedFile(file);
+    });
+  }, [documentId, hydrateScanFile, queuedFile]);
+
+  const file = queuedFile ?? persistedFile;
 
   return (
     <NavShell>

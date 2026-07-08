@@ -4,7 +4,7 @@ import type { AppState, ScanRunRecord, ScanSessionFileRecord } from "@/types/dom
 
 type ScanSlice = Pick<
   AppState,
-  "connectedFolderName" | "lastScanAt" | "scanQueue" | "scanHistory" | "setConnectedFolderName" | "setScanQueue" | "updateScanFile" | "clearScanQueue" | "hydrateScanHistory"
+  "connectedFolderName" | "lastScanAt" | "scanQueue" | "scanHistory" | "setConnectedFolderName" | "setScanQueue" | "updateScanFile" | "hydrateScanFile" | "clearScanQueue" | "hydrateScanHistory"
 >;
 
 const countByStatus = (files: ScanSessionFileRecord[], status: ScanSessionFileRecord["status"]) => {
@@ -45,6 +45,25 @@ export const createScanSlice: StateCreator<AppState, [], [], ScanSlice> = (set, 
     set((state) => ({
       scanQueue: state.scanQueue.map((file) => (file.documentId === documentId ? updater(file) : file)),
     }));
+  },
+  hydrateScanFile: async (documentId: string) => {
+    try {
+      const persistedFile = await scanRepository.getScanFileByDocumentId(documentId);
+      if (!persistedFile) {
+        return undefined;
+      }
+
+      set((state) => ({
+        scanQueue: state.scanQueue.some((file) => file.documentId === documentId)
+          ? state.scanQueue.map((file) => (file.documentId === documentId ? persistedFile : file))
+          : [persistedFile, ...state.scanQueue],
+      }));
+
+      return persistedFile;
+    } catch {
+      get().pushPersistenceWarning("Scanned file details could not be loaded from local database.");
+      return undefined;
+    }
   },
   clearScanQueue: () => {
     set({ scanQueue: [] });
