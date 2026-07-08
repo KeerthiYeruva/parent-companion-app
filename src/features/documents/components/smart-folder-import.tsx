@@ -550,14 +550,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     }
   };
 
-  const importScannedDocuments = () => {
-    saveScannedDocuments(saveableResults);
-  };
-
-  const importExtractedItems = () => {
-    importReadyItems(scanQueue);
-  };
-
   const replaceImportedItems = () => {
     if (readyPreviewItems.length === 0) {
       return;

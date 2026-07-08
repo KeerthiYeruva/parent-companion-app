@@ -12,7 +12,6 @@ import {
   monthItemsByWeek,
   splitOpenAndCompletedItems,
   taskCategoryLabel,
-  todayItems,
   thisMonthItems,
   thisWeekItems,
 } from "@/features/planning/selectors/planning-selectors";
@@ -38,7 +37,6 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
     return children[0] ? [children[0].id] : [];
   }, [children, selectedChildIds]);
   const selectedItems = useMemo(() => parentReadyItems(bySelectedChildren(items, activeChildIds)), [activeChildIds, items]);
-  const dayItems = useMemo(() => todayItems(selectedItems), [selectedItems]);
   const weekItems = useMemo(() => thisWeekItems(selectedItems), [selectedItems]);
   const monthItems = useMemo(() => thisMonthItems(selectedItems), [selectedItems]);
   const weeklyProgress = useMemo(() => completionProgress(weekItems), [weekItems]);
