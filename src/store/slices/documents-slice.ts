@@ -7,7 +7,7 @@ type DocumentsSlice = Pick<AppState, "documents" | "importIssues" | "addDocument
 
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
-export const createDocumentsSlice: StateCreator<AppState, [], [], DocumentsSlice> = (set) => ({
+export const createDocumentsSlice: StateCreator<AppState, [], [], DocumentsSlice> = (set, get) => ({
   documents: [],
   importIssues: [],
   addDocument: (document: Omit<UploadedDocument, "id" | "uploadedAt">) => {
@@ -18,7 +18,7 @@ export const createDocumentsSlice: StateCreator<AppState, [], [], DocumentsSlice
     };
 
     appRepository.upsertDocument(newDoc).catch(() => {
-      // Dexie sync is best-effort for local backups.
+      get().pushPersistenceWarning("Document could not be saved to local database.");
     });
 
     set((state) => ({

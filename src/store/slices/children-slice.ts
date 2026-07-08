@@ -15,7 +15,7 @@ export const createChildrenSlice: StateCreator<AppState, [], [], ChildrenSlice> 
     const newChild = { ...child, id: createId("child"), colorTag };
 
     appRepository.upsertChild(newChild).catch(() => {
-      // Dexie sync is best-effort for local backups.
+      get().pushPersistenceWarning("New child could not be saved to local database.");
     });
 
     set((state) => ({

@@ -65,7 +65,10 @@ export interface AppState {
   items: SchoolItem[];
   documents: UploadedDocument[];
   importIssues: ImportIssue[];
+  persistenceWarnings: string[];
   selectedChildIds: string[];
+  pushPersistenceWarning: (message: string) => void;
+  clearPersistenceWarnings: () => void;
   addChild: (child: Omit<ChildProfile, "id" | "colorTag">) => void;
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => void;
   toggleItemComplete: (id: string) => void;

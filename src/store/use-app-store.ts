@@ -5,9 +5,11 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { appRepository } from "@/db/repositories/app-repository";
 import { demoChildren, demoDocuments, demoItems } from "@/lib/seed";
 import type { AppState } from "@/types/domain";
+import { buildHydratedSnapshot, hasInMemoryEntities } from "@/store/hydration";
 import { createChildrenSlice } from "@/store/slices/children-slice";
 import { createItemsSlice } from "@/store/slices/items-slice";
 import { createDocumentsSlice } from "@/store/slices/documents-slice";
+import { createPersistenceSlice } from "@/store/slices/persistence-slice";
 import { createSelectionSlice } from "@/store/slices/selection-slice";
 
 let hydrationPromise: Promise<void> | null = null;
@@ -18,19 +20,20 @@ export const useAppStore = create<AppState>()(
       ...createChildrenSlice(set, get, store),
       ...createItemsSlice(set, get, store),
       ...createDocumentsSlice(set, get, store),
+      ...createPersistenceSlice(set, get, store),
       ...createSelectionSlice(set, get, store),
       seedDemoData: () => {
         const state = get();
 
-        if (state.children.length > 0 || state.items.length > 0 || state.documents.length > 0) {
+        if (hasInMemoryEntities(state)) {
           appRepository.upsertChildren(state.children).catch(() => {
-            // Dexie sync is best-effort for local backups.
+            get().pushPersistenceWarning("Children could not be saved to local database.");
           });
           appRepository.upsertItems(state.items).catch(() => {
-            // Dexie sync is best-effort for local backups.
+            get().pushPersistenceWarning("Items could not be saved to local database.");
           });
           appRepository.upsertDocuments(state.documents).catch(() => {
-            // Dexie sync is best-effort for local backups.
+            get().pushPersistenceWarning("Documents could not be saved to local database.");
           });
           return;
         }
@@ -42,34 +45,25 @@ export const useAppStore = create<AppState>()(
         hydrationPromise = Promise.all([appRepository.listChildren(), appRepository.listItems(), appRepository.listDocuments()])
           .then(([children, items, documents]) => {
             if (children.length > 0 || items.length > 0 || documents.length > 0) {
-              const selectedChildIds =
-                state.selectedChildIds.length > 0 ? state.selectedChildIds.filter((id) => children.some((child) => child.id === id)) : children.map((child) => child.id);
-
-              set({
-                children,
-                items,
-                documents,
-                selectedChildIds,
-              });
+              set(buildHydratedSnapshot({ children, items, documents, selectedChildIds: state.selectedChildIds }));
               return;
             }
 
             appRepository.upsertChildren(demoChildren).catch(() => {
-              // Dexie sync is best-effort for local backups.
+              get().pushPersistenceWarning("Default children could not be seeded into local database.");
             });
             appRepository.upsertItems(demoItems).catch(() => {
-              // Dexie sync is best-effort for local backups.
+              get().pushPersistenceWarning("Default items could not be seeded into local database.");
             });
             appRepository.upsertDocuments(demoDocuments).catch(() => {
-              // Dexie sync is best-effort for local backups.
+              get().pushPersistenceWarning("Default documents could not be seeded into local database.");
             });
 
-            set({
-              children: demoChildren,
-              items: demoItems,
-              documents: demoDocuments,
-              selectedChildIds: demoChildren.map((child) => child.id),
-            });
+            set(buildHydratedSnapshot({ children: demoChildren, items: demoItems, documents: demoDocuments, selectedChildIds: [] }));
+          })
+          .catch(() => {
+            get().pushPersistenceWarning("Local database is unavailable. Showing in-memory defaults for this session.");
+            set(buildHydratedSnapshot({ children: demoChildren, items: demoItems, documents: demoDocuments, selectedChildIds: [] }));
           })
           .finally(() => {
             hydrationPromise = null;

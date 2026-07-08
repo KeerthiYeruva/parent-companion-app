@@ -7,7 +7,7 @@ type ItemsSlice = Pick<AppState, "items" | "addItem" | "toggleItemComplete">;
 
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
-export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set) => ({
+export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set, get) => ({
   items: [],
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => {
     const newItem = {
@@ -17,7 +17,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
     };
 
     appRepository.upsertItem(newItem).catch(() => {
-      // Dexie sync is best-effort for local backups.
+      get().pushPersistenceWarning("New item could not be saved to local database.");
     });
 
     set((state) => ({
@@ -39,7 +39,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
         };
 
         appRepository.upsertItem(nextItem).catch(() => {
-          // Dexie sync is best-effort for local backups.
+          get().pushPersistenceWarning("Item update could not be saved to local database.");
         });
 
         return nextItem;
