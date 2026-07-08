@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { ChildProfile, ImportedItemReplacementScope, SchoolItem, UploadedDocument } from "@/types/domain";
+import type { HydrationInput } from "@/store/hydration";
 
 export interface AppRepository {
   listChildren: () => Promise<ChildProfile[]>;
@@ -12,6 +13,7 @@ export interface AppRepository {
   upsertItem: (item: SchoolItem) => Promise<void>;
   upsertDocument: (document: UploadedDocument) => Promise<void>;
   replaceItemsForSourceDocuments: (sourceDocumentIds: string[], items: SchoolItem[], scope?: ImportedItemReplacementScope) => Promise<void>;
+  replaceSnapshot: (snapshot: Pick<HydrationInput, "children" | "items" | "documents">) => Promise<void>;
 }
 
 const isInReplacementScope = (item: SchoolItem, scope: ImportedItemReplacementScope) => {
@@ -46,6 +48,16 @@ export const appRepository: AppRepository = {
   },
   upsertDocument: async (document) => {
     await db.documents.put(document);
+  },
+  replaceSnapshot: async ({ children, items, documents }) => {
+    await db.transaction("rw", db.children, db.items, db.documents, async () => {
+      await Promise.all([db.children.clear(), db.items.clear(), db.documents.clear()]);
+      await Promise.all([
+        children.length > 0 ? db.children.bulkPut(children) : Promise.resolve(),
+        items.length > 0 ? db.items.bulkPut(items) : Promise.resolve(),
+        documents.length > 0 ? db.documents.bulkPut(documents) : Promise.resolve(),
+      ]);
+    });
   },
   replaceItemsForSourceDocuments: async (sourceDocumentIds, items, scope) => {
     await db.transaction("rw", db.items, async () => {

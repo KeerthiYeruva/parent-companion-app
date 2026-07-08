@@ -1,5 +1,6 @@
 import Link from "@/components/routing";
 import { NavShell } from "@/components/nav-shell";
+import { DataBackupPanel } from "@/features/planning/components/data-backup-panel";
 
 const links = [
   { href: "/more/profiles", title: "Child Profiles", description: "Manage child profiles and grade matching" },
@@ -23,6 +24,8 @@ export function MoreView() {
             </Link>
           ))}
         </div>
+
+        <DataBackupPanel />
       </section>
     </NavShell>
   );

@@ -1,7 +1,9 @@
 import type { StateCreator } from "zustand";
+import { appRepository } from "@/db/repositories/app-repository";
+import { buildHydratedSnapshot } from "@/store/hydration";
 import type { AppState } from "@/types/domain";
 
-type PersistenceSlice = Pick<AppState, "persistenceWarnings" | "pushPersistenceWarning" | "clearPersistenceWarnings">;
+type PersistenceSlice = Pick<AppState, "persistenceWarnings" | "pushPersistenceWarning" | "clearPersistenceWarnings" | "importBackupData">;
 
 export const createPersistenceSlice: StateCreator<AppState, [], [], PersistenceSlice> = (set) => ({
   persistenceWarnings: [],
@@ -18,5 +20,10 @@ export const createPersistenceSlice: StateCreator<AppState, [], [], PersistenceS
   },
   clearPersistenceWarnings: () => {
     set({ persistenceWarnings: [] });
+  },
+  importBackupData: async (backup) => {
+    const snapshot = buildHydratedSnapshot(backup);
+    await appRepository.replaceSnapshot(snapshot);
+    set(snapshot);
   },
 });

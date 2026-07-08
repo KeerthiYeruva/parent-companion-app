@@ -66,6 +66,15 @@ export interface ImportIssue {
   resolved: boolean;
 }
 
+export interface PlannerBackup {
+  schemaVersion: 1;
+  exportedAt: string;
+  children: ChildProfile[];
+  items: SchoolItem[];
+  documents: UploadedDocument[];
+  selectedChildIds: string[];
+}
+
 export interface ScanSessionFileRecord {
   documentId: string;
   title: string;
@@ -80,6 +89,7 @@ export interface ScanSessionFileRecord {
   status: "new" | "changed" | "duplicate" | "review";
   scannedAt: string;
   scanRunId: string;
+
   rawRows?: ReviewDraftRecord[];
   importPreviewItems?: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>;
   importPreviewIssues?: ImportIssue[];
@@ -136,6 +146,7 @@ export interface AppState {
   reviewedDocumentIds: string[];
   pushPersistenceWarning: (message: string) => void;
   clearPersistenceWarnings: () => void;
+  importBackupData: (backup: PlannerBackup) => Promise<void>;
   setConnectedFolderName: (folderName: string) => void;
   setScanQueue: (files: ScanSessionFileRecord[], scannedAt: string) => void;
   updateScanFile: (documentId: string, updater: (file: ScanSessionFileRecord) => ScanSessionFileRecord) => void;
