@@ -11,9 +11,9 @@ const links = [
   { href: "/month", label: "Month" },
   { href: "/tests", label: "Tests" },
   { href: "/scan", label: "Scan" },
+  { href: "/kids", label: "Kids" },
   { href: "/homework", label: "Homework" },
   { href: "/activities", label: "Activities" },
-  { href: "/children", label: "Children" },
   { href: "/documents", label: "Documents" },
 ];
 
