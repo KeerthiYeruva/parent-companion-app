@@ -13,8 +13,20 @@ const itemKey = (item: Omit<SchoolItem, "id" | "status" | "completedAt"> | Schoo
   item.subject ?? "",
   item.title.trim().toLowerCase(),
   item.dueDate,
-  item.sourceDocumentId ?? "",
 ].join("__");
+
+const dedupeByItemKey = <T extends Omit<SchoolItem, "id" | "status" | "completedAt"> | SchoolItem>(items: T[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = itemKey(item);
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
 
 export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set, get) => ({
   items: [],
@@ -39,7 +51,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
   },
   replaceItemsForSourceDocuments: (sourceDocumentIds: string[], items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>, scope?: ImportedItemReplacementScope) => {
     const sourceDocumentIdSet = new Set(sourceDocumentIds);
-    const nextItems = items.map((item) => ({
+    const nextItems = dedupeByItemKey(items).map((item) => ({
       ...item,
       id: createId("item"),
       status: deriveStatus(item.dueDate),

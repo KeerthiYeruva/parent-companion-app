@@ -36,7 +36,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
 
     return children[0] ? [children[0].id] : [];
   }, [children, selectedChildIds]);
-  const selectedItems = useMemo(() => parentReadyItems(bySelectedChildren(items, activeChildIds)), [activeChildIds, items]);
+  const selectedItems = useMemo(() => uniqueItems(parentReadyItems(bySelectedChildren(items, activeChildIds))), [activeChildIds, items]);
   const weekItems = useMemo(() => thisWeekItems(selectedItems), [selectedItems]);
   const monthItems = useMemo(() => thisMonthItems(selectedItems), [selectedItems]);
   const weeklyProgress = useMemo(() => completionProgress(weekItems), [weekItems]);
@@ -110,16 +110,15 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
     const upcomingItems = selectedItems
       .filter((item) => {
         const due = dayjs(item.dueDate);
-        return due.isAfter(dayjs(), "day") && due.isBefore(dayjs().add(4, "day"), "day") && item.status !== "Completed";
+        return due.isAfter(dayjs(), "day") && due.isBefore(dayjs().add(4, "day"), "day");
       })
       .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
       .slice(0, 6);
     const upcomingTests = monthItems
-      .filter((item) => testCategories.includes(item.category) && item.status !== "Completed" && !dayjs(item.dueDate).isBefore(dayjs(), "day"))
+      .filter((item) => testCategories.includes(item.category) && !dayjs(item.dueDate).isBefore(dayjs(), "day"))
       .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
       .slice(0, 10);
     const monthPlanItems = monthItems
-      .filter((item) => item.status !== "Completed")
       .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
       .slice(0, 20);
     const weekSummary = summarizeItems(weekItems);
@@ -336,7 +335,16 @@ function parentReadyItems(items: SchoolItem[]) {
 }
 
 function uniqueItems(items: SchoolItem[]) {
-  return items.filter((item, index, allItems) => allItems.findIndex((entry) => entry.id === item.id) === index);
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = [item.childId, item.category, item.subject ?? "", item.title.trim().toLowerCase(), item.dueDate].join("|");
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 }
 
 function TodayChildCard({
