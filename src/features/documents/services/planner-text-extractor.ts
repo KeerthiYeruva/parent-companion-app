@@ -147,20 +147,15 @@ const isUndatedScholasticTableFragment = (line: string) => {
     return true;
   }
 
-  const hasDateToken =
-    /\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b/.test(normalized) ||
-    new RegExp(`\\b${weekdayToken}\\b\\s+\\d{1,2}\\b`, "i").test(normalized) ||
-    new RegExp(`\\b\\d{1,2}\\s+${weekdayToken}\\b`, "i").test(normalized);
+  const hasDateToken = /\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b/.test(normalized);
   if (hasDateToken) {
     return false;
   }
 
-  const startsWithSubject = new RegExp(`^(?:${knownSubjects.map((subject) => subject.replace(/\s+/g, "\\s+")).join("|")})\\b`, "i").test(normalized);
   const subjectChapterFragment = /^(?:english|hindi|mathematics|math|science|social(?:\s+science)?|kannada|computer(?:\s+science)?|gk|general\s+knowledge)\s+chapter\b/i.test(normalized);
 
   return (
     /\b(?:pending\s+portions|chapter\s+name|oral\s+discussion|written\s*-|graded\s+activity.*graded\s+activity)\b/i.test(normalized) ||
-    (startsWithSubject && /\bchapter\b/i.test(normalized)) ||
     subjectChapterFragment
   );
 };

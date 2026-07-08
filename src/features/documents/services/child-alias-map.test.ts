@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildChildAliasMap } from "@/features/documents/services/child-alias-map";
+import { buildChildAliasMap, normalizeGrade } from "@/features/documents/services/child-alias-map";
 
 describe("buildChildAliasMap", () => {
+  it("normalizes detector grade hints with separators", () => {
+    expect(normalizeGrade("CLASS- I")).toBe("1");
+    expect(normalizeGrade("CLASS-I")).toBe("1");
+    expect(normalizeGrade("GRADE_5")).toBe("5");
+  });
+
   it("creates aliases from names and grades", () => {
     const map = buildChildAliasMap([
       {

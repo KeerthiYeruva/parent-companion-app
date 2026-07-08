@@ -26,7 +26,7 @@ export const normalizeGrade = (value: string) => {
   const normalized = value
     .trim()
     .toLowerCase()
-    .replace(/^(grade|class)\s*/i, "")
+    .replace(/^(grade|class)[\s_-]*[-:]?[\s_-]*/i, "")
     .trim();
 
   return romanToNumber[normalized] ?? normalized;
