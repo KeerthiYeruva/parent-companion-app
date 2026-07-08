@@ -6,16 +6,18 @@ import { detectPlannerDocument } from "@/features/documents/services/document-de
 import { extractPdfText } from "@/features/documents/services/pdf-parser";
 import { extractPlannerRows } from "@/features/documents/services/planner-text-extractor";
 import { importPipeline } from "@/features/import";
-import type { FolderScanResult } from "@/features/documents/types/document-intelligence";
 import { useAppStore } from "@/store/use-app-store";
+import type { ScanSessionFileRecord } from "@/types/domain";
 
 export function SmartFolderImport() {
   const children = useAppStore((state) => state.children);
   const documents = useAppStore((state) => state.documents);
   const addDocument = useAppStore((state) => state.addDocument);
   const addItem = useAppStore((state) => state.addItem);
+  const scanQueue = useAppStore((state) => state.scanQueue);
+  const setConnectedFolderName = useAppStore((state) => state.setConnectedFolderName);
+  const setScanQueue = useAppStore((state) => state.setScanQueue);
   const pushPersistenceWarning = useAppStore((state) => state.pushPersistenceWarning);
-  const [scanResults, setScanResults] = useState<FolderScanResult[]>([]);
   const [isScanning, setIsScanning] = useState(false);
 
   const childNameToIdMap = useMemo(() => {
@@ -40,7 +42,9 @@ export function SmartFolderImport() {
     setIsScanning(true);
 
     try {
-      const nextResults: FolderScanResult[] = [];
+      const scannedAt = new Date().toISOString();
+      const scanRunId = `scan-run-${crypto.randomUUID()}`;
+      const nextResults = [];
 
       for (const file of Array.from(files)) {
         let contentText = "";
@@ -79,9 +83,15 @@ export function SmartFolderImport() {
             : undefined;
 
         const existing = existingByHash.get(detected.fileHash);
-        const status = existing ? (existing.modifiedAt === new Date(file.lastModified).toISOString() ? "duplicate" : "changed") : "new";
+        const derivedStatus: ScanSessionFileRecord["status"] = existing
+          ? existing.modifiedAt === new Date(file.lastModified).toISOString()
+            ? "duplicate"
+            : "changed"
+          : "new";
+        const status: ScanSessionFileRecord["status"] = importPreview && importPreview.issues.length > 0 && derivedStatus !== "duplicate" ? "review" : derivedStatus;
 
         nextResults.push({
+          documentId: detected.fileHash,
           title: detected.title,
           fileName: file.name,
           relativePath,
@@ -92,18 +102,34 @@ export function SmartFolderImport() {
           monthLabel: detected.monthLabel,
           childHints: detected.childHints,
           status,
-          importPreview,
+          scannedAt,
+          scanRunId,
+          rawRows: rawRows.map((row, index) => ({
+            documentId: detected.fileHash,
+            rowIndex: index,
+            childName: row.childName,
+            category: row.category,
+            subject: row.subject,
+            title: row.title,
+            dueDate: row.dueDate,
+            description: row.description,
+            sourceDocumentId: row.sourceDocumentId,
+          })),
+          importPreviewItems: importPreview?.items,
+          importPreviewIssues: importPreview?.issues,
+          importPreviewSummary: importPreview?.summary,
         });
       }
 
-      setScanResults(nextResults);
+      setConnectedFolderName("Selected PDF files");
+      setScanQueue(nextResults, scannedAt);
     } finally {
       setIsScanning(false);
     }
   };
 
   const importScannedDocuments = () => {
-    scanResults
+    scanQueue
       .filter((result) => result.status !== "duplicate")
       .forEach((result) => {
         addDocument({
@@ -121,8 +147,8 @@ export function SmartFolderImport() {
   };
 
   const importExtractedItems = () => {
-    scanResults.forEach((result) => {
-      result.importPreview?.items.forEach((item) => {
+    scanQueue.forEach((result) => {
+      result.importPreviewItems?.forEach((item) => {
         addItem(item);
       });
     });
@@ -145,7 +171,7 @@ export function SmartFolderImport() {
         <button
           type="button"
           onClick={importScannedDocuments}
-          disabled={scanResults.length === 0}
+          disabled={scanQueue.length === 0}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           Save Detected Files
@@ -153,7 +179,7 @@ export function SmartFolderImport() {
         <button
           type="button"
           onClick={importExtractedItems}
-          disabled={!scanResults.some((result) => (result.importPreview?.items.length ?? 0) > 0)}
+          disabled={!scanQueue.some((result) => (result.importPreviewItems?.length ?? 0) > 0)}
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           Import Extracted Items
@@ -162,10 +188,10 @@ export function SmartFolderImport() {
 
       {isScanning ? <p className="text-sm text-slate-600">Scanning files and extracting text...</p> : null}
 
-      {scanResults.length > 0 ? (
+      {scanQueue.length > 0 ? (
         <div className="space-y-2">
-          {scanResults.map((result) => (
-            <article key={result.fileHash} className="rounded-lg border border-slate-200 p-3">
+          {scanQueue.map((result) => (
+            <article key={result.documentId} className="rounded-lg border border-slate-200 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-medium text-slate-900">{result.title}</p>
@@ -188,14 +214,14 @@ export function SmartFolderImport() {
               {result.childHints.length > 0 ? (
                 <p className="mt-2 text-sm text-slate-600">Hints: {result.childHints.join(", ")}</p>
               ) : null}
-              {result.importPreview ? (
+              {result.importPreviewSummary ? (
                 <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm text-slate-700">
                   <p>
-                    Extracted items: {result.importPreview.summary.validRecords} | Issues: {result.importPreview.summary.issuesCount}
+                    Extracted items: {result.importPreviewSummary.validRecords} | Issues: {result.importPreviewSummary.issuesCount}
                   </p>
-                  {result.importPreview.issues.length > 0 ? (
+                  {result.importPreviewIssues && result.importPreviewIssues.length > 0 ? (
                     <ul className="mt-1 space-y-1">
-                      {result.importPreview.issues.slice(0, 3).map((issue) => (
+                      {result.importPreviewIssues.slice(0, 3).map((issue) => (
                         <li key={issue.id} className="text-rose-700">
                           {issue.issue}
                         </li>

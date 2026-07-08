@@ -23,6 +23,8 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
   const seedDemoData = useAppStore((state) => state.seedDemoData);
   const children = useAppStore((state) => state.children);
   const items = useAppStore((state) => state.items);
+  const scanQueue = useAppStore((state) => state.scanQueue);
+  const lastScanAt = useAppStore((state) => state.lastScanAt);
   const selectedChildIds = useAppStore((state) => state.selectedChildIds);
 
   useEffect(() => {
@@ -48,8 +50,24 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
   let content = null;
 
   if (mode === "dashboard") {
+    const reviewCount = scanQueue.filter((file) => file.status === "review").length;
     content = (
       <>
+        <section className="grid gap-3 md:grid-cols-3">
+          <article className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-sm text-slate-600">Last Scan</p>
+            <p className="text-lg font-semibold text-slate-900">{lastScanAt ? dayjs(lastScanAt).format("DD MMM, hh:mm A") : "Not scanned yet"}</p>
+          </article>
+          <article className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-sm text-slate-600">Files in Queue</p>
+            <p className="text-3xl font-bold text-slate-900">{scanQueue.length}</p>
+          </article>
+          <article className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-sm text-slate-600">Needs Review</p>
+            <p className="text-3xl font-bold text-slate-900">{reviewCount}</p>
+          </article>
+        </section>
+
         <section className="grid gap-3 md:grid-cols-2">
           {children.map((child) => {
             const summary = childSummary(child, selectedItems);

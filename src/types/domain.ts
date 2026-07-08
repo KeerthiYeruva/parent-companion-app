@@ -66,6 +66,53 @@ export interface ImportIssue {
   resolved: boolean;
 }
 
+export interface ScanSessionFileRecord {
+  documentId: string;
+  title: string;
+  fileName: string;
+  relativePath: string;
+  fileHash: string;
+  modifiedAt: string;
+  fileSize: number;
+  detectedType: DocumentType | "Unknown";
+  monthLabel?: string;
+  childHints: string[];
+  status: "new" | "changed" | "duplicate" | "review";
+  scannedAt: string;
+  scanRunId: string;
+  rawRows?: ReviewDraftRecord[];
+  importPreviewItems?: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>;
+  importPreviewIssues?: ImportIssue[];
+  importPreviewSummary?: {
+    totalRecords: number;
+    normalizedRecords: number;
+    validRecords: number;
+    issuesCount: number;
+  };
+}
+
+export interface ScanRunRecord {
+  id: string;
+  scannedAt: string;
+  fileCount: number;
+  newCount: number;
+  changedCount: number;
+  duplicateCount: number;
+  reviewCount: number;
+}
+
+export interface ReviewDraftRecord {
+  documentId: string;
+  rowIndex: number;
+  childName?: string;
+  category?: string;
+  subject?: string;
+  title?: string;
+  dueDate?: string;
+  description?: string;
+  sourceDocumentId?: string;
+}
+
 export interface AppState {
   children: ChildProfile[];
   items: SchoolItem[];
@@ -73,8 +120,22 @@ export interface AppState {
   importIssues: ImportIssue[];
   persistenceWarnings: string[];
   selectedChildIds: string[];
+  connectedFolderName?: string;
+  lastScanAt?: string;
+  scanQueue: ScanSessionFileRecord[];
+  scanHistory: ScanRunRecord[];
+  reviewDrafts: ReviewDraftRecord[];
+  reviewedDocumentIds: string[];
   pushPersistenceWarning: (message: string) => void;
   clearPersistenceWarnings: () => void;
+  setConnectedFolderName: (folderName: string) => void;
+  setScanQueue: (files: ScanSessionFileRecord[], scannedAt: string) => void;
+  updateScanFile: (documentId: string, updater: (file: ScanSessionFileRecord) => ScanSessionFileRecord) => void;
+  clearScanQueue: () => void;
+  hydrateScanHistory: () => Promise<void>;
+  upsertReviewDraft: (draft: ReviewDraftRecord) => void;
+  clearReviewDraftsForDocument: (documentId: string) => void;
+  markDocumentReviewed: (documentId: string) => void;
   addChild: (child: Omit<ChildProfile, "id" | "colorTag">) => void;
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => void;
   toggleItemComplete: (id: string) => void;

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { ChildProfile, SchoolItem, UploadedDocument } from "@/types/domain";
+import type { ChildProfile, ScanRunRecord, ScanSessionFileRecord, SchoolItem, UploadedDocument } from "@/types/domain";
 
 export interface StoredDocument {
   id: string;
@@ -19,6 +19,8 @@ class ParentCompanionDB extends Dexie {
   children!: Table<ChildProfile, string>;
   items!: Table<SchoolItem, string>;
   documents!: Table<StoredDocument, string>;
+  scanRuns!: Table<ScanRunRecord, string>;
+  scanFiles!: Table<ScanSessionFileRecord, string>;
 
   constructor() {
     super("parentCompanionDB");
@@ -30,6 +32,14 @@ class ParentCompanionDB extends Dexie {
       children: "id, grade, academicYear",
       items: "id, childId, category, dueDate, status, [childId+dueDate]",
       documents: "id, type, uploadedAt, fileHash, relativePath, extractedMonth",
+    });
+
+    this.version(3).stores({
+      children: "id, grade, academicYear",
+      items: "id, childId, category, dueDate, status, [childId+dueDate]",
+      documents: "id, type, uploadedAt, fileHash, relativePath, extractedMonth",
+      scanRuns: "id, scannedAt",
+      scanFiles: "documentId, scanRunId, fileHash, status, scannedAt",
     });
   }
 }

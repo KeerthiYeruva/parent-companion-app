@@ -10,6 +10,7 @@ const links = [
   { href: "/week", label: "Week" },
   { href: "/month", label: "Month" },
   { href: "/tests", label: "Tests" },
+  { href: "/scan", label: "Scan" },
   { href: "/homework", label: "Homework" },
   { href: "/activities", label: "Activities" },
   { href: "/children", label: "Children" },

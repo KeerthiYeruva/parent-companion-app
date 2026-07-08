@@ -10,6 +10,8 @@ import { createChildrenSlice } from "@/store/slices/children-slice";
 import { createItemsSlice } from "@/store/slices/items-slice";
 import { createDocumentsSlice } from "@/store/slices/documents-slice";
 import { createPersistenceSlice } from "@/store/slices/persistence-slice";
+import { createReviewSlice } from "@/store/slices/review-slice";
+import { createScanSlice } from "@/store/slices/scan-slice";
 import { createSelectionSlice } from "@/store/slices/selection-slice";
 
 let hydrationPromise: Promise<void> | null = null;
@@ -21,6 +23,8 @@ export const useAppStore = create<AppState>()(
       ...createItemsSlice(set, get, store),
       ...createDocumentsSlice(set, get, store),
       ...createPersistenceSlice(set, get, store),
+      ...createScanSlice(set, get, store),
+      ...createReviewSlice(set, get, store),
       ...createSelectionSlice(set, get, store),
       seedDemoData: () => {
         const state = get();
@@ -75,6 +79,11 @@ export const useAppStore = create<AppState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         selectedChildIds: state.selectedChildIds,
+        connectedFolderName: state.connectedFolderName,
+        lastScanAt: state.lastScanAt,
+        scanQueue: state.scanQueue,
+        reviewDrafts: state.reviewDrafts,
+        reviewedDocumentIds: state.reviewedDocumentIds,
       }),
     },
   ),
