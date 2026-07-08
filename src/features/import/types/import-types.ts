@@ -5,6 +5,7 @@ export type ImportSourceType = "manual" | "csv" | "future-pdf";
 export interface RawImportRecord {
   childName?: string;
   category?: string;
+  subject?: string;
   title?: string;
   dueDate?: string;
   description?: string;
@@ -16,6 +17,7 @@ export interface NormalizedImportRecord {
   rawChildName?: string;
   category?: ItemCategory;
   rawCategory?: string;
+  subject?: string;
   title: string;
   dueDate?: string;
   description?: string;

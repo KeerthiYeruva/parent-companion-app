@@ -57,6 +57,7 @@ export const importNormalizer: ImportNormalizer = {
         rawChildName,
         category: normalizeCategory(rawCategory),
         rawCategory,
+        subject: record.subject?.trim(),
         title: record.title?.trim() ?? "",
         dueDate: normalizeDueDate(record.dueDate),
         description: record.description?.trim(),

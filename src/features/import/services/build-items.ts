@@ -7,6 +7,7 @@ export const importItemBuilder: ImportItemBuilder = {
     return records.map((record) => ({
       childId: record.childId!,
       category: record.category!,
+      subject: record.subject,
       title: record.title,
       description: record.description,
       dueDate: record.dueDate!,

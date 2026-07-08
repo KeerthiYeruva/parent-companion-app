@@ -32,6 +32,21 @@ const datePatterns = [
 ];
 
 const weekdayToken = "(?:mon|monday|tue|tues|tuesday|wed|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday|sun|sunday)";
+const knownSubjects = [
+  "Math",
+  "Mathematics",
+  "English",
+  "Hindi",
+  "Science",
+  "Social",
+  "Social Science",
+  "EVS",
+  "Computer",
+  "GK",
+  "Art",
+  "Dance",
+  "Music",
+];
 
 const inferCategory = (line: string) => {
   const match = categoryPatterns.find((entry) => entry.pattern.test(line));
@@ -144,10 +159,23 @@ const extractDelimitedRow = (
   };
 };
 
-const inferChildName = (text: string, relativePath: string, childNames: string[]) => {
+const inferChildName = (text: string, relativePath: string, childAliases: string[]) => {
   const haystack = `${relativePath}\n${text}`.toLowerCase();
-  const match = childNames.find((childName) => haystack.includes(childName.toLowerCase()));
+  const match = childAliases.find((childName) => haystack.includes(childName.toLowerCase()));
   return match;
+};
+
+const extractSubjectParts = (title: string): { subject?: string; title: string } => {
+  const subject = knownSubjects.find((entry) => new RegExp(`^${entry.replace(/\s+/g, "\\s+")}\\b`, "i").test(title));
+  if (!subject) {
+    return { title };
+  }
+
+  const nextTitle = title.replace(new RegExp(`^${subject.replace(/\s+/g, "\\s+")}\\b[:\-\s]*`, "i"), "").trim();
+  return {
+    subject,
+    title: nextTitle || title,
+  };
 };
 
 const cleanTitle = (line: string, category: string, dateToken?: string) => {
@@ -192,10 +220,12 @@ export const extractPlannerRows = ({
 
       const delimitedRow = extractDelimitedRow(line, state.currentCategory, defaultMonthLabel, defaultYear);
       if (delimitedRow?.title) {
+        const subjectParts = extractSubjectParts(delimitedRow.title);
         state.records.push({
           childName: inferredChildName,
           category: delimitedRow.category,
-          title: delimitedRow.title,
+          subject: subjectParts.subject,
+          title: subjectParts.title,
           dueDate: delimitedRow.dateParts.dueDate,
           description: delimitedRow.description,
         });
@@ -214,10 +244,13 @@ export const extractPlannerRows = ({
         return state;
       }
 
+      const subjectParts = extractSubjectParts(title);
+
       state.records.push({
         childName: inferredChildName,
         category,
-        title,
+        subject: subjectParts.subject,
+        title: subjectParts.title,
         dueDate: dateParts.dueDate,
         description: line,
       });

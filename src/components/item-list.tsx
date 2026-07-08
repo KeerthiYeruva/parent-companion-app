@@ -22,6 +22,7 @@ export function ItemList({ items, emptyText }: { items: SchoolItem[]; emptyText:
               <div>
                 <p className="font-medium text-slate-900">{item.title}</p>
                 <p className="text-sm text-slate-600">
+                  {item.subject ? `${item.subject} • ` : ""}
                   {item.category} • {child?.name ?? "Unknown child"} • {dayjs(item.dueDate).format("DD MMM")}
                 </p>
               </div>

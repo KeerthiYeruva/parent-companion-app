@@ -33,6 +33,7 @@ export interface SchoolItem {
   id: string;
   childId: string;
   category: ItemCategory;
+  subject?: string;
   title: string;
   description?: string;
   dueDate: string;

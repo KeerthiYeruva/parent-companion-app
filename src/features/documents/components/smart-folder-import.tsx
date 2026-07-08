@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { buildChildAliasMap } from "@/features/documents/services/child-alias-map";
 import { detectPlannerDocument } from "@/features/documents/services/document-detector";
 import { extractPdfText } from "@/features/documents/services/pdf-parser";
 import { extractPlannerRows } from "@/features/documents/services/planner-text-extractor";
@@ -18,11 +19,7 @@ export function SmartFolderImport() {
   const [isScanning, setIsScanning] = useState(false);
 
   const childNameToIdMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    children.forEach((child) => {
-      map[child.name.trim().toLowerCase()] = child.id;
-    });
-    return map;
+    return buildChildAliasMap(children);
   }, [children]);
 
   const existingByHash = useMemo(() => {
@@ -68,7 +65,7 @@ export function SmartFolderImport() {
           ? extractPlannerRows({
               contentText,
               relativePath,
-              childNames: children.map((child) => child.name),
+              childNames: Object.keys(childNameToIdMap),
             })
           : [];
 
