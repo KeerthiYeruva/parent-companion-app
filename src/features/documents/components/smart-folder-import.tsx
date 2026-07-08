@@ -3,15 +3,27 @@
 import { useMemo, useState } from "react";
 import { detectPlannerDocument } from "@/features/documents/services/document-detector";
 import { extractPdfText } from "@/features/documents/services/pdf-parser";
+import { extractPlannerRows } from "@/features/documents/services/planner-text-extractor";
+import { importPipeline } from "@/features/import";
 import type { FolderScanResult } from "@/features/documents/types/document-intelligence";
 import { useAppStore } from "@/store/use-app-store";
 
 export function SmartFolderImport() {
+  const children = useAppStore((state) => state.children);
   const documents = useAppStore((state) => state.documents);
   const addDocument = useAppStore((state) => state.addDocument);
+  const addItem = useAppStore((state) => state.addItem);
   const pushPersistenceWarning = useAppStore((state) => state.pushPersistenceWarning);
   const [scanResults, setScanResults] = useState<FolderScanResult[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+
+  const childNameToIdMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    children.forEach((child) => {
+      map[child.name.trim().toLowerCase()] = child.id;
+    });
+    return map;
+  }, [children]);
 
   const existingByHash = useMemo(() => {
     const map = new Map<string, { modifiedAt?: string }>();
@@ -52,6 +64,23 @@ export function SmartFolderImport() {
           contentText,
         });
 
+        const rawRows = contentText
+          ? extractPlannerRows({
+              contentText,
+              relativePath,
+              childNames: children.map((child) => child.name),
+            })
+          : [];
+
+        const importPreview =
+          rawRows.length > 0
+            ? importPipeline.run(rawRows, {
+                sourceType: "future-pdf",
+                documentId: detected.fileHash,
+                childNameToIdMap,
+              })
+            : undefined;
+
         const existing = existingByHash.get(detected.fileHash);
         const status = existing ? (existing.modifiedAt === new Date(file.lastModified).toISOString() ? "duplicate" : "changed") : "new";
 
@@ -66,6 +95,7 @@ export function SmartFolderImport() {
           monthLabel: detected.monthLabel,
           childHints: detected.childHints,
           status,
+          importPreview,
         });
       }
 
@@ -93,6 +123,14 @@ export function SmartFolderImport() {
       });
   };
 
+  const importExtractedItems = () => {
+    scanResults.forEach((result) => {
+      result.importPreview?.items.forEach((item) => {
+        addItem(item);
+      });
+    });
+  };
+
   return (
     <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       <div>
@@ -114,6 +152,14 @@ export function SmartFolderImport() {
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           Save Detected Files
+        </button>
+        <button
+          type="button"
+          onClick={importExtractedItems}
+          disabled={!scanResults.some((result) => (result.importPreview?.items.length ?? 0) > 0)}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Import Extracted Items
         </button>
       </div>
 
@@ -144,6 +190,22 @@ export function SmartFolderImport() {
               </div>
               {result.childHints.length > 0 ? (
                 <p className="mt-2 text-sm text-slate-600">Hints: {result.childHints.join(", ")}</p>
+              ) : null}
+              {result.importPreview ? (
+                <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm text-slate-700">
+                  <p>
+                    Extracted items: {result.importPreview.summary.validRecords} | Issues: {result.importPreview.summary.issuesCount}
+                  </p>
+                  {result.importPreview.issues.length > 0 ? (
+                    <ul className="mt-1 space-y-1">
+                      {result.importPreview.issues.slice(0, 3).map((issue) => (
+                        <li key={issue.id} className="text-rose-700">
+                          {issue.issue}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
               ) : null}
             </article>
           ))}

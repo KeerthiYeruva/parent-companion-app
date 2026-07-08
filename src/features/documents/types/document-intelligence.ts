@@ -1,4 +1,5 @@
 import type { DocumentType, UploadedDocument } from "@/types/domain";
+import type { ImportPipelineResult } from "@/features/import";
 
 export interface FolderScanFile {
   name: string;
@@ -19,6 +20,7 @@ export interface FolderScanResult {
   monthLabel?: string;
   childHints: string[];
   status: "new" | "changed" | "duplicate";
+  importPreview?: ImportPipelineResult;
 }
 
 export interface PlannerExtractionSummary {
