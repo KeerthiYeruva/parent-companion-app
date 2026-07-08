@@ -4,25 +4,27 @@ import { useEffect, type ReactNode } from "react";
 import Link, { usePathname } from "@/components/routing";
 import { useAppStore } from "@/store/use-app-store";
 
-const navGroups = [
-  {
-    label: "Family",
-    links: [
-      { href: "/", label: "Dashboard" },
-      { href: "/day", label: "Today" },
-      { href: "/week", label: "This Week" },
-      { href: "/month", label: "This Month" },
-      { href: "/kids", label: "My Kids" },
-    ],
-  },
-  {
-    label: "Setup",
-    links: [
-      { href: "/documents", label: "Upload Documents" },
-      { href: "/children", label: "Profiles" },
-    ],
-  },
+const primaryLinks = [
+  { href: "/", label: "Today" },
+  { href: "/week", label: "Week" },
+  { href: "/kids", label: "Kids" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/more", label: "More" },
 ];
+
+const morePaths = ["/more", "/month", "/documents", "/children", "/scan", "/tests", "/homework", "/activities"];
+
+const isActiveLink = (pathname: string, href: string) => {
+  if (href === "/") {
+    return pathname === "/" || pathname === "/day";
+  }
+
+  if (href === "/more") {
+    return morePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+};
 
 export function NavShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -41,7 +43,7 @@ export function NavShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">Parent Companion</h1>
-            <p className="text-sm text-slate-600">Upload school PDFs, then track each child&apos;s weekly progress</p>
+            <p className="text-sm text-slate-600">Today&apos;s school work, already organized from PDFs</p>
           </div>
         </div>
       </header>
@@ -64,36 +66,40 @@ export function NavShell({ children }: { children: ReactNode }) {
         </div>
       ) : null}
 
-      <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 md:grid-cols-[220px_1fr]">
-        <nav className="rounded-xl border border-slate-200 bg-white p-3">
-          <div className="space-y-4">
-            {navGroups.map((group) => (
-              <div key={group.label}>
-                <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{group.label}</p>
-                <ul className="space-y-1">
-                  {group.links.map((link) => {
-                    const active = pathname === link.href || (link.href === "/documents" && pathname.startsWith("/scan"));
-                    return (
-                      <li key={link.href}>
-                        <Link
-                          href={link.href}
-                          className={`block rounded-lg px-3 py-2 text-sm ${
-                            active ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-100"
-                          }`}
-                        >
-                          {link.label}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
+      <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 pb-24 md:grid-cols-[220px_1fr] md:pb-4">
+        <nav className="hidden rounded-xl border border-slate-200 bg-white p-3 md:block">
+          <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Plan</p>
+          <ul className="space-y-1">
+            {primaryLinks.map((link) => {
+              const active = isActiveLink(pathname, link.href);
+              return (
+                <li key={link.href}>
+                  <Link href={link.href} className={`block rounded-lg px-3 py-2 text-sm ${active ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-100"}`}>
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </nav>
 
         <main className="space-y-4">{children}</main>
       </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-[0_-6px_20px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
+        <ul className="mx-auto grid max-w-md grid-cols-5 gap-1">
+          {primaryLinks.map((link) => {
+            const active = isActiveLink(pathname, link.href);
+            return (
+              <li key={link.href}>
+                <Link href={link.href} className={`block rounded-lg px-1 py-2 text-center text-xs font-medium ${active ? "bg-blue-50 text-blue-700" : "text-slate-600"}`}>
+                  {link.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </div>
   );
 }

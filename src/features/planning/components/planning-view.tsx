@@ -21,7 +21,7 @@ import {
 import type { ChildProfile, SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
 
-export type PlanningMode = "dashboard" | "day" | "week" | "month" | "tests" | "homework" | "activities";
+export type PlanningMode = "dashboard" | "day" | "week" | "month" | "tasks" | "tests" | "homework" | "activities";
 
 export function PlanningView({ mode }: { mode: PlanningMode }) {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -47,6 +47,8 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
         ? "This Week"
         : mode === "month"
           ? "This Month"
+          : mode === "tasks"
+            ? "Tasks"
           : mode === "tests"
             ? "Tests Center"
             : mode === "homework"
@@ -78,13 +80,43 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
   }
 
   if (mode === "day") {
-    const groups = itemsByChild(children, dayItems).filter((group) => selectedChildIds.length === 0 || selectedChildIds.includes(group.child.id));
+    const tomorrow = dayjs().add(1, "day").format("YYYY-MM-DD");
+    const groups = children
+      .filter((child) => selectedChildIds.length === 0 || selectedChildIds.includes(child.id))
+      .map((child) => {
+        const childDayItems = dayItems.filter((item) => item.childId === child.id);
+        const tomorrowTests = selectedItems.filter(
+          (item) => item.childId === child.id && item.dueDate === tomorrow && ["ClassTest", "UnitTest", "Exam"].includes(item.category) && item.status !== "Completed",
+        );
+        const priorityItems = [...tomorrowTests, ...childDayItems].filter((item, index, allItems) => allItems.findIndex((entry) => entry.id === item.id) === index);
+
+        return {
+          child,
+          items: priorityItems,
+          progress: completionProgress(priorityItems),
+        };
+      });
+    const upcomingItems = selectedItems
+      .filter((item) => {
+        const due = dayjs(item.dueDate);
+        return due.isAfter(dayjs(), "day") && due.isBefore(dayjs().add(4, "day"), "day") && item.status !== "Completed";
+      })
+      .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
+      .slice(0, 6);
+    const weekSummary = summarizeItems(weekItems);
+    const monthSummary = summarizeItems(monthItems);
 
     content = (
       <section className="space-y-3">
-        <ProgressCard label="Today's Progress" progress={dailyProgress} />
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <p className="text-sm font-medium text-slate-500">Today</p>
+          <h3 className="mt-1 text-3xl font-bold text-slate-950">{dailyProgress.label}</h3>
+          <div className="mt-3 h-2 rounded-full bg-slate-100">
+            <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${dailyProgress.percent}%` }} />
+          </div>
+        </div>
         {groups.map((group) => (
-          <div key={group.child.id} className="rounded-xl border border-slate-200 bg-white p-4">
+          <article key={group.child.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className={`h-3 w-3 rounded-full ${group.child.colorTag}`} />
@@ -93,8 +125,28 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
               <span className="text-sm font-medium text-slate-600">{group.progress.label}</span>
             </div>
             {group.items.length > 0 ? <CompactWeekItemList items={group.items} /> : <ItemList items={[]} emptyText="Nothing due today." />}
-          </div>
+          </article>
         ))}
+        <SummarySection title="Upcoming" subtitle="Next 3 days" items={upcomingItems} emptyText="No upcoming priorities in the next 3 days." />
+        <section className="grid gap-3 sm:grid-cols-2">
+          <PlanSummaryCard title="This Week" summary={weekSummary} />
+          <PlanSummaryCard title="This Month" summary={monthSummary} />
+        </section>
+      </section>
+    );
+  }
+
+  if (mode === "tasks") {
+    const openItems = splitOpenAndCompletedItems(selectedItems).open.sort((first, second) => first.dueDate.localeCompare(second.dueDate));
+    const overdue = openItems.filter((item) => dayjs(item.dueDate).isBefore(dayjs(), "day"));
+    const today = openItems.filter((item) => dayjs(item.dueDate).isSame(dayjs(), "day"));
+    const upcoming = openItems.filter((item) => dayjs(item.dueDate).isAfter(dayjs(), "day"));
+
+    content = (
+      <section className="space-y-3">
+        <SummarySection title="Overdue" items={overdue} emptyText="No overdue tasks." />
+        <SummarySection title="Today" items={today} emptyText="Nothing due today." />
+        <SummarySection title="Upcoming" items={upcoming.slice(0, 20)} emptyText="No upcoming tasks." />
       </section>
     );
   }
@@ -327,6 +379,42 @@ function WeekStatusButton({ active, label, onClick }: { active: boolean; label: 
     >
       {label}
     </button>
+  );
+}
+
+function summarizeItems(items: SchoolItem[]) {
+  return {
+    tasks: items.filter((item) => ["Homework", "HomeStudy", "Project"].includes(item.category)).length,
+    tests: items.filter((item) => ["ClassTest", "UnitTest", "Exam"].includes(item.category)).length,
+    activities: items.filter((item) => item.category === "Activity").length,
+  };
+}
+
+function PlanSummaryCard({ title, summary }: { title: string; summary: ReturnType<typeof summarizeItems> }) {
+  return (
+    <article className="rounded-xl border border-slate-200 bg-white p-4">
+      <h3 className="font-semibold text-slate-900">{title}</h3>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm text-slate-600">
+        <p className="rounded-lg bg-slate-50 px-2 py-2"><span className="block text-lg font-bold text-slate-950">{summary.tasks}</span>Tasks</p>
+        <p className="rounded-lg bg-slate-50 px-2 py-2"><span className="block text-lg font-bold text-slate-950">{summary.tests}</span>Tests</p>
+        <p className="rounded-lg bg-slate-50 px-2 py-2"><span className="block text-lg font-bold text-slate-950">{summary.activities}</span>Activities</p>
+      </div>
+    </article>
+  );
+}
+
+function SummarySection({ title, subtitle, items, emptyText }: { title: string; subtitle?: string; items: SchoolItem[]; emptyText: string }) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-slate-900">{title}</h3>
+          {subtitle ? <p className="text-sm text-slate-500">{subtitle}</p> : null}
+        </div>
+        <span className="text-xs font-medium text-slate-500">{items.length}</span>
+      </div>
+      {items.length > 0 ? <CompactWeekItemList items={items} /> : <ItemList items={[]} emptyText={emptyText} />}
+    </section>
   );
 }
 

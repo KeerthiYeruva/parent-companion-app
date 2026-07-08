@@ -10,10 +10,23 @@ type PdfJsModule = {
     promise: Promise<{
       numPages: number;
       getPage: (pageNumber: number) => Promise<{
-        getTextContent: () => Promise<{ items: Array<{ str?: string; transform?: number[] }> }>;
+        getTextContent: () => Promise<{ items: PdfTextItem[] }>;
       }>;
     }>;
   };
+};
+
+type PdfTextItem = {
+  str?: string;
+  transform?: number[];
+  width?: number;
+};
+
+type PositionedText = {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
 };
 
 const loadPdfJs = async (): Promise<PdfJsModule> => {
@@ -21,26 +34,104 @@ const loadPdfJs = async (): Promise<PdfJsModule> => {
   return module as PdfJsModule;
 };
 
-const groupTextIntoLines = (items: Array<{ str?: string; transform?: number[] }>) => {
-  const lines = new Map<number, string[]>();
+const tableGapThreshold = 18;
+const dateCellPattern = /\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/;
+
+const toPositionedText = (item: PdfTextItem): PositionedText | undefined => {
+  const text = item.str?.trim();
+  if (!text) {
+    return undefined;
+  }
+
+  return {
+    text,
+    x: item.transform?.[4] ?? 0,
+    y: item.transform?.[5] ?? 0,
+    width: item.width ?? 0,
+  };
+};
+
+const findDateColumnStarts = (rows: PositionedText[][]) => {
+  const headerRow = rows.find((row) => row.filter((item) => dateCellPattern.test(item.text)).length >= 2);
+  return headerRow
+    ?.filter((item) => dateCellPattern.test(item.text))
+    .sort((left, right) => left.x - right.x)
+    .map((item) => item.x);
+};
+
+const nearestDateColumnIndex = (x: number, dateColumnStarts: number[]) => {
+  return dateColumnStarts.reduce((nearestIndex, columnStart, index) => {
+    const nearestDistance = Math.abs(x - dateColumnStarts[nearestIndex]);
+    const nextDistance = Math.abs(x - columnStart);
+    return nextDistance < nearestDistance ? index : nearestIndex;
+  }, 0);
+};
+
+const formatTableRow = (items: PositionedText[], dateColumnStarts: number[]) => {
+  const firstDateColumn = dateColumnStarts[0];
+  const columns = Array.from({ length: dateColumnStarts.length + 1 }, () => [] as PositionedText[]);
 
   items.forEach((item) => {
-    const text = item.str?.trim();
-    if (!text) {
+    const columnIndex = item.x < firstDateColumn - 40 ? 0 : nearestDateColumnIndex(item.x, dateColumnStarts) + 1;
+    columns[columnIndex]?.push(item);
+  });
+
+  while (columns.length > 0 && columns[columns.length - 1].length === 0) {
+    columns.pop();
+  }
+
+  return columns
+    .map((column) => column.sort((left, right) => left.x - right.x).map((item) => item.text).join(" ").replace(/\s+/g, " ").trim())
+    .join("\t")
+    .trimEnd();
+};
+
+const formatTextRow = (items: PositionedText[]) => {
+  return [...items]
+    .sort((left, right) => left.x - right.x)
+    .reduce<{ text: string; previousRight?: number }>((state, item) => {
+      if (!state.text) {
+        return { text: item.text, previousRight: item.x + item.width };
+      }
+
+      const gap = item.x - (state.previousRight ?? item.x);
+      const separator = gap > tableGapThreshold ? "\t" : " ";
+
+      return {
+        text: `${state.text}${separator}${item.text}`,
+        previousRight: item.x + item.width,
+      };
+    }, { text: "" }).text
+    .replace(/[ \t]+/g, (match) => (match.includes("\t") ? "\t" : " "))
+    .trim();
+};
+
+const groupTextIntoLines = (items: PdfTextItem[], fallbackDateColumnStarts?: number[]) => {
+  const lines = new Map<number, PositionedText[]>();
+
+  items.forEach((item) => {
+    const positionedText = toPositionedText(item);
+    if (!positionedText) {
       return;
     }
 
-    const y = item.transform?.[5];
-    const key = typeof y === "number" ? Math.round(y) : 0;
+    const key = Math.round(positionedText.y);
     const bucket = lines.get(key) ?? [];
-    bucket.push(text);
+    bucket.push(positionedText);
     lines.set(key, bucket);
   });
 
-  return Array.from(lines.entries())
+  const sortedRows = Array.from(lines.entries())
     .sort((left, right) => right[0] - left[0])
-    .map(([, bucket]) => bucket.join(" ").replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+    .map(([, bucket]) => bucket);
+  const dateColumnStarts = findDateColumnStarts(sortedRows) ?? fallbackDateColumnStarts;
+
+  return {
+    dateColumnStarts,
+    lines: sortedRows
+      .map((bucket) => (dateColumnStarts && dateColumnStarts.length >= 2 ? formatTableRow(bucket, dateColumnStarts) : formatTextRow(bucket)))
+      .filter(Boolean),
+  };
 };
 
 export const extractPdfText = async (file: File): Promise<string> => {
@@ -59,12 +150,14 @@ export const extractPdfText = async (file: File): Promise<string> => {
     isEvalSupported: false,
   }).promise;
   const pages: string[] = [];
+  let activeDateColumnStarts: number[] | undefined;
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    const pageLines = groupTextIntoLines(content.items);
-    pages.push(pageLines.join("\n"));
+    const pageText = groupTextIntoLines(content.items, activeDateColumnStarts);
+    activeDateColumnStarts = pageText.dateColumnStarts;
+    pages.push(pageText.lines.join("\n"));
   }
 
   return pages.join("\n");

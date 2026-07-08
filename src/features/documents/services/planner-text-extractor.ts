@@ -20,10 +20,16 @@ const datePatterns = [
   "YYYY-MM-DD",
   "DD-MM-YYYY",
   "D-M-YYYY",
+  "DD-MM-YY",
+  "D-M-YY",
   "DD/MM/YYYY",
   "D/M/YYYY",
+  "DD/MM/YY",
+  "D/M/YY",
   "DD.MM.YYYY",
   "D.M.YYYY",
+  "DD.MM.YY",
+  "D.M.YY",
   "DD MMM YYYY",
   "D MMM YYYY",
   "DD MMMM YYYY",
@@ -75,7 +81,7 @@ const knownSubjects = [
 
 const coScholasticSubjects = ["Physical Education", "Dance", "Art & Craft", "Karate", "Music", "Yoga"];
 const unitTestSubjects = ["English", "Hindi", "Mathematics", "Science", "Computer Science", "General knowledge", "Kannada"];
-const unitTestScheduleSubjects = ["Computer", "Mathematics", "Hindi", "Science", "Kannada", "Social Studies", "English", "GK"];
+const unitTestScheduleSubjects = ["Computer", "Computer Science", "Mathematics", "Hindi", "Science", "Kannada", "Social Studies", "English", "GK"];
 
 const schoolKeywordRows: Array<{ category: string; subject?: string; pattern: RegExp; titlePrefix?: RegExp }> = [
   { category: "Activity", subject: "Dance", pattern: /^dance\b/i, titlePrefix: /^dance\b[:\-\s]*/i },
@@ -107,16 +113,57 @@ const isCategoryHeader = (line: string) => {
 
 const isWeekHeader = (line: string) => /^week\s*\d+/i.test(line.trim());
 const isCircularHeader = (line: string) => /^circular\s*\//i.test(line.trim());
-const isSchoolNoteLine = (line: string) => /^(?:~\s*)?(?:all\s+books|books\s+and\s+notebooks|note\b|kindly\b|parents?\b)/i.test(line.trim());
+const isSchoolNoteLine = (line: string) => /^(?:~\s*)?(?:all\s+books|books\s+and\s+notebooks|note\b|kindly\b|parents?\b|please\s+(?:find|note)\b)|parent\s+portal|\bworking\s+day\s+for\s+grade\b/i.test(line.trim());
+const scheduleSubjectPattern = unitTestScheduleSubjects.map((subject) => subject.replace(/\s+/g, "\\s+")).join("|");
 const isScheduleArtifactLine = (line: string) => {
   const normalized = line.trim();
   const compactDateCount = (normalized.match(/\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/g) ?? []).length;
   const shortYearTimetableDate = /\b\d{1,2}[./-]\d{1,2}[./-]\d{2}\b/.test(normalized) && new RegExp(`[(]${weekdayToken}[)]`, "i").test(normalized);
   const weekdaySubjectOnly = new RegExp(`^[(]?${weekdayToken}[)]?\\s+(?:${knownSubjects.map((subject) => subject.replace(/\s+/g, "\\s+")).join("|")})$`, "i").test(normalized);
+  const parenthesizedScheduleSubjectOnly = new RegExp(`^\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}\\s+[(]${weekdayToken}[)]\\s+(?:${scheduleSubjectPattern})$`, "i").test(normalized);
 
-  return compactDateCount > 1 || shortYearTimetableDate || weekdaySubjectOnly;
+  return compactDateCount > 1 || shortYearTimetableDate || weekdaySubjectOnly || parenthesizedScheduleSubjectOnly;
 };
-const shouldSkipGenericLine = (line: string) => isSchoolNoteLine(line) || isScheduleArtifactLine(line);
+const isBookScheduleLine = (line: string) => {
+  const normalized = line.trim();
+  const startsWithListNumber = /^\d+\s+/.test(normalized);
+  if (!startsWithListNumber) {
+    return false;
+  }
+
+  const explicitBookList = /\b(?:course\s+book|notebook|supplementry\s+reader|according\s+to\s+the\s+timetable|as\s+required|daily)\b/i.test(normalized);
+  const weekdayOnlyListItem = /^\d+\s+(?:monday|tuesday|wednesday|thursday|friday)(?:\s+(?:monday|tuesday|wednesday|thursday|friday))?$/i.test(normalized);
+
+  return explicitBookList || weekdayOnlyListItem;
+};
+const isUndatedScholasticTableFragment = (line: string) => {
+  const normalized = line.trim();
+  if (/^unit\s*test\s*portion$/i.test(normalized)) {
+    return true;
+  }
+
+  if (/^unit\s*test\s*-?\s*i\s+exam\s+timetable$/i.test(normalized) || /^revision\s*-?\s*\d+$/i.test(normalized) || /class\s+test\s+and\s+portions/i.test(normalized)) {
+    return true;
+  }
+
+  const hasDateToken =
+    /\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b/.test(normalized) ||
+    new RegExp(`\b${weekdayToken}\b\s+\d{1,2}\b`, "i").test(normalized) ||
+    new RegExp(`\b\d{1,2}\s+${weekdayToken}\b`, "i").test(normalized);
+  if (hasDateToken) {
+    return false;
+  }
+
+  const startsWithSubject = new RegExp(`^(?:${knownSubjects.map((subject) => subject.replace(/\s+/g, "\\s+")).join("|")})\b`, "i").test(normalized);
+  const subjectChapterFragment = /^(?:english|hindi|mathematics|math|science|social(?:\s+science)?|kannada|computer(?:\s+science)?|gk|general\s+knowledge)\s+chapter\b/i.test(normalized);
+
+  return (
+    /\b(?:pending\s+portions|chapter\s+name|oral\s+discussion|written\s*-|graded\s+activity.*graded\s+activity)\b/i.test(normalized) ||
+    (startsWithSubject && /\bchapter\b/i.test(normalized)) ||
+    subjectChapterFragment
+  );
+};
+const shouldSkipGenericLine = (line: string) => isSchoolNoteLine(line) || isScheduleArtifactLine(line) || isBookScheduleLine(line) || isUndatedScholasticTableFragment(line);
 
 const inferDefaultYear = (text: string, relativePath: string) => {
   const yearMatch = `${relativePath}\n${text}`.match(/\b20\d{2}\b/);
@@ -153,7 +200,7 @@ const validateVisibleWeekday = (dueDate: string, line: string) => {
 const extractDateParts = (line: string): { dateToken: string; dueDate: string; parserIssue?: string } | undefined => {
   const dateToken =
     line.match(/\b\d{4}-\d{2}-\d{2}\b/)?.[0] ??
-    line.match(/\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b/)?.[0] ??
+    line.match(/\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/)?.[0] ??
     line.match(/\b\d{1,2}\s+[A-Za-z]+\s+\d{4}\b/)?.[0] ??
     line.match(/\b\d{1,2}\s+[A-Za-z]+\b/)?.[0];
 
@@ -253,6 +300,313 @@ const extractSubjectParts = (title: string): { subject?: string; title: string }
     subject,
     title: nextTitle || `Study ${subject}`,
   };
+};
+
+const subjectAliases: Record<string, string> = {
+  english: "English",
+  math: "Mathematics",
+  mathematics: "Mathematics",
+  science: "Science",
+  hindi: "Hindi",
+  kannada: "Kannada",
+  computer: "Computer Science",
+  "computer science": "Computer Science",
+  social: "Social Studies",
+  "social studies": "Social Studies",
+  gk: "General knowledge",
+  general: "General knowledge",
+  "general knowledge": "General knowledge",
+};
+
+const normalizeSubjectCell = (value: string) => subjectAliases[normalizeText(value).toLowerCase()];
+
+const normalizeTableSubject = (value: string) => {
+  const normalized = normalizeText(value);
+  return normalizeSubjectCell(normalized) ?? normalizeUnitTestSubject(normalized);
+};
+
+const inferCellCategory = (value: string): string | undefined => {
+  if (/class\s*test/i.test(value)) {
+    return "ClassTest";
+  }
+
+  if (/unit\s*test|ut\s*-?\s*1/i.test(value)) {
+    return "UnitTest";
+  }
+
+  if (/graded\s+(?:lab\s+)?activity|speaking\s+skills?|listening\s+skills?/i.test(value)) {
+    return "Activity";
+  }
+
+  if (/graded\s+project|\bproject\b/i.test(value)) {
+    return "Project";
+  }
+
+  if (/home\s*study|revision|workbook|notebook|course\s*book|chapter|read\b|pg\.?(?:\s+no)?/i.test(value)) {
+    return "HomeStudy";
+  }
+
+  return undefined;
+};
+
+const cleanCellTitle = (value: string, category: string) => {
+  const cleaned = normalizeText(value)
+    .replace(/\bclass\s*test\b[:\s-]*/i, "")
+    .replace(/\bunit\s*test\s*-?\s*1\b[:\s-]*/i, "")
+    .replace(/\but\s*-?\s*1\b[:\s-]*/i, "")
+    .replace(/\bgraded\s+lab\s+activity\b[:\s-]*/i, "")
+    .replace(/\bgraded\s+activity\b[:\s-]*/i, "")
+    .replace(/\bgraded\s+project\b[:\s-]*/i, "")
+    .trim();
+
+  if (cleaned) {
+    return cleaned;
+  }
+
+  if (category === "ClassTest") {
+    return "Class Test";
+  }
+
+  if (category === "UnitTest") {
+    return "Unit Test";
+  }
+
+  if (category === "Activity") {
+    return "Activity";
+  }
+
+  if (category === "Project") {
+    return "Project";
+  }
+
+  return "Study work";
+};
+
+const isScholasticMatrixArtifactLine = (line: string) => {
+  const normalized = normalizeText(line);
+  return /\b(?:VYDEHI\s+SCHOOL\s+OF\s+EXCELLENCE|SCHOLASTIC\s+PLANNER|CLASS\s*-\s*[IVX]+|SUBJECT\s*&\s*WEEK|Thought\s+of\s+the\s+day|Etiquette\s+of\s+the\s+month|Poem\s+of\s+the\s+month|Story\s+of\s+the\s+month|BOOKS\s+TO\s+BE\s+BROUGHT|BOOKS\s+SENT\s+BACK|DATE\s*&\s*DAY|CLASS\s+TEST\s+AND\s+PORTIONS)\b/i.test(normalized) ||
+    /\bworking\s+day\s+for\s+grade\b/i.test(normalized);
+};
+
+const extractScholasticMatrixRows = (contentText: string, childName: string | undefined): RawImportRecord[] => {
+  const lines = contentText.split(/\r?\n/).map((line) => line.trimEnd()).filter((line) => line.trim().length > 0);
+  const dateHeaderIndex = lines.findIndex((line) => line.includes("\t") && line.split("\t").filter((cell) => extractDateParts(cell)).length >= 2);
+  if (dateHeaderIndex < 0) {
+    return [];
+  }
+
+  let dateCells = lines[dateHeaderIndex].split("\t").map((cell) => extractDateParts(cell));
+  const records = new Map<string, RawImportRecord & { titleParts: string[] }>();
+  const activeCategoryByCell = new Map<string, string>();
+  let currentSubject: string | undefined;
+
+  lines.slice(dateHeaderIndex + 1).forEach((line) => {
+    if (line.includes("\t")) {
+      const nextDateCells = line.split("\t").map((cell) => extractDateParts(cell));
+      if (nextDateCells.filter(Boolean).length >= 2) {
+        dateCells = nextDateCells;
+        currentSubject = undefined;
+        return;
+      }
+    }
+
+    const standaloneSubject = normalizeSubjectCell(line);
+    if (standaloneSubject) {
+      currentSubject = standaloneSubject;
+      return;
+    }
+
+    if (!line.includes("\t")) {
+      return;
+    }
+
+    if (isScholasticMatrixArtifactLine(line)) {
+      return;
+    }
+
+    const cells = line.split("\t");
+    const subject = normalizeSubjectCell(cells[0] ?? "");
+    if (subject) {
+      currentSubject = subject;
+    } else if ((cells[0] ?? "").trim()) {
+      return;
+    }
+
+    if (!currentSubject) {
+      return;
+    }
+
+    dateCells.forEach((dateParts, columnIndex) => {
+      if (!dateParts || columnIndex === 0) {
+        return;
+      }
+
+      const cell = normalizeText(cells[columnIndex] ?? "");
+      if (!cell || shouldSkipGenericLine(cell)) {
+        return;
+      }
+
+      const cellKey = `${currentSubject}__${dateParts.dueDate}`;
+      const explicitCategory = inferCellCategory(cell);
+      const category = explicitCategory ?? activeCategoryByCell.get(cellKey);
+      if (!category) {
+        return;
+      }
+
+      activeCategoryByCell.set(cellKey, category);
+      const recordKey = `${cellKey}__${category}`;
+      const titlePart = cleanCellTitle(cell, category);
+      const existing = records.get(recordKey);
+      if (existing) {
+        existing.titleParts.push(titlePart);
+        existing.title = existing.titleParts.join(" ").replace(/\s+/g, " ").trim();
+        existing.description = `${existing.description} ${cell}`.trim();
+        return;
+      }
+
+      records.set(recordKey, {
+        childName,
+        category,
+        subject: currentSubject,
+        title: titlePart,
+        titleParts: [titlePart],
+        dueDate: dateParts.dueDate,
+        description: cell,
+        parserIssue: dateParts.parserIssue,
+      });
+    });
+  });
+
+  return Array.from(records.values()).map(({ titleParts: _titleParts, ...row }) => row);
+};
+
+type FixedTableKind = "HomeStudy" | "ClassTest" | "UnitTest";
+
+const normalizeHeaderText = (value: string) => normalizeText(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const getFixedTableKind = (line: string): FixedTableKind | undefined => {
+  const header = normalizeHeaderText(line);
+  if (/\bs no\b/.test(header) && /\bdate\b/.test(header) && /\bday\b/.test(header) && /\bsubject\b/.test(header) && /\bhome study\b/.test(header)) {
+    return "HomeStudy";
+  }
+
+  if (/\bdate\b/.test(header) && /\bday\b/.test(header) && /\bsubject\b/.test(header) && /\bclass test portions\b/.test(header)) {
+    return "ClassTest";
+  }
+
+  if (/\bdate day\b/.test(header) && /\bsubject\b/.test(header)) {
+    return "UnitTest";
+  }
+
+  return undefined;
+};
+
+const isFixedTableTitle = (line: string) => /\b(?:unit\s*test\s*-?\s*i\s+exam\s+timetable|class\s+test\s+and\s+portions)\b/i.test(normalizeText(line));
+
+const splitTableLine = (line: string) => line.split("\t").map((cell) => normalizeText(cell));
+
+const appendFixedTableContinuation = (rows: RawImportRecord[], line: string) => {
+  const tail = normalizeText(line.replace(/^\t+/, "").split("\t").filter(Boolean).join(" "));
+  const lastRow = rows[rows.length - 1];
+  if (!tail || !lastRow) {
+    return;
+  }
+
+  lastRow.title = `${lastRow.title} ${tail}`.replace(/\s+/g, " ").trim();
+  lastRow.description = `${lastRow.description} ${tail}`.trim();
+};
+
+const extractFixedTableRows = (contentText: string, childName: string | undefined): RawImportRecord[] => {
+  const rows: RawImportRecord[] = [];
+  let currentKind: FixedTableKind | undefined;
+
+  contentText.split(/\r?\n/).forEach((rawLine) => {
+    const line = rawLine.trimEnd();
+    if (!line.trim()) {
+      return;
+    }
+
+    const nextKind = getFixedTableKind(line);
+    if (nextKind) {
+      currentKind = nextKind;
+      return;
+    }
+
+    if (!currentKind || isSchoolNoteLine(line) || isScholasticMatrixArtifactLine(line)) {
+      return;
+    }
+
+    if (!line.includes("\t")) {
+      if (currentKind !== "UnitTest") {
+        appendFixedTableContinuation(rows, line);
+      }
+      return;
+    }
+
+    const cells = splitTableLine(line);
+    if (currentKind !== "UnitTest" && !extractDateParts(cells[currentKind === "HomeStudy" ? 1 : 0] ?? "")) {
+      appendFixedTableContinuation(rows, line);
+      return;
+    }
+
+    if (currentKind === "HomeStudy") {
+      const dateParts = extractDateParts(cells[1] ?? "");
+      const subject = normalizeTableSubject(cells[3] ?? "");
+      const title = normalizeText(cells.slice(4).join(" "));
+      if (!dateParts || !subject || !title) {
+        return;
+      }
+
+      rows.push({
+        childName,
+        category: "HomeStudy",
+        subject,
+        title,
+        dueDate: dateParts.dueDate,
+        description: title,
+        parserIssue: dateParts.parserIssue,
+      });
+      return;
+    }
+
+    if (currentKind === "ClassTest") {
+      const dateParts = extractDateParts(cells[0] ?? "");
+      const subject = normalizeTableSubject(cells[2] ?? "");
+      const title = normalizeText(cells.slice(3).join(" "));
+      if (!dateParts || !subject || !title) {
+        return;
+      }
+
+      rows.push({
+        childName,
+        category: "ClassTest",
+        subject,
+        title,
+        dueDate: dateParts.dueDate,
+        description: title,
+        parserIssue: dateParts.parserIssue,
+      });
+      return;
+    }
+
+    const dateParts = extractDateParts(cells[0] ?? "");
+    const subject = normalizeTableSubject(cells.slice(1).join(" "));
+    if (!dateParts || !subject) {
+      return;
+    }
+
+    rows.push({
+      childName,
+      category: "UnitTest",
+      subject,
+      title: `${subject} Unit Test`,
+      dueDate: dateParts.dueDate,
+      description: line,
+      parserIssue: dateParts.parserIssue,
+    });
+  });
+
+  return rows;
 };
 
 const trimTitleSeparators = (value: string) => {
@@ -385,15 +739,21 @@ const extractCoScholasticRows = (contentText: string, childName: string | undefi
   });
 };
 
-const extractUnitTestPortionRows = (contentText: string, childName: string | undefined): RawImportRecord[] => {
-  if (!/unit\s*test/i.test(contentText) || !/chapter\s+name/i.test(contentText)) {
+const extractUnitTestPortionRows = (contentText: string, childName: string | undefined, relativePath: string): RawImportRecord[] => {
+  const documentIdentity = `${relativePath}\n${contentText.slice(0, 1200)}`;
+  if (!/unit[\s_-]*test[\s_-]*portion/i.test(documentIdentity) || !/chapter\s+name/i.test(contentText)) {
+    return [];
+  }
+
+  const hasSubjectSection = unitTestSubjects.some((subject) => new RegExp(`\\b${subject.replace(/\s+/g, "\\s+")}\\b`, "i").test(contentText));
+  if (!hasSubjectSection) {
     return [];
   }
 
   return unitTestSubjects.flatMap((subject) => {
     const section = extractSectionBetweenHeaders(contentText, subject, unitTestSubjects);
     const title = section ? cleanExtractedSectionTitle(section).replace(/^Literature\s+/i, "") : undefined;
-    if (!title) {
+    if (!title || /please\s+find|parent\s+portal|uploaded/i.test(title)) {
       return [];
     }
 
@@ -533,11 +893,13 @@ export const extractPlannerRows = ({
   const inferredChildName = inferChildName(contentText, relativePath, childNames);
   const defaultMonthLabel = extractMonthLabel(relativePath, contentText);
   const defaultYear = inferDefaultYear(contentText, relativePath);
+  const tableRows = extractScholasticMatrixRows(contentText, inferredChildName);
+  const fixedTableRows = extractFixedTableRows(contentText, inferredChildName);
   const supplementalRows = [
     ...extractCoScholasticRows(contentText, inferredChildName, defaultMonthLabel, defaultYear),
-    ...extractUnitTestPortionRows(contentText, inferredChildName),
-    ...extractUnitTestScheduleRows(contentText, inferredChildName),
-    ...extractScholasticActivityRows(contentText, inferredChildName, defaultMonthLabel, defaultYear),
+    ...extractUnitTestPortionRows(contentText, inferredChildName, relativePath),
+    ...(fixedTableRows.some((row) => row.category === "UnitTest") ? [] : extractUnitTestScheduleRows(contentText, inferredChildName)),
+    ...(tableRows.length > 0 || fixedTableRows.length > 0 ? [] : extractScholasticActivityRows(contentText, inferredChildName, defaultMonthLabel, defaultYear)),
   ];
 
   const genericRows = contentText
@@ -546,6 +908,14 @@ export const extractPlannerRows = ({
     .filter((line) => line.length > 0)
     .reduce<{ records: RawImportRecord[]; currentCategory?: string }>((state, line) => {
       if (shouldSkipGenericLine(line)) {
+        return state;
+      }
+
+      if (fixedTableRows.length > 0 && (getFixedTableKind(line) || isFixedTableTitle(line))) {
+        return state;
+      }
+
+      if ((tableRows.length > 0 || fixedTableRows.length > 0) && line.includes("\t")) {
         return state;
       }
 
@@ -612,5 +982,5 @@ export const extractPlannerRows = ({
       return state;
     }, { records: [] }).records;
 
-  return [...genericRows, ...supplementalRows];
+  return [...fixedTableRows, ...tableRows, ...genericRows, ...supplementalRows];
 };

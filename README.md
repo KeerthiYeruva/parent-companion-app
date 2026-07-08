@@ -1,19 +1,19 @@
 # Parent Companion
 
 School sends PDFs.
-Parent Companion automatically converts school PDFs into week-wise and month-wise plans for each child, so parents only need to track completion, not manage documents.
+Parent Companion automatically converts school PDFs into today, week-wise, and month-wise plans for each child, so parents only need to track completion, not manage documents.
 
 The app automatically:
 
 - Finds school documents
 - Extracts homework, tests, activities, and projects
 - Groups work by child
-- Organizes work by week and month
+- Organizes work by today, week, and month
 - Tracks completion
 
 The goal is to help parents answer:
 
-"What does each child need to do this week?"
+"What does each child need to do today?"
 
 ## Problem
 
@@ -26,7 +26,7 @@ The successful workflow is:
 - Receive school PDFs
 - Drop them into a folder or upload them together
 - Open Parent Companion
-- See this week's tasks and this month's plan
+- See today's priorities first, then this week's tasks and this month's plan
 - Mark work complete
 
 The failed workflow is:
@@ -48,7 +48,36 @@ If the parent is building the plan, the app is not solving the problem. The app 
 - React Hook Form + Zod (forms + validation)
 - Dayjs (date handling)
 - Dexie (IndexedDB for document metadata)
+- pdfjs-dist (client-side PDF text and coordinate extraction)
 - Static web manifest + service worker registration for local-first PWA support
+
+No large calendar package is used in the MVP. The school PDFs already provide due dates, so parsing should create dated tasks directly from table cells. Month planning is intentionally week-based, because the school documents are organized by week; a square calendar grid can be added later only if it proves useful.
+
+## Parser Architecture
+
+School planners are treated as structured documents, not random text blobs. The PDF pipeline is:
+
+```text
+pdfjs-dist
+	-> text + coordinates
+	-> table reconstruction
+	-> fixed-column and matrix table parsers
+	-> child/date/category mapping
+	-> Today priorities
+	-> Week items
+	-> Month items grouped by school week
+```
+
+Reliability should come from school-specific parsers such as home study, class-test portions, unit-test timetables, scholastic matrix, co-scholastic, and exam circular parsers. The app keeps `pdfjs-dist`; changing frameworks, PDF libraries, or adding enterprise calendar packages is not the main path to better extraction.
+
+Required table mappings:
+
+- `S.NO | DATE | DAY | SUBJECT | HOME STUDY` -> `HomeStudy`
+- `DATE | DAY | SUBJECT | CLASS TEST - PORTIONS` -> `ClassTest`
+- `DATE & DAY | SUBJECT` -> `UnitTest`
+- Weekly scholastic matrix cells map `CLASS TEST` -> `ClassTest`, `UNIT TEST` -> `UnitTest`, `GRADED PROJECT` -> `Project`, `GRADED LAB ACTIVITY` -> `Activity`, and `HOME STUDY`/`REVISION` -> `HomeStudy`
+
+Headers, footers, school timing notes, book/notebook logistics, and raw date-grid fragments must not appear in Dashboard, Week, or Month task lists.
 
 ## Run
 
@@ -134,7 +163,7 @@ Core screens:
 
 - Dashboard: what should my kids do today?
 - This Week: what needs to be completed this week?
-- This Month: what is planned for this month?
+- This Month: what is planned for this month, grouped by school week rather than a heavy calendar grid?
 - Kids: what does each child need to do?
 
 Setup screens stay secondary and are used when a new school PDF arrives:

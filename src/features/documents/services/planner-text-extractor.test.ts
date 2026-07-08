@@ -68,6 +68,180 @@ describe("extractPlannerRows", () => {
     expect(rows).toEqual([]);
   });
 
+  it("does not import book timetable rows as study tasks", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 5/July/Scholastic Planner.pdf",
+      childNames: ["Grade 5"],
+      contentText: [
+        "July 2026 Planner",
+        "Home Study",
+        "1 ENGLISH, HINDI (COURSE BOOK) MONDAY THURSDAY",
+        "2 TUESDAY FRIDAY",
+        "3 MONDAY DAILY",
+        "6 COMPUTER, G.K ACCORDING TO THE TIMETABLE",
+        "7 S.S.T, SCIENCE (COURSE BOOK & NOTEBOOK) AS REQUIRED",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([]);
+  });
+
+  it("lets the unit-test schedule reader own parenthesized schedule rows", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 5/July/Scholastic Planner.pdf",
+      childNames: ["Grade 5"],
+      contentText: [
+        "Examination Schedule",
+        "Home Study",
+        "17-07-2026 (FRIDAY) COMPUTER SCIENCE",
+        "24-07-2026 (FRIDAY) SOCIAL STUDIES",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ category: "UnitTest", subject: "Computer Science", dueDate: "2026-07-17" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Social Studies", dueDate: "2026-07-24" }),
+    ]);
+  });
+
+  it("does not run unit-test portion extraction on scholastic planner tables", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 5/July/Scholastic Planner.pdf",
+      childNames: ["Grade 5"],
+      contentText: [
+        "July 2026 Scholastic Planner",
+        "Unit Test Pending Portions Chapter Name",
+        "ENGLISH Pending Portions Dictation Class Test Recap of Creative Revision 1",
+        "SCIENCE Chapter- 1 Chapter- 4 Revision 1 Revision 2 Revision 3",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([]);
+  });
+
+  it("maps scholastic table cells by subject row and date column", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/July/Scholastic Planner.pdf",
+      childNames: ["Grade 1"],
+      contentText: [
+        "SUBJECT & WEEK\t06.07.26 (Monday)\t07.07.26 (Tuesday)\t08.07.26 (Wednesday)\t09.07.26 (Thursday)\t10.07.26 (Friday)",
+        "ENGLISH\tCreative Writing 2\tWorkbook Chapter -1\tWorkbook Chapter -1\tWorkbook Chapter -1\tCLASS TEST",
+        "\t\tFootball for All\tFootball for All\tNotebook work New words\tGrammar - Nouns and Punctuation/Sentences",
+        "MATHEMATICS\tChapter- 5\tChapter- 5\tChapter- 5\tChapter- 5\tChapter- 5",
+        "\tNumbers up to 100\tNumbers up to 100\tNumbers up to 100\tNumbers up to 100\tGraded Lab activity",
+        "\tPg. No. 96,97,98\tPg. No. 99,100\tPg. No. 101,102\tNotebook work\tComparison of two-digit numbers.",
+        "SCIENCE\tChapter -2\tChapter -2\tChapter -2\tChapter -2\tChapter-2",
+        "\tHow Things Move\tHow Things Move\tHow Things Move\tRevision\tGraded Project",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          childName: "Grade 1",
+          category: "ClassTest",
+          subject: "English",
+          dueDate: "2026-07-10",
+          title: "Class Test Grammar - Nouns and Punctuation/Sentences",
+        }),
+        expect.objectContaining({
+          category: "Activity",
+          subject: "Mathematics",
+          dueDate: "2026-07-10",
+          title: "Activity Comparison of two-digit numbers.",
+        }),
+        expect.objectContaining({
+          category: "Project",
+          subject: "Science",
+          dueDate: "2026-07-10",
+          title: "Project",
+        }),
+      ]),
+    );
+  });
+
+  it("maps home-study table rows from fixed columns", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/July/Home Study.pdf",
+      childNames: ["Grade 1"],
+      contentText: [
+        "JULY: WEEK 1",
+        "S.NO\tDATE\tDAY\tSUBJECT\tHOME STUDY",
+        "1\t01.07.2026\tWednesday\tKannada\tNotebook Work letter ಉ, ಊ,ಎ",
+        "2\t02.07.2026\tThursday\tHindi\tRead Pg. No. 16,17",
+        "3\t03.07.2026\tFriday\tEnglish\tPractice Grammar - Nouns and Punctuation for Class Test",
+        "4\t03.07.2026\tFriday\tComputer\tChapter- Using Computer Dos and Don’ts",
+        "\t\t\t\tPg. No. 36,37",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ category: "HomeStudy", subject: "Kannada", dueDate: "2026-07-01", title: "Notebook Work letter ಉ, ಊ,ಎ" }),
+      expect.objectContaining({ category: "HomeStudy", subject: "Hindi", dueDate: "2026-07-02", title: "Read Pg. No. 16,17" }),
+      expect.objectContaining({ category: "HomeStudy", subject: "English", dueDate: "2026-07-03", title: "Practice Grammar - Nouns and Punctuation for Class Test" }),
+      expect.objectContaining({ category: "HomeStudy", subject: "Computer Science", dueDate: "2026-07-03", title: "Chapter- Using Computer Dos and Don’ts Pg. No. 36,37" }),
+    ]);
+  });
+
+  it("maps class-test portions table rows from fixed columns", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/July/Class Test Portions.pdf",
+      childNames: ["Grade 1"],
+      contentText: [
+        "JULY MONTH - CLASS TEST AND PORTIONS",
+        "DATE\tDAY\tSUBJECT\tCLASS TEST - PORTIONS",
+        "06.07.2026\tMonday\tHindi\tSwar & Vyanjan",
+        "10.07.2026\tFriday\tEnglish\tGrammar - Nouns and Punctuation/Sentences",
+        "13.07.2026\tMonday\tMathematics\tChapter – 5 Numbers up to 100",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ category: "ClassTest", subject: "Hindi", dueDate: "2026-07-06", title: "Swar & Vyanjan" }),
+      expect.objectContaining({ category: "ClassTest", subject: "English", dueDate: "2026-07-10", title: "Grammar - Nouns and Punctuation/Sentences" }),
+      expect.objectContaining({ category: "ClassTest", subject: "Mathematics", dueDate: "2026-07-13", title: "Chapter – 5 Numbers up to 100" }),
+    ]);
+  });
+
+  it("maps unit-test timetable rows from date-and-subject columns while skipping notes", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/Unit Test Timetable.pdf",
+      childNames: ["Grade 1"],
+      contentText: [
+        "UNIT TEST-I EXAM TIMETABLE",
+        "DATE & DAY\tSUBJECT",
+        "17.07.2026 (FRIDAY)\tCOMPUTER SCIENCE",
+        "20.07.2026 (MONDAY)\tMATHEMATICS",
+        "21.07.2026 (TUESDAY)\tHINDI",
+        "22.07.2026 (WEDNESDAY)\tSCIENCE",
+        "~ Please note the school will be half a day working during Unit Test-I exam days.",
+        "~ 24.07.2026 will be a working day for grade 1 students from 7:30 a.m. - 12 p.m.",
+        "~ All books and notebooks will be sent on 10.07.2026 to home for UT-I.",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ category: "UnitTest", subject: "Computer Science", dueDate: "2026-07-17", title: "Computer Science Unit Test" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Mathematics", dueDate: "2026-07-20", title: "Mathematics Unit Test" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Hindi", dueDate: "2026-07-21", title: "Hindi Unit Test" }),
+      expect.objectContaining({ category: "UnitTest", subject: "Science", dueDate: "2026-07-22", title: "Science Unit Test" }),
+    ]);
+  });
+
+  it("does not import circular notes as unit-test portions", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Grade 1/Unit Test Portion.pdf",
+      childNames: ["Grade 1"],
+      contentText: [
+        "UNIT TEST PORTION",
+        "Chapter Name",
+        "Please find the Unit test schedule. Portions are uploaded to the parent portal.",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([]);
+  });
+
   it("extracts section-based planner rows using month context and active category headers", () => {
     const rows = extractPlannerRows({
       relativePath: "Aarav/July/Monthly Planner.pdf",
