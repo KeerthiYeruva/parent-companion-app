@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import Link from "@/components/routing";
 import { AddChildForm } from "@/components/forms/add-child-form";
@@ -17,11 +15,12 @@ export function KidsOverviewView() {
       <section className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">My Kids</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Kids</h2>
             <p className="text-sm text-slate-600">See each child&apos;s weekly and monthly growth from uploaded school documents.</p>
           </div>
           <button
             type="button"
+            aria-expanded={showAddChild}
             onClick={() => setShowAddChild((value) => !value)}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >

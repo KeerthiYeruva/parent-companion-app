@@ -1,9 +1,9 @@
 import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
 import { deriveStatus } from "@/lib/status";
-import type { AppState, SchoolItem } from "@/types/domain";
+import type { AppState, ImportedItemReplacementScope, SchoolItem } from "@/types/domain";
 
-type ItemsSlice = Pick<AppState, "items" | "addItem" | "toggleItemComplete" | "setItemPrepStatus">;
+type ItemsSlice = Pick<AppState, "items" | "addItem" | "replaceItemsForSourceDocuments" | "toggleItemComplete" | "setItemPrepStatus">;
 
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
@@ -35,6 +35,35 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
 
     set((state) => ({
       items: [...state.items, newItem],
+    }));
+  },
+  replaceItemsForSourceDocuments: (sourceDocumentIds: string[], items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>, scope?: ImportedItemReplacementScope) => {
+    const sourceDocumentIdSet = new Set(sourceDocumentIds);
+    const nextItems = items.map((item) => ({
+      ...item,
+      id: createId("item"),
+      status: deriveStatus(item.dueDate),
+    }));
+
+    appRepository.replaceItemsForSourceDocuments(sourceDocumentIds, nextItems, scope).catch(() => {
+      get().pushPersistenceWarning("Re-imported items could not be saved to local database.");
+    });
+
+    set((state) => ({
+      items: [
+        ...state.items.filter((item) => {
+          if (item.sourceDocumentId && sourceDocumentIdSet.has(item.sourceDocumentId)) {
+            return false;
+          }
+
+          if (scope && item.sourceDocumentId && scope.childIds.includes(item.childId) && scope.categories.includes(item.category) && item.dueDate >= scope.fromDate && item.dueDate <= scope.toDate) {
+            return false;
+          }
+
+          return true;
+        }),
+        ...nextItems,
+      ],
     }));
   },
   toggleItemComplete: (id: string) => {

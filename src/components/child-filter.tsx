@@ -1,42 +1,36 @@
-"use client";
-
+import { useEffect } from "react";
 import { useAppStore } from "@/store/use-app-store";
 
 export function ChildFilter() {
   const children = useAppStore((state) => state.children);
   const selected = useAppStore((state) => state.selectedChildIds);
   const setSelected = useAppStore((state) => state.setSelectedChildIds);
+  const activeChildId = selected.length === 1 && children.some((child) => child.id === selected[0]) ? selected[0] : children[0]?.id;
+
+  useEffect(() => {
+    if (children.length > 0 && activeChildId && (selected.length !== 1 || selected[0] !== activeChildId)) {
+      setSelected([activeChildId]);
+    }
+  }, [activeChildId, children.length, selected, setSelected]);
 
   if (children.length === 0) {
     return null;
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
-      <p className="mb-2 text-sm font-medium text-slate-700">Filter by child</p>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setSelected(children.map((child) => child.id))}
-          className={`rounded-full border px-3 py-1 text-sm ${
-            selected.length === children.length ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300"
-          }`}
-        >
-          All
-        </button>
+    <nav aria-label="Profile navigation" className="flex min-w-0 flex-1 flex-wrap gap-2 border-b border-slate-200">
+      <div role="tablist" aria-label="Choose profile" className="flex flex-wrap gap-1">
         {children.map((child) => {
-          const isSelected = selected.includes(child.id);
+          const isSelected = activeChildId === child.id;
           return (
             <button
               key={child.id}
               type="button"
-              onClick={() =>
-                setSelected(
-                  isSelected ? selected.filter((id) => id !== child.id) : [...selected, child.id],
-                )
-              }
-              className={`rounded-full border px-3 py-1 text-sm ${
-                isSelected ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300"
+              role="tab"
+              aria-selected={isSelected}
+              onClick={() => setSelected([child.id])}
+              className={`border-b-2 px-4 py-2 text-sm font-medium transition ${
+                isSelected ? "border-blue-600 text-blue-700" : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900"
               }`}
             >
               {child.name}
@@ -44,6 +38,6 @@ export function ChildFilter() {
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }

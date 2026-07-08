@@ -1,7 +1,5 @@
-"use client";
-
 import type { InputHTMLAttributes } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "@/components/routing";
 import { buildChildAliasMap, normalizeGrade } from "@/features/documents/services/child-alias-map";
 import { detectPlannerDocument } from "@/features/documents/services/document-detector";
@@ -12,7 +10,7 @@ import { importPipeline } from "@/features/import";
 import type { RawImportRecord } from "@/features/import";
 import { appRepository } from "@/db/repositories/app-repository";
 import { useAppStore } from "@/store/use-app-store";
-import type { ChildProfile, ImportIssue, ItemCategory, ScanSessionFileRecord } from "@/types/domain";
+import type { ChildProfile, ImportedItemReplacementScope, ImportIssue, ItemCategory, ScanSessionFileRecord, SchoolItem } from "@/types/domain";
 
 const itemCategories: ItemCategory[] = ["Homework", "HomeStudy", "Activity", "ClassTest", "UnitTest", "Exam", "Project", "Circular"];
 
@@ -97,9 +95,46 @@ const formatCounts = (counts: Record<string, number>) => {
   return entries.length > 0 ? entries.map(([label, count]) => `${label}: ${count}`).join(" • ") : "None yet";
 };
 
+const buildReplacementScope = (items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>): ImportedItemReplacementScope | undefined => {
+  if (items.length === 0) {
+    return undefined;
+  }
+
+  const dates = items.map((item) => item.dueDate).sort();
+  return {
+    childIds: Array.from(new Set(items.map((item) => item.childId))),
+    categories: Array.from(new Set(items.map((item) => item.category))),
+    fromDate: dates[0],
+    toDate: dates[dates.length - 1],
+  };
+};
+
+const isInReplacementScope = (item: SchoolItem, scope?: ImportedItemReplacementScope) => {
+  if (!scope || !item.sourceDocumentId) {
+    return false;
+  }
+
+  return scope.childIds.includes(item.childId) && scope.categories.includes(item.category) && item.dueDate >= scope.fromDate && item.dueDate <= scope.toDate;
+};
+
 const normalizeSubjectKey = (value?: string) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 
 const isGradeOrClassHint = (value: string) => /^(grade|class)\b/i.test(value.trim());
+
+const expandGradeHint = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  const rangeMatch = normalized.match(/^(?:grade|class)\s*([0-9ivx]+)\s*[-–]\s*([0-9ivx]+)$/i);
+  if (rangeMatch?.[1] && rangeMatch[2]) {
+    const start = Number(normalizeGrade(rangeMatch[1]));
+    const end = Number(normalizeGrade(rangeMatch[2]));
+    if (Number.isInteger(start) && Number.isInteger(end) && start > 0 && end >= start) {
+      return Array.from({ length: end - start + 1 }, (_, index) => String(start + index));
+    }
+  }
+
+  const singleMatch = normalized.match(/^(?:grade|class)\s*([0-9ivx]+)$/i);
+  return singleMatch?.[1] ? [normalizeGrade(singleMatch[1])] : [];
+};
 
 const normalizeRowChildNames = (rows: RawImportRecord[], children: ChildProfile[], childNameToIdMap: Record<string, string>) => {
   const childNameById = new Map(children.map((child) => [child.id, child.name]));
@@ -125,15 +160,17 @@ const classifyRowsByChildProfile = (rows: RawImportRecord[], children: ChildProf
     }
 
     const grade = normalizeGrade(rawChildName);
-    const gradeChildren = childrenByGrade[grade] ?? [];
+    const hintedGrades = expandGradeHint(rawChildName);
+    const gradeChildren = (hintedGrades.length > 0 ? hintedGrades : [grade]).flatMap((hintedGrade) => childrenByGrade[hintedGrade] ?? []);
     if (gradeChildren.length === 0) {
       result.skippedRows.push(row);
       result.skippedReason = `${rawChildName}: no matching child profile found`;
       return result;
     }
 
-    result.ambiguousRows.push(row);
-    result.importRows.push(row);
+    gradeChildren.forEach((child) => {
+      result.importRows.push({ ...row, childName: child.name });
+    });
     return result;
   }, { importRows: [], skippedRows: [], ambiguousRows: [] });
 };
@@ -216,16 +253,20 @@ const formatConfidence = (confidence?: ScanSessionFileRecord["confidence"]) => {
 };
 
 export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const children = useAppStore((state) => state.children);
   const documents = useAppStore((state) => state.documents);
   const items = useAppStore((state) => state.items);
   const addDocument = useAppStore((state) => state.addDocument);
   const addItem = useAppStore((state) => state.addItem);
+  const replaceItemsForSourceDocuments = useAppStore((state) => state.replaceItemsForSourceDocuments);
   const scanQueue = useAppStore((state) => state.scanQueue);
   const setConnectedFolderName = useAppStore((state) => state.setConnectedFolderName);
   const setScanQueue = useAppStore((state) => state.setScanQueue);
   const pushPersistenceWarning = useAppStore((state) => state.pushPersistenceWarning);
   const [isScanning, setIsScanning] = useState(false);
+  const [lastRebuildSummary, setLastRebuildSummary] = useState<{ cleared: number; imported: number } | undefined>();
 
   const directoryPickerProps: InputHTMLAttributes<HTMLInputElement> & { webkitdirectory?: string; directory?: string } = {
     webkitdirectory: "",
@@ -251,6 +292,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       );
     });
   }, [documents, scanQueue]);
+  const scannedDocumentsSaved = scanQueue.length > 0 && saveableResults.length === 0;
 
   const existingItemKeys = useMemo(() => {
     return new Set(items.map((item) => [
@@ -275,6 +317,19 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       ].join("__"))).length;
     }, 0);
   }, [existingItemKeys, scanQueue]);
+
+  const scannedSourceDocumentIds = useMemo(() => {
+    return Array.from(new Set(scanQueue.map((result) => result.documentId)));
+  }, [scanQueue]);
+
+  const readyPreviewItems = useMemo(() => scanQueue.flatMap((result) => result.importPreviewItems ?? []), [scanQueue]);
+  const scannedItemsImported = readyPreviewItems.length > 0 && readyUnimportedCount === 0;
+  const replacementScope = useMemo(() => buildReplacementScope(readyPreviewItems), [readyPreviewItems]);
+
+  const replaceableImportedCount = useMemo(() => {
+    const scannedSourceDocumentIdSet = new Set(scannedSourceDocumentIds);
+    return items.filter((item) => (item.sourceDocumentId && scannedSourceDocumentIdSet.has(item.sourceDocumentId)) || isInReplacementScope(item, replacementScope)).length;
+  }, [items, replacementScope, scannedSourceDocumentIds]);
 
   const scanTotals = useMemo(() => {
     return scanQueue.reduce(
@@ -302,12 +357,43 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     );
   }, [children, scanQueue]);
 
+  const saveScannedDocuments = (results: ScanSessionFileRecord[]) => {
+    results
+      .filter((result) => result.status !== "duplicate")
+      .forEach((result) => {
+        const childIds = Array.from(new Set((result.importPreviewItems ?? []).map((item) => item.childId)));
+        addDocument({
+          title: result.title,
+          type: result.detectedType === "Unknown" ? "Circular" : result.detectedType,
+          childIds,
+          fileName: result.fileName,
+          fileSize: result.fileSize,
+          fileHash: result.fileHash,
+          relativePath: result.relativePath,
+          modifiedAt: result.modifiedAt,
+          extractedMonth: result.monthLabel,
+        });
+      });
+  };
+
+  const importReadyItems = (results: ScanSessionFileRecord[]) => {
+    results.forEach((result) => {
+      result.importPreviewItems?.forEach((item) => {
+        const key = [item.childId, item.category, item.subject ?? "", item.title.trim().toLowerCase(), item.dueDate, item.sourceDocumentId ?? ""].join("__");
+        if (!existingItemKeys.has(key)) {
+          addItem(item);
+        }
+      });
+    });
+  };
+
   const scanFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) {
       return;
     }
 
     setIsScanning(true);
+    setLastRebuildSummary(undefined);
 
     try {
       const scannedAt = new Date().toISOString();
@@ -457,39 +543,28 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
 
       setConnectedFolderName(rootFolderName);
       setScanQueue(nextResults, scannedAt);
+      saveScannedDocuments(nextResults);
+      importReadyItems(nextResults);
     } finally {
       setIsScanning(false);
     }
   };
 
   const importScannedDocuments = () => {
-    saveableResults
-      .filter((result) => result.status !== "duplicate")
-      .forEach((result) => {
-        const childIds = Array.from(new Set((result.importPreviewItems ?? []).map((item) => item.childId)));
-        addDocument({
-          title: result.title,
-          type: result.detectedType === "Unknown" ? "Circular" : result.detectedType,
-          childIds,
-          fileName: result.fileName,
-          fileSize: result.fileSize,
-          fileHash: result.fileHash,
-          relativePath: result.relativePath,
-          modifiedAt: result.modifiedAt,
-          extractedMonth: result.monthLabel,
-        });
-      });
+    saveScannedDocuments(saveableResults);
   };
 
   const importExtractedItems = () => {
-    scanQueue.forEach((result) => {
-      result.importPreviewItems?.forEach((item) => {
-        const key = [item.childId, item.category, item.subject ?? "", item.title.trim().toLowerCase(), item.dueDate, item.sourceDocumentId ?? ""].join("__");
-        if (!existingItemKeys.has(key)) {
-          addItem(item);
-        }
-      });
-    });
+    importReadyItems(scanQueue);
+  };
+
+  const replaceImportedItems = () => {
+    if (readyPreviewItems.length === 0) {
+      return;
+    }
+
+    replaceItemsForSourceDocuments(scannedSourceDocumentIds, readyPreviewItems, replacementScope);
+    setLastRebuildSummary({ cleared: replaceableImportedCount, imported: readyPreviewItems.length });
   };
 
   return (
@@ -498,40 +573,80 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         <h3 className="font-semibold text-slate-900">{simple ? "Upload School Documents" : "Add School Files"}</h3>
         <p className="text-sm text-slate-600">
           {simple
-            ? "Choose the folder or PDFs from school. The app extracts targets and updates Dashboard, This Week, This Month, and My Kids."
-            : "Choose a school folder and Parent Companion will turn planner PDFs into tasks, tests, activities, and projects."}
+            ? "Choose the folder or PDFs from school. The app saves them, extracts targets, and updates Today, This Week, This Month, and Kids automatically."
+            : "Choose a school folder and Parent Companion will save it and turn planner PDFs into tasks, tests, activities, and projects."}
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <label className="inline-flex cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">
-          <input
-            type="file"
-            multiple
-            accept="application/pdf,.pdf"
-            onChange={(event) => scanFiles(event.target.files)}
-            className="hidden"
-            {...directoryPickerProps}
-          />
-          {simple ? "Upload Documents" : "Choose Folder"}
-        </label>
+        <input
+          ref={pdfInputRef}
+          type="file"
+          multiple
+          accept="application/pdf,.pdf"
+          onChange={(event) => {
+            const input = event.currentTarget;
+            void scanFiles(input.files).finally(() => {
+              input.value = "";
+            });
+          }}
+          className="hidden"
+        />
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          accept="application/pdf,.pdf"
+          onChange={(event) => {
+            const input = event.currentTarget;
+            void scanFiles(input.files).finally(() => {
+              input.value = "";
+            });
+          }}
+          className="hidden"
+          {...directoryPickerProps}
+        />
         <button
           type="button"
-          onClick={importScannedDocuments}
-          disabled={saveableResults.length === 0}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => pdfInputRef.current?.click()}
+          className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
         >
-          {simple ? "Save Documents" : "Save Files"}
+          Choose PDFs
         </button>
         <button
           type="button"
-          onClick={importExtractedItems}
-          disabled={readyUnimportedCount === 0}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => folderInputRef.current?.click()}
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
         >
-          {simple ? (scanTotals.ready > 0 && readyUnimportedCount === 0 ? "Imported to Dashboard" : "Import Ready Items") : "Add Tasks to Calendar"}
+          Choose Folder
+        </button>
+        <button
+          type="button"
+          onClick={replaceImportedItems}
+          disabled={readyPreviewItems.length === 0}
+          className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Rebuild Imported Items
         </button>
       </div>
+
+      {replaceableImportedCount > 0 ? (
+        <p className="text-sm text-amber-800">
+          Parser changes apply after you reselect the PDFs and rebuild imported items. This will clear {replaceableImportedCount} existing item{replaceableImportedCount === 1 ? "" : "s"} and import {readyPreviewItems.length} ready item{readyPreviewItems.length === 1 ? "" : "s"} from the selected document{scanQueue.length === 1 ? "" : "s"}.
+        </p>
+      ) : readyPreviewItems.length > 0 && readyUnimportedCount > 0 ? (
+        <p className="text-sm text-amber-800">
+          Rebuild will import {readyPreviewItems.length} ready item{readyPreviewItems.length === 1 ? "" : "s"} from the selected document{scanQueue.length === 1 ? "" : "s"}, including {readyUnimportedCount} missing item{readyUnimportedCount === 1 ? "" : "s"}.
+        </p>
+      ) : null}
+
+      {lastRebuildSummary ? (
+        <p className="text-sm text-emerald-700">
+          Rebuild complete: cleared {lastRebuildSummary.cleared} old item{lastRebuildSummary.cleared === 1 ? "" : "s"} and imported {lastRebuildSummary.imported} ready item{lastRebuildSummary.imported === 1 ? "" : "s"}. The selected documents are saved and Today is updated.
+        </p>
+      ) : scannedItemsImported && scannedDocumentsSaved ? (
+        <p className="text-sm text-slate-600">These documents were saved automatically and their ready items were added to Today. Use Rebuild Imported Items when parser changes should replace them.</p>
+      ) : null}
 
       {isScanning ? <p className="text-sm text-slate-600">Reading school files and building the family calendar...</p> : null}
 
@@ -539,7 +654,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         simple ? (
           <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
             <p className="font-medium text-emerald-700">
-              Ready for Dashboard: {scanTotals.ready} item{scanTotals.ready === 1 ? "" : "s"}
+              Ready for planning: {scanTotals.ready} item{scanTotals.ready === 1 ? "" : "s"}
             </p>
             <p className="mt-1 text-slate-600">
               Found {scanTotals.items} school item{scanTotals.items === 1 ? "" : "s"} from {scanQueue.length} document{scanQueue.length === 1 ? "" : "s"}.
@@ -572,10 +687,10 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                 </Link>
               ) : null}
               <Link href="/" className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900">
-                Go to Dashboard
+                Go to Today
               </Link>
               <Link href="/kids" className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900">
-                Check My Kids
+                Check Kids
               </Link>
             </div>
           </div>

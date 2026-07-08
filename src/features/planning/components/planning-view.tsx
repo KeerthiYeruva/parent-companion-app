@@ -1,5 +1,3 @@
-"use client";
-
 import dayjs from "dayjs";
 import { useMemo, useState } from "react";
 import { AddItemForm } from "@/components/forms/add-item-form";
@@ -23,17 +21,26 @@ import { useAppStore } from "@/store/use-app-store";
 
 export type PlanningMode = "dashboard" | "day" | "week" | "month" | "tasks" | "tests" | "homework" | "activities";
 
+const testCategories: SchoolItem["category"][] = ["ClassTest", "UnitTest", "Exam"];
+const studyCategories: SchoolItem["category"][] = ["Homework", "HomeStudy", "Project"];
+
 export function PlanningView({ mode }: { mode: PlanningMode }) {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const children = useAppStore((state) => state.children);
   const items = useAppStore((state) => state.items);
   const selectedChildIds = useAppStore((state) => state.selectedChildIds);
 
-  const selectedItems = useMemo(() => bySelectedChildren(items, selectedChildIds), [items, selectedChildIds]);
+  const activeChildIds = useMemo(() => {
+    if (selectedChildIds.length === 1 && children.some((child) => child.id === selectedChildIds[0])) {
+      return selectedChildIds;
+    }
+
+    return children[0] ? [children[0].id] : [];
+  }, [children, selectedChildIds]);
+  const selectedItems = useMemo(() => parentReadyItems(bySelectedChildren(items, activeChildIds)), [activeChildIds, items]);
   const dayItems = useMemo(() => todayItems(selectedItems), [selectedItems]);
   const weekItems = useMemo(() => thisWeekItems(selectedItems), [selectedItems]);
   const monthItems = useMemo(() => thisMonthItems(selectedItems), [selectedItems]);
-  const dailyProgress = useMemo(() => completionProgress(dayItems), [dayItems]);
   const weeklyProgress = useMemo(() => completionProgress(weekItems), [weekItems]);
   const monthlyProgress = useMemo(() => completionProgress(monthItems), [monthItems]);
   const monthly = useMemo(() => monthlyCounts(selectedItems), [selectedItems]);
@@ -80,22 +87,36 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
   }
 
   if (mode === "day") {
+    const today = dayjs().format("YYYY-MM-DD");
     const tomorrow = dayjs().add(1, "day").format("YYYY-MM-DD");
     const groups = children
-      .filter((child) => selectedChildIds.length === 0 || selectedChildIds.includes(child.id))
+      .filter((child) => activeChildIds.includes(child.id))
       .map((child) => {
-        const childDayItems = dayItems.filter((item) => item.childId === child.id);
+        const childItems = selectedItems.filter((item) => item.childId === child.id);
+        const priorityItems = childItems.filter((item) => {
+          const isTomorrowTest = item.dueDate === tomorrow && testCategories.includes(item.category);
+          const isDueToday = item.dueDate === today;
+          return isTomorrowTest || isDueToday;
+        });
+        const urgentItems = childItems.filter((item) => {
+          return item.dueDate === today && testCategories.includes(item.category);
+        });
+        const dueTodayItems = childItems.filter((item) => item.dueDate === today && item.category !== "Activity" && !testCategories.includes(item.category));
+        const activityItems = childItems.filter((item) => item.dueDate === today && item.category === "Activity");
         const tomorrowTests = selectedItems.filter(
-          (item) => item.childId === child.id && item.dueDate === tomorrow && ["ClassTest", "UnitTest", "Exam"].includes(item.category) && item.status !== "Completed",
+          (item) => item.childId === child.id && item.dueDate === tomorrow && testCategories.includes(item.category),
         );
-        const priorityItems = [...tomorrowTests, ...childDayItems].filter((item, index, allItems) => allItems.findIndex((entry) => entry.id === item.id) === index);
 
         return {
           child,
-          items: priorityItems,
+          urgentItems,
+          dueTodayItems,
+          activityItems,
+          tomorrowTests,
           progress: completionProgress(priorityItems),
         };
       });
+    const todayPriorityProgress = completionProgress(uniqueItems(groups.flatMap((group) => [...group.urgentItems, ...group.dueTodayItems, ...group.activityItems, ...group.tomorrowTests])));
     const upcomingItems = selectedItems
       .filter((item) => {
         const due = dayjs(item.dueDate);
@@ -108,26 +129,22 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
 
     content = (
       <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm font-medium text-slate-500">Today</p>
-          <h3 className="mt-1 text-3xl font-bold text-slate-950">{dailyProgress.label}</h3>
-          <div className="mt-3 h-2 rounded-full bg-slate-100">
-            <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${dailyProgress.percent}%` }} />
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-slate-500">Today</p>
+              <h3 className="mt-1 text-3xl font-bold text-slate-950">What needs attention now</h3>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">{todayPriorityProgress.label}</span>
+          </div>
+          <div className="mt-4 h-2 rounded-full bg-slate-100">
+            <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${todayPriorityProgress.percent}%` }} />
           </div>
         </div>
         {groups.map((group) => (
-          <article key={group.child.id} className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className={`h-3 w-3 rounded-full ${group.child.colorTag}`} />
-                <h3 className="font-semibold text-slate-900">{group.child.name}</h3>
-              </div>
-              <span className="text-sm font-medium text-slate-600">{group.progress.label}</span>
-            </div>
-            {group.items.length > 0 ? <CompactWeekItemList items={group.items} /> : <ItemList items={[]} emptyText="Nothing due today." />}
-          </article>
+          <TodayChildCard key={group.child.id} {...group} />
         ))}
-        <SummarySection title="Upcoming" subtitle="Next 3 days" items={upcomingItems} emptyText="No upcoming priorities in the next 3 days." />
+        <SummarySection title="Upcoming" subtitle="Next 3 days" items={upcomingItems} emptyText="No upcoming priorities in the next 3 days." showDates />
         <section className="grid gap-3 sm:grid-cols-2">
           <PlanSummaryCard title="This Week" summary={weekSummary} />
           <PlanSummaryCard title="This Month" summary={monthSummary} />
@@ -152,7 +169,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
   }
 
   if (mode === "week") {
-    const groups = itemsByChild(children, weekItems).filter((group) => selectedChildIds.length === 0 || selectedChildIds.includes(group.child.id));
+    const groups = itemsByChild(children, weekItems).filter((group) => activeChildIds.includes(group.child.id));
 
     content = (
       <section className="space-y-3">
@@ -174,7 +191,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
   }
 
   if (mode === "month") {
-    const childGroups = itemsByChild(children, monthItems).filter((group) => selectedChildIds.length === 0 || selectedChildIds.includes(group.child.id));
+    const childGroups = itemsByChild(children, monthItems).filter((group) => activeChildIds.includes(group.child.id));
 
     content = (
       <section className="space-y-3">
@@ -226,7 +243,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
   }
 
   if (mode === "homework") {
-    const homework = selectedItems.filter((item) => ["Homework", "HomeStudy", "Project"].includes(item.category));
+    const homework = selectedItems.filter((item) => studyCategories.includes(item.category));
     content = (
       <section className="grid gap-3 md:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -267,6 +284,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
           <ChildFilter />
           <button
             type="button"
+            aria-expanded={showQuickAdd}
             onClick={() => setShowQuickAdd((value) => !value)}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
@@ -337,32 +355,167 @@ function weekItemsByDay(items: SchoolItem[]) {
   return Array.from(groups.entries()).map(([date, dayItems]) => ({ date, items: dayItems }));
 }
 
-function CompactWeekItemList({ items }: { items: SchoolItem[] }) {
-  const children = useAppStore((state) => state.children);
-  const setItemPrepStatus = useAppStore((state) => state.setItemPrepStatus);
+function parentReadyItems(items: SchoolItem[]) {
+  return items.filter((item) => {
+    const title = item.title.trim();
+    const normalizedTitle = title.toLowerCase();
+    const embeddedFullDates = title.match(/\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/g) ?? [];
+
+    if (title.length < 3) {
+      return false;
+    }
+
+    if (["activity", "project", "home study", "class test", "unit test"].includes(normalizedTitle)) {
+      return Boolean(item.subject) && ["class test", "unit test"].includes(normalizedTitle);
+    }
+
+    if (/^[({[]/.test(title)) {
+      return false;
+    }
+
+    if (title.length > 180 || embeddedFullDates.length > 1) {
+      return false;
+    }
+
+    if (/^[.\s-]*\d{1,2}[./-]\d{1,2}/.test(title)) {
+      return false;
+    }
+
+    if (/\bweek\s*\(|\bweek\s*\d+\b|\bs\s+th\s+th\b/i.test(title)) {
+      return false;
+    }
+
+    return ![
+      "all books and notebooks",
+      "activities of the month",
+      "school timing",
+      "class timing",
+      "summer vacation",
+      "date day subject",
+      "subject activities",
+      "graded lab activity",
+      "s.no",
+    ].some((fragment) => normalizedTitle.includes(fragment));
+  });
+}
+
+function uniqueItems(items: SchoolItem[]) {
+  return items.filter((item, index, allItems) => allItems.findIndex((entry) => entry.id === item.id) === index);
+}
+
+function TodayChildCard({
+  child,
+  urgentItems,
+  dueTodayItems,
+  activityItems,
+  tomorrowTests,
+  progress,
+}: {
+  child: ChildProfile;
+  urgentItems: SchoolItem[];
+  dueTodayItems: SchoolItem[];
+  activityItems: SchoolItem[];
+  tomorrowTests: SchoolItem[];
+  progress: ReturnType<typeof completionProgress>;
+}) {
+  const hasItems = urgentItems.length > 0 || dueTodayItems.length > 0 || activityItems.length > 0;
 
   return (
-    <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <article className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className={`h-3 w-3 rounded-full ${child.colorTag}`} />
+          <h3 className="text-lg font-semibold text-slate-900">{child.name}</h3>
+        </div>
+        <span className="text-sm font-medium text-slate-600">{progress.label}</span>
+      </div>
+
+      {tomorrowTests.length > 0 ? (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="text-sm font-semibold text-amber-900">
+            {tomorrowTests.length} test{tomorrowTests.length === 1 ? "" : "s"} tomorrow
+          </p>
+          <TodayTaskList items={tomorrowTests} />
+        </div>
+      ) : null}
+
+      {hasItems ? (
+        <div className="space-y-3">
+          <TodayPrioritySection tone="urgent" title="Urgent" items={urgentItems} emptyText="No urgent work." />
+          <TodayPrioritySection tone="today" title="Study work" items={dueTodayItems} emptyText="No study work today." />
+          <TodayPrioritySection tone="activity" title="Activities" items={activityItems} emptyText="No activities today." />
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-500">Nothing due today.</p>
+      )}
+    </article>
+  );
+}
+
+function TodayPrioritySection({
+  tone,
+  title,
+  items,
+  emptyText,
+}: {
+  tone: "urgent" | "today" | "activity";
+  title: string;
+  items: SchoolItem[];
+  emptyText: string;
+}) {
+  const toneClass = tone === "urgent" ? "text-rose-700" : tone === "today" ? "text-amber-700" : "text-emerald-700";
+  const visibleItems = items.slice(0, 5);
+  const hiddenCount = items.length - visibleItems.length;
+
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h4 className={`text-xs font-semibold uppercase tracking-wide ${toneClass}`}>{title}</h4>
+        <span className="text-xs font-medium text-slate-500">{items.length}</span>
+      </div>
+      {items.length > 0 ? (
+        <>
+          <TodayTaskList items={visibleItems} />
+          {hiddenCount > 0 ? <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">{hiddenCount} more in Tasks</p> : null}
+        </>
+      ) : (
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">{emptyText}</p>
+      )}
+    </section>
+  );
+}
+
+function TodayTaskList({ items }: { items: SchoolItem[] }) {
+  const toggleItemComplete = useAppStore((state) => state.toggleItemComplete);
+
+  return (
+    <ul className="space-y-2">
       {items.map((item) => {
-        const child = children.find((entry) => entry.id === item.childId);
         const isCompleted = item.status === "Completed";
-        const taskStatus = isCompleted ? "Ready" : (item.prepStatus ?? "NotStarted");
 
         return (
-          <li key={item.id} className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{taskCategoryLabel(item.category)}</span>
-                {item.subject ? <span className="text-xs font-medium text-slate-500">{item.subject}</span> : null}
-              </div>
-              <p className={`mt-1 text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}>{item.title}</p>
-              <p className="text-xs text-slate-500">{child?.name ?? "Unknown child"}</p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
-              <WeekStatusButton active={taskStatus === "NotStarted"} label="Not Started" onClick={() => setItemPrepStatus(item.id, "NotStarted")} />
-              <WeekStatusButton active={taskStatus === "InProgress"} label="In Progress" onClick={() => setItemPrepStatus(item.id, "InProgress")} />
-              <WeekStatusButton active={taskStatus === "Ready"} label="Completed" onClick={() => setItemPrepStatus(item.id, "Ready")} />
-            </div>
+          <li key={item.id}>
+            <button
+              type="button"
+              aria-pressed={isCompleted}
+              aria-label={`${isCompleted ? "Mark incomplete" : "Mark complete"}: ${item.title}`}
+              onClick={() => toggleItemComplete(item.id)}
+              className="flex w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-blue-200 hover:bg-blue-50/40"
+            >
+              <span
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
+                  isCompleted ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white text-transparent"
+                }`}
+              >
+                {isCompleted ? "✓" : ""}
+              </span>
+              <span className="min-w-0">
+                <span className={`block text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}>{item.title}</span>
+                <span className="block text-xs text-slate-500">
+                  {item.subject ? `${item.subject} • ` : ""}{taskCategoryLabel(item.category)} • {dayjs(item.dueDate).format("ddd, DD MMM")}
+                </span>
+              </span>
+            </button>
           </li>
         );
       })}
@@ -370,22 +523,54 @@ function CompactWeekItemList({ items }: { items: SchoolItem[] }) {
   );
 }
 
-function WeekStatusButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+function CompactWeekItemList({ items, showDates = false }: { items: SchoolItem[]; showDates?: boolean }) {
+  const children = useAppStore((state) => state.children);
+  const toggleItemComplete = useAppStore((state) => state.toggleItemComplete);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-md px-2 py-1 text-xs font-medium ${active ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
-    >
-      {label}
-    </button>
+    <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
+      {items.map((item) => {
+        const child = children.find((entry) => entry.id === item.childId);
+        const isCompleted = item.status === "Completed";
+
+        return (
+          <li key={item.id}>
+            <button
+              type="button"
+              aria-pressed={isCompleted}
+              aria-label={`${isCompleted ? "Mark incomplete" : "Mark complete"}: ${item.title}`}
+              onClick={() => toggleItemComplete(item.id)}
+              className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-blue-50/50"
+            >
+              <span
+                className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
+                  isCompleted ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white text-transparent"
+                }`}
+              >
+                {isCompleted ? "✓" : ""}
+              </span>
+              <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{taskCategoryLabel(item.category)}</span>
+                {item.subject ? <span className="text-xs font-medium text-slate-500">{item.subject}</span> : null}
+              </div>
+              <p className={`mt-1 text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}>{item.title}</p>
+              <p className="text-xs text-slate-500">
+                {child?.name ?? "Unknown child"}{showDates ? ` • ${dayjs(item.dueDate).format("ddd, DD MMM")}` : ""}
+              </p>
+              </div>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
 function summarizeItems(items: SchoolItem[]) {
   return {
-    tasks: items.filter((item) => ["Homework", "HomeStudy", "Project"].includes(item.category)).length,
-    tests: items.filter((item) => ["ClassTest", "UnitTest", "Exam"].includes(item.category)).length,
+    tasks: items.filter((item) => studyCategories.includes(item.category)).length,
+    tests: items.filter((item) => testCategories.includes(item.category)).length,
     activities: items.filter((item) => item.category === "Activity").length,
   };
 }
@@ -403,7 +588,7 @@ function PlanSummaryCard({ title, summary }: { title: string; summary: ReturnTyp
   );
 }
 
-function SummarySection({ title, subtitle, items, emptyText }: { title: string; subtitle?: string; items: SchoolItem[]; emptyText: string }) {
+function SummarySection({ title, subtitle, items, emptyText, showDates = false }: { title: string; subtitle?: string; items: SchoolItem[]; emptyText: string; showDates?: boolean }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="mb-3 flex items-baseline justify-between gap-3">
@@ -413,7 +598,7 @@ function SummarySection({ title, subtitle, items, emptyText }: { title: string; 
         </div>
         <span className="text-xs font-medium text-slate-500">{items.length}</span>
       </div>
-      {items.length > 0 ? <CompactWeekItemList items={items} /> : <ItemList items={[]} emptyText={emptyText} />}
+      {items.length > 0 ? <CompactWeekItemList items={items} showDates={showDates} /> : <ItemList items={[]} emptyText={emptyText} />}
     </section>
   );
 }

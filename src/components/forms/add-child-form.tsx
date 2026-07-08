@@ -1,5 +1,3 @@
-"use client";
-
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,10 +5,12 @@ import { useAppStore } from "@/store/use-app-store";
 
 const schema = z.object({
   name: z.string().min(2, "Name is required"),
-  grade: z.string().min(1, "Grade is required"),
+  grade: z.string().regex(/^(?:1[0-2]|[1-9])$/, "Choose a grade from 1 to 12"),
   section: z.string().min(1, "Section is required"),
   academicYear: z.string().min(4, "Academic year is required"),
 });
+
+const gradeOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
 
 type FormData = z.infer<typeof schema>;
 
@@ -37,7 +37,12 @@ export function AddChildForm() {
       })}
     >
       <input className="rounded-lg border border-slate-300 px-3 py-2" placeholder="Child name" {...register("name")} />
-      <input className="rounded-lg border border-slate-300 px-3 py-2" placeholder="Grade" {...register("grade")} />
+      <select className="rounded-lg border border-slate-300 px-3 py-2" {...register("grade")}> 
+        <option value="">Grade</option>
+        {gradeOptions.map((grade) => (
+          <option key={grade} value={grade}>Grade {grade}</option>
+        ))}
+      </select>
       <input className="rounded-lg border border-slate-300 px-3 py-2" placeholder="Section" {...register("section")} />
       <div className="flex gap-2">
         <input

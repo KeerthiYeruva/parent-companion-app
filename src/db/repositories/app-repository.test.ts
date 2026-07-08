@@ -9,7 +9,12 @@ const mocks = vi.hoisted(() => ({
   documentsBulkPut: vi.fn(),
   childrenPut: vi.fn(),
   itemsPut: vi.fn(),
+  itemsBulkDelete: vi.fn(),
+  itemsWhere: vi.fn(),
+  itemsAnyOf: vi.fn(),
+  itemsAnyOfToArray: vi.fn(),
   documentsPut: vi.fn(),
+  transaction: vi.fn(async (_mode: string, _table: unknown, callback: () => Promise<void>) => callback()),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -22,13 +27,16 @@ vi.mock("@/lib/db", () => ({
     items: {
       toArray: mocks.itemsToArray,
       bulkPut: mocks.itemsBulkPut,
+      bulkDelete: mocks.itemsBulkDelete,
       put: mocks.itemsPut,
+      where: mocks.itemsWhere,
     },
     documents: {
       toArray: mocks.documentsToArray,
       bulkPut: mocks.documentsBulkPut,
       put: mocks.documentsPut,
     },
+    transaction: mocks.transaction,
   },
 }));
 
@@ -63,5 +71,41 @@ describe("appRepository", () => {
     expect(mocks.childrenBulkPut).toHaveBeenCalledWith([child]);
     expect(mocks.itemsBulkPut).toHaveBeenCalledWith([item]);
     expect(mocks.documentsBulkPut).toHaveBeenCalledWith([doc]);
+  });
+
+  it("replaces items for matching source documents", async () => {
+    const item = { id: "item-new", sourceDocumentId: "doc-1" };
+    const oldItem = { id: "item-old", sourceDocumentId: "doc-1" };
+    mocks.itemsWhere.mockReturnValueOnce({ anyOf: mocks.itemsAnyOf });
+    mocks.itemsAnyOf.mockReturnValueOnce({ toArray: mocks.itemsAnyOfToArray });
+    mocks.itemsAnyOfToArray.mockResolvedValueOnce([oldItem]);
+
+    await appRepository.replaceItemsForSourceDocuments(["doc-1", "doc-2"], [item] as never);
+
+    expect(mocks.transaction).toHaveBeenCalledWith("rw", expect.anything(), expect.any(Function));
+    expect(mocks.itemsWhere).toHaveBeenCalledWith("sourceDocumentId");
+    expect(mocks.itemsAnyOf).toHaveBeenCalledWith(["doc-1", "doc-2"]);
+    expect(mocks.itemsBulkDelete).toHaveBeenCalledWith(["item-old"]);
+    expect(mocks.itemsBulkPut).toHaveBeenCalledWith([item]);
+  });
+
+  it("also replaces stale imported items in the selected rebuild scope", async () => {
+    const item = { id: "item-new", childId: "child-1", category: "UnitTest", dueDate: "2026-07-17" };
+    const scopedOldItem = { id: "item-old-scope", sourceDocumentId: "old-doc", childId: "child-1", category: "UnitTest", dueDate: "2026-07-17" };
+    const manualItem = { id: "item-manual", childId: "child-1", category: "UnitTest", dueDate: "2026-07-17" };
+    mocks.itemsWhere.mockReturnValueOnce({ anyOf: mocks.itemsAnyOf });
+    mocks.itemsAnyOf.mockReturnValueOnce({ toArray: mocks.itemsAnyOfToArray });
+    mocks.itemsAnyOfToArray.mockResolvedValueOnce([]);
+    mocks.itemsToArray.mockResolvedValueOnce([scopedOldItem, manualItem]);
+
+    await appRepository.replaceItemsForSourceDocuments(["doc-1"], [item] as never, {
+      childIds: ["child-1"],
+      categories: ["UnitTest"],
+      fromDate: "2026-07-17",
+      toDate: "2026-07-28",
+    });
+
+    expect(mocks.itemsBulkDelete).toHaveBeenCalledWith(["item-old-scope"]);
+    expect(mocks.itemsBulkPut).toHaveBeenCalledWith([item]);
   });
 });

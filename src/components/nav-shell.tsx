@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, type ReactNode } from "react";
 import Link, { usePathname } from "@/components/routing";
 import { useAppStore } from "@/store/use-app-store";
@@ -7,12 +5,12 @@ import { useAppStore } from "@/store/use-app-store";
 const primaryLinks = [
   { href: "/", label: "Today" },
   { href: "/week", label: "Week" },
+  { href: "/month", label: "Month" },
   { href: "/kids", label: "Kids" },
-  { href: "/tasks", label: "Tasks" },
   { href: "/more", label: "More" },
 ];
 
-const morePaths = ["/more", "/month", "/documents", "/children", "/scan", "/tests", "/homework", "/activities"];
+const morePaths = ["/more", "/documents", "/children", "/scan", "/tasks", "/tests", "/homework", "/activities"];
 
 const isActiveLink = (pathname: string, href: string) => {
   if (href === "/") {
@@ -74,7 +72,7 @@ export function NavShell({ children }: { children: ReactNode }) {
               const active = isActiveLink(pathname, link.href);
               return (
                 <li key={link.href}>
-                  <Link href={link.href} className={`block rounded-lg px-3 py-2 text-sm ${active ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-100"}`}>
+                  <Link href={link.href} aria-current={active ? "page" : undefined} className={`block rounded-lg px-3 py-2 text-sm ${active ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-100"}`}>
                     {link.label}
                   </Link>
                 </li>
@@ -92,7 +90,7 @@ export function NavShell({ children }: { children: ReactNode }) {
             const active = isActiveLink(pathname, link.href);
             return (
               <li key={link.href}>
-                <Link href={link.href} className={`block rounded-lg px-1 py-2 text-center text-xs font-medium ${active ? "bg-blue-50 text-blue-700" : "text-slate-600"}`}>
+                <Link href={link.href} aria-current={active ? "page" : undefined} className={`block rounded-lg px-1 py-2 text-center text-xs font-medium ${active ? "bg-blue-50 text-blue-700" : "text-slate-600"}`}>
                   {link.label}
                 </Link>
               </li>

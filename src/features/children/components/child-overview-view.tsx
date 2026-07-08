@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo } from "react";
 import { ItemList } from "@/components/item-list";
 import { ChildDetailLayout } from "@/features/children/components/child-detail-layout";

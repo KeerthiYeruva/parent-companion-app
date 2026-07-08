@@ -67,4 +67,28 @@ describe("importPipeline", () => {
     expect(result.summary.issuesCount).toBe(4);
     expect(result.issues.map((issue) => issue.fieldName).sort()).toEqual(["category", "childName", "dueDate", "title"]);
   });
+
+  it("rejects parser artifacts before they become school items", () => {
+    const result = importPipeline.run(
+      [
+        {
+          childName: "aarav",
+          category: "HomeStudy",
+          title: "JULY: WEEK 2 1 06.07.2026 Monday Mathematics Course book Pg. No. 104 2 07.07.2026 Tuesday Science Practice Ch-2 How Things Move",
+          dueDate: "2026-07-10",
+        },
+      ],
+      {
+        sourceType: "future-pdf",
+        documentId: "doc-3",
+        childNameToIdMap: {
+          aarav: "child-1",
+        },
+      },
+    );
+
+    expect(result.items).toEqual([]);
+    expect(result.summary).toMatchObject({ validRecords: 0, issuesCount: 1 });
+    expect(result.issues).toEqual([expect.objectContaining({ fieldName: "title", issue: "Row 1: Title is not parent-ready" })]);
+  });
 });

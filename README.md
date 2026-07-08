@@ -1,7 +1,19 @@
 # Parent Companion
 
-School sends PDFs.
-Parent Companion automatically converts school PDFs into today, week-wise, and month-wise plans for each child, so parents only need to track completion, not manage documents.
+Parent Companion is a local-first planning app that converts school PDFs into a daily, weekly, and monthly action plan for each child.
+
+The parent's job is not to read PDFs. The parent's job is to help children complete work. Parent Companion bridges that gap automatically.
+
+```text
+School PDFs
+	-> Understanding
+	-> Planning
+	-> Execution
+```
+
+Parent Companion is not a PDF manager, document repository, school ERP, or student management system. The upload/source system should never become the product.
+
+School sends PDFs. Parent Companion automatically converts them into daily, weekly, and monthly plans for each child, so parents only need to track completion, not manage documents.
 
 The app automatically:
 
@@ -11,9 +23,11 @@ The app automatically:
 - Organizes work by today, week, and month
 - Tracks completion
 
-The goal is to help parents answer:
+The first goal is to help parents answer:
 
 "What does each child need to do today?"
+
+Everything else exists to make that answer accurate, trusted, and easy to act on.
 
 ## Problem
 
@@ -39,6 +53,17 @@ The failed workflow is:
 - Review everything before import
 
 If the parent is building the plan, the app is not solving the problem. The app should build the plan.
+
+## Product Hierarchy
+
+The product is organized around parent action, not document management:
+
+1. **Today**: the parent opens the app and sees what each child needs to do now, including urgent tests, today's work, and near-term priorities.
+2. **This Week**: everything that needs attention this week, grouped by child and school-work type.
+3. **This Month**: high-level planning grouped by school week, with homework, tests, activities, and project totals.
+4. **Kids**: child-specific drill-down for each child's plan, documents, homework, tests, activities, and month view.
+5. **Tasks**: power-user view for overdue, today, and upcoming work.
+6. **School Files**: setup only; upload, scan, extraction, and review support the plan but are not the main product experience.
 
 ## Stack
 
@@ -134,15 +159,24 @@ Phase 1 is parser and planning trust. Do not prioritize visual polish until the 
 
 Current focus:
 
+- Today priorities, upcoming tests, and overdue work
+- Week and month planning that parents can trust at a glance
+- Completion tracking across Today, Week, Month, and Kids
 - Table parsing for school PDFs
 - Category extraction for homework, home study, class tests, unit tests, activities, and projects
 - Date extraction from table cells
 - Child-document ownership from grade/class signals
 - Review exceptions only for genuine ambiguity
-- Today priorities, upcoming tests, and overdue work
-- Completion tracking across Today, Week, Month, and Kids
+
+Near-term priority:
+
+1. **Table extraction**: understand date, subject, task, and category from structured school table rows.
+2. **Today priorities**: show urgent, today, and upcoming work instead of a flat list.
+3. **Trust layer**: remove parser garbage so only parent-ready tasks reach the planning views.
 
 Phase 2 is mobile-first UX refinement after parser quality is high enough to trust with real school PDFs. Optimize whether a parent can understand today, this week, and tomorrow's tests in a few seconds.
+
+See `docs/ui-ux-pass.md` for the dedicated UX sprint brief. The UX roadmap is intentionally separate from the functionality roadmap: parser quality and parent-ready tasks come first, then Today, Week, Month, and Kids get a focused interaction pass.
 
 Phase 3 is visual polish: spacing, typography, color system, icons, motion, empty states, and illustrations. UI polish should improve a trusted workflow, not hide parser artifacts.
 

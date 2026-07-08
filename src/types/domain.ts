@@ -148,9 +148,17 @@ export interface AppState {
   addChild: (child: Omit<ChildProfile, "id" | "colorTag">) => void;
   updateChild: (id: string, updates: Omit<ChildProfile, "id" | "colorTag">) => void;
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => void;
+  replaceItemsForSourceDocuments: (sourceDocumentIds: string[], items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>, scope?: ImportedItemReplacementScope) => void;
   toggleItemComplete: (id: string) => void;
   setItemPrepStatus: (id: string, prepStatus: NonNullable<SchoolItem["prepStatus"]>) => void;
   addDocument: (document: Omit<UploadedDocument, "id" | "uploadedAt">) => void;
   setSelectedChildIds: (childIds: string[]) => void;
   hydrateLocalData: () => void;
+}
+
+export interface ImportedItemReplacementScope {
+  childIds: string[];
+  categories: ItemCategory[];
+  fromDate: string;
+  toDate: string;
 }

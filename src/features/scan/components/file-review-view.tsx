@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import Link from "@/components/routing";
 import { NavShell } from "@/components/nav-shell";

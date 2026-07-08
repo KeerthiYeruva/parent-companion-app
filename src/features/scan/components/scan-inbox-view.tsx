@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import Link from "@/components/routing";
 import { SmartFolderImport } from "@/features/documents/components/smart-folder-import";

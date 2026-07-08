@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { ChildProfile, SchoolItem, UploadedDocument } from "@/types/domain";
+import type { ChildProfile, ImportedItemReplacementScope, SchoolItem, UploadedDocument } from "@/types/domain";
 
 export interface AppRepository {
   listChildren: () => Promise<ChildProfile[]>;
@@ -11,7 +11,16 @@ export interface AppRepository {
   upsertChild: (child: ChildProfile) => Promise<void>;
   upsertItem: (item: SchoolItem) => Promise<void>;
   upsertDocument: (document: UploadedDocument) => Promise<void>;
+  replaceItemsForSourceDocuments: (sourceDocumentIds: string[], items: SchoolItem[], scope?: ImportedItemReplacementScope) => Promise<void>;
 }
+
+const isInReplacementScope = (item: SchoolItem, scope: ImportedItemReplacementScope) => {
+  return Boolean(item.sourceDocumentId) &&
+    scope.childIds.includes(item.childId) &&
+    scope.categories.includes(item.category) &&
+    item.dueDate >= scope.fromDate &&
+    item.dueDate <= scope.toDate;
+};
 
 export const appRepository: AppRepository = {
   listChildren: () => db.children.toArray(),
@@ -37,5 +46,25 @@ export const appRepository: AppRepository = {
   },
   upsertDocument: async (document) => {
     await db.documents.put(document);
+  },
+  replaceItemsForSourceDocuments: async (sourceDocumentIds, items, scope) => {
+    await db.transaction("rw", db.items, async () => {
+      const idsToDelete = new Set<string>();
+      const bySourceDocument = await db.items.where("sourceDocumentId").anyOf(sourceDocumentIds).toArray();
+      bySourceDocument.forEach((item) => idsToDelete.add(item.id));
+
+      if (scope) {
+        const scopedItems = await db.items.toArray();
+        scopedItems.filter((item) => isInReplacementScope(item, scope)).forEach((item) => idsToDelete.add(item.id));
+      }
+
+      if (idsToDelete.size > 0) {
+        await db.items.bulkDelete(Array.from(idsToDelete));
+      }
+
+      if (items.length > 0) {
+        await db.items.bulkPut(items);
+      }
+    });
   },
 };

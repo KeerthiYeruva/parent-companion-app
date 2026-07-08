@@ -36,7 +36,15 @@ class ParentCompanionDB extends Dexie {
 
     this.version(3).stores({
       children: "id, grade, academicYear",
-      items: "id, childId, category, dueDate, status, [childId+dueDate]",
+      items: "id, childId, category, dueDate, status, sourceDocumentId, [childId+dueDate]",
+      documents: "id, type, uploadedAt, fileHash, relativePath, extractedMonth",
+      scanRuns: "id, scannedAt",
+      scanFiles: "documentId, scanRunId, fileHash, status, scannedAt",
+    });
+
+    this.version(4).stores({
+      children: "id, grade, academicYear",
+      items: "id, childId, category, dueDate, status, sourceDocumentId, [childId+dueDate]",
       documents: "id, type, uploadedAt, fileHash, relativePath, extractedMonth",
       scanRuns: "id, scannedAt",
       scanFiles: "documentId, scanRunId, fileHash, status, scannedAt",

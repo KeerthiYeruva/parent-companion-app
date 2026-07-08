@@ -1,10 +1,11 @@
-"use client";
-
 import { useState } from "react";
 import { AddChildForm } from "@/components/forms/add-child-form";
 import { NavShell } from "@/components/nav-shell";
 import { useAppStore } from "@/store/use-app-store";
 import type { ChildProfile } from "@/types/domain";
+
+const gradeOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
+const isValidGrade = (grade: string) => /^(?:1[0-2]|[1-9])$/.test(grade.trim());
 
 export function ChildrenManagementView() {
   const children = useAppStore((state) => state.children);
@@ -49,6 +50,9 @@ export function ChildrenManagementView() {
                     </button>
                   </div>
                   <p className="text-sm text-slate-600">Grade {child.grade} • Section {child.section}</p>
+                  {!isValidGrade(child.grade) ? (
+                    <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-sm text-amber-800">Choose the correct grade before scanning school files.</p>
+                  ) : null}
                   <p className="text-sm text-slate-600">Academic Year: {child.academicYear}</p>
                 </>
               )}
@@ -74,7 +78,7 @@ function EditChildProfileForm({
   const [section, setSection] = useState(child.section);
   const [academicYear, setAcademicYear] = useState(child.academicYear);
 
-  const canSave = name.trim().length >= 2 && grade.trim().length > 0 && section.trim().length > 0 && academicYear.trim().length >= 4;
+  const canSave = name.trim().length >= 2 && isValidGrade(grade) && section.trim().length > 0 && academicYear.trim().length >= 4;
 
   return (
     <form
@@ -95,7 +99,12 @@ function EditChildProfileForm({
     >
       <div className="grid gap-2 sm:grid-cols-2">
         <input className="rounded-lg border border-slate-300 px-3 py-2" value={name} onChange={(event) => setName(event.target.value)} placeholder="Child name" />
-        <input className="rounded-lg border border-slate-300 px-3 py-2" value={grade} onChange={(event) => setGrade(event.target.value)} placeholder="Grade" />
+        <select className="rounded-lg border border-slate-300 px-3 py-2" value={grade} onChange={(event) => setGrade(event.target.value)}>
+          {!isValidGrade(grade) ? <option value={grade}>Fix grade</option> : null}
+          {gradeOptions.map((option) => (
+            <option key={option} value={option}>Grade {option}</option>
+          ))}
+        </select>
         <input className="rounded-lg border border-slate-300 px-3 py-2" value={section} onChange={(event) => setSection(event.target.value)} placeholder="Section" />
         <input
           className="rounded-lg border border-slate-300 px-3 py-2"

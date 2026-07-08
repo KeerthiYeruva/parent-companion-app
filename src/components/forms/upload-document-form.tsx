@@ -1,5 +1,3 @@
-"use client";
-
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,7 +49,7 @@ export function UploadDocumentForm() {
         reset({ childIds: [] });
       })}
     >
-      <p className="text-sm text-slate-700">Documents are references only. Extracted items power the dashboard.</p>
+      <p className="text-sm text-slate-700">Documents are references only. Extracted items power the plan.</p>
       <div className="grid gap-2 md:grid-cols-3">
         <input className="rounded-lg border border-slate-300 px-3 py-2" placeholder="Document title" {...register("title")} />
         <select className="rounded-lg border border-slate-300 px-3 py-2" {...register("type")}>

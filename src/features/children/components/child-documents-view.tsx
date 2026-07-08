@@ -1,5 +1,3 @@
-"use client";
-
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import { ChildDetailLayout } from "@/features/children/components/child-detail-layout";

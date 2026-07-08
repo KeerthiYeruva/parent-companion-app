@@ -1,5 +1,3 @@
-"use client";
-
 import type { ReactNode } from "react";
 import Link, { usePathname } from "@/components/routing";
 import { NavShell } from "@/components/nav-shell";

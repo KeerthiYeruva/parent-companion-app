@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import { NavShell } from "@/components/nav-shell";
 import { useAppStore } from "@/store/use-app-store";

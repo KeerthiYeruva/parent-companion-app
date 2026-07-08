@@ -1,5 +1,3 @@
-"use client";
-
 import type { ChildProfile, ItemCategory, ReviewDraftRecord } from "@/types/domain";
 
 const categories: ItemCategory[] = ["Homework", "HomeStudy", "Activity", "ClassTest", "UnitTest", "Exam", "Project", "Circular"];

@@ -2,8 +2,8 @@ import Link from "@/components/routing";
 import { NavShell } from "@/components/nav-shell";
 
 const links = [
-  { href: "/month", title: "Month", description: "Monthly school plan and category totals" },
-  { href: "/documents", title: "Upload Documents", description: "Scan school PDFs and import ready items" },
+  { href: "/tasks", title: "Tasks", description: "Power-user view for overdue, today, and upcoming work" },
+  { href: "/documents", title: "School Files", description: "Setup-only PDF import and extraction summary" },
   { href: "/children", title: "Profiles", description: "Manage child profiles and grade matching" },
   { href: "/tests", title: "Tests", description: "Upcoming and past tests" },
   { href: "/homework", title: "Homework", description: "Homework, study work, and projects" },
@@ -16,7 +16,7 @@ export function MoreView() {
       <section className="space-y-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-xl font-semibold text-slate-900">More</h2>
-          <p className="text-sm text-slate-600">Setup, document import, and deeper planning views.</p>
+          <p className="text-sm text-slate-600">Setup, document import, and power-user planning views.</p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">

@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState } from "react";
 import { importPipeline } from "@/features/import";
 import { parsePastedRows } from "@/features/import/services/parse-pasted-rows";

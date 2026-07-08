@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo } from "react";
 import { buildChildAliasMap } from "@/features/documents/services/child-alias-map";
 import { formatSchoolDocumentTitle } from "@/features/documents/services/document-title";
