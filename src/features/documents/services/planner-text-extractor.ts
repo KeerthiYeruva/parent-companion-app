@@ -42,6 +42,8 @@ const isCategoryHeader = (line: string) => {
   return categoryPatterns.some((entry) => new RegExp(`^${entry.pattern.source}s?$`, "i").test(line.trim()));
 };
 
+const isWeekHeader = (line: string) => /^week\s*\d+/i.test(line.trim());
+
 const inferDefaultYear = (text: string, relativePath: string) => {
   const yearMatch = `${relativePath}\n${text}`.match(/\b20\d{2}\b/);
   return yearMatch?.[0] ?? dayjs().format("YYYY");
@@ -88,6 +90,7 @@ const extractDateParts = (line: string): { dateToken: string; dueDate: string } 
 const extractContextualDateParts = (line: string, defaultMonthLabel?: string, defaultYear?: string) => {
   const contextualToken =
     line.match(new RegExp(`^(\\d{1,2})\\s+${weekdayToken}\\b`, "i"))?.[0] ??
+    line.match(new RegExp(`^${weekdayToken}\\s+(\\d{1,2})\\b`, "i"))?.[0] ??
     line.match(/^(\d{1,2})\b/)?.[0];
 
   const contextualDay = contextualToken?.match(/\d{1,2}/)?.[0];
@@ -103,6 +106,41 @@ const extractContextualDateParts = (line: string, defaultMonthLabel?: string, de
   return {
     dateToken: contextualToken,
     dueDate,
+  };
+};
+
+const extractDelimitedRow = (
+  line: string,
+  currentCategory: string | undefined,
+  defaultMonthLabel?: string,
+  defaultYear?: string,
+) => {
+  if (!/[|\t]/.test(line)) {
+    return undefined;
+  }
+
+  const parts = line
+    .split(/[|\t]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length < 2) {
+    return undefined;
+  }
+
+  const dateParts = extractDateParts(parts[0]) ?? extractContextualDateParts(parts[0], defaultMonthLabel, defaultYear);
+  const category = inferCategory(parts[1]) ?? currentCategory;
+  const title = parts.slice(2).join(" ").trim() || (parts.length === 2 ? undefined : undefined);
+
+  if (!dateParts || !category) {
+    return undefined;
+  }
+
+  return {
+    category,
+    dateParts,
+    title: title ?? cleanTitle(parts[1], category),
+    description: line,
   };
 };
 
@@ -141,11 +179,28 @@ export const extractPlannerRows = ({
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .reduce<{ records: RawImportRecord[]; currentCategory?: string }>((state, line) => {
+      if (isWeekHeader(line)) {
+        return state;
+      }
+
       if (isCategoryHeader(line)) {
         return {
           ...state,
           currentCategory: inferCategory(line),
         };
+      }
+
+      const delimitedRow = extractDelimitedRow(line, state.currentCategory, defaultMonthLabel, defaultYear);
+      if (delimitedRow?.title) {
+        state.records.push({
+          childName: inferredChildName,
+          category: delimitedRow.category,
+          title: delimitedRow.title,
+          dueDate: delimitedRow.dateParts.dueDate,
+          description: delimitedRow.description,
+        });
+
+        return state;
       }
 
       const category = inferCategory(line) ?? state.currentCategory;

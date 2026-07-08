@@ -95,4 +95,74 @@ describe("extractPlannerRows", () => {
       },
     ]);
   });
+
+  it("ignores week headers and parses weekday-first rows under active sections", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Myra/August/Weekly Planner.pdf",
+      childNames: ["Aarav", "Myra"],
+      contentText: [
+        "August 2026 Planner",
+        "Week 1",
+        "Homework",
+        "Mon 10 Algebra worksheet",
+        "Tue 11 Hindi reading",
+        "Week 2",
+        "Class Test",
+        "Wed 12 Science lesson 3",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      {
+        childName: "Myra",
+        category: "Homework",
+        title: "Algebra worksheet",
+        dueDate: "2026-08-10",
+        description: "Mon 10 Algebra worksheet",
+      },
+      {
+        childName: "Myra",
+        category: "Homework",
+        title: "Hindi reading",
+        dueDate: "2026-08-11",
+        description: "Tue 11 Hindi reading",
+      },
+      {
+        childName: "Myra",
+        category: "ClassTest",
+        title: "Science lesson 3",
+        dueDate: "2026-08-12",
+        description: "Wed 12 Science lesson 3",
+      },
+    ]);
+  });
+
+  it("parses table-like rows with delimited date, category, and title columns", () => {
+    const rows = extractPlannerRows({
+      relativePath: "Aarav/September/Table Planner.pdf",
+      childNames: ["Aarav"],
+      contentText: [
+        "September 2026",
+        "10 Mon | Homework | English worksheet",
+        "11 Tue | Activity | Football practice",
+      ].join("\n"),
+    });
+
+    expect(rows).toEqual([
+      {
+        childName: "Aarav",
+        category: "Homework",
+        title: "English worksheet",
+        dueDate: "2026-09-10",
+        description: "10 Mon | Homework | English worksheet",
+      },
+      {
+        childName: "Aarav",
+        category: "Activity",
+        title: "Football practice",
+        dueDate: "2026-09-11",
+        description: "11 Tue | Activity | Football practice",
+      },
+    ]);
+  });
 });
