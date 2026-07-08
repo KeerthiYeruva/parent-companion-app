@@ -10,7 +10,7 @@ const primaryLinks = [
   { href: "/more", label: "More" },
 ];
 
-const morePaths = ["/more", "/documents", "/children", "/scan", "/tasks", "/tests", "/homework", "/activities"];
+const morePaths = ["/more", "/documents", "/scan"];
 
 const isActiveLink = (pathname: string, href: string) => {
   if (href === "/") {

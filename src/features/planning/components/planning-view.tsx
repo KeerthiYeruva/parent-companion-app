@@ -19,7 +19,7 @@ import {
 import type { ChildProfile, SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
 
-export type PlanningMode = "dashboard" | "day" | "week" | "month" | "tasks" | "tests" | "homework" | "activities";
+export type PlanningMode = "dashboard" | "day" | "week" | "month";
 
 const testCategories: SchoolItem["category"][] = ["ClassTest", "UnitTest", "Exam"];
 const studyCategories: SchoolItem["category"][] = ["Homework", "HomeStudy", "Project"];
@@ -52,15 +52,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
         ? "Today"
       : mode === "week"
         ? "This Week"
-        : mode === "month"
-          ? "This Month"
-          : mode === "tasks"
-            ? "Tasks"
-          : mode === "tests"
-            ? "Tests Center"
-            : mode === "homework"
-              ? "Homework Center"
-              : "Activities Center";
+        : "This Month";
 
   let content = null;
 
@@ -153,21 +145,6 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
     );
   }
 
-  if (mode === "tasks") {
-    const openItems = splitOpenAndCompletedItems(selectedItems).open.sort((first, second) => first.dueDate.localeCompare(second.dueDate));
-    const overdue = openItems.filter((item) => dayjs(item.dueDate).isBefore(dayjs(), "day"));
-    const today = openItems.filter((item) => dayjs(item.dueDate).isSame(dayjs(), "day"));
-    const upcoming = openItems.filter((item) => dayjs(item.dueDate).isAfter(dayjs(), "day"));
-
-    content = (
-      <section className="space-y-3">
-        <SummarySection title="Overdue" items={overdue} emptyText="No overdue tasks." />
-        <SummarySection title="Today" items={today} emptyText="Nothing due today." />
-        <SummarySection title="Upcoming" items={upcoming.slice(0, 20)} emptyText="No upcoming tasks." />
-      </section>
-    );
-  }
-
   if (mode === "week") {
     const groups = itemsByChild(children, weekItems).filter((group) => activeChildIds.includes(group.child.id));
 
@@ -219,55 +196,6 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
             </div>
           </div>
         ))}
-      </section>
-    );
-  }
-
-  if (mode === "tests") {
-    const tests = selectedItems.filter((item) => ["ClassTest", "UnitTest", "Exam"].includes(item.category));
-    const upcoming = tests.filter((item) => dayjs(item.dueDate).isAfter(dayjs().subtract(1, "day"), "day"));
-    const past = tests.filter((item) => dayjs(item.dueDate).isBefore(dayjs(), "day"));
-
-    content = (
-      <section className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2 text-lg font-semibold">Upcoming Tests</h3>
-          <ItemList items={upcoming} emptyText="No upcoming tests." />
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2 text-lg font-semibold">Past Tests</h3>
-          <ItemList items={past} emptyText="No past tests yet." />
-        </div>
-      </section>
-    );
-  }
-
-  if (mode === "homework") {
-    const homework = selectedItems.filter((item) => studyCategories.includes(item.category));
-    content = (
-      <section className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2 font-semibold">Pending</h3>
-          <ItemList items={homework.filter((item) => item.status === "Pending" || item.status === "Upcoming")} emptyText="No pending homework." />
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2 font-semibold">Completed</h3>
-          <ItemList items={homework.filter((item) => item.status === "Completed")} emptyText="No completed homework." />
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2 font-semibold">Overdue</h3>
-          <ItemList items={homework.filter((item) => item.status === "Overdue")} emptyText="No overdue homework." />
-        </div>
-      </section>
-    );
-  }
-
-  if (mode === "activities") {
-    const activities = selectedItems.filter((item) => item.category === "Activity");
-    content = (
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h3 className="mb-2 text-lg font-semibold">Activities (Week and Month)</h3>
-        <ItemList items={activities} emptyText="No activities scheduled." />
       </section>
     );
   }

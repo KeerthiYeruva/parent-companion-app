@@ -39,10 +39,6 @@ function ChildHomeworkRoute() {
   return <ChildCategoryView childId={useRequiredParam("childId")} title="Homework" categories={["Homework", "HomeStudy", "Project"]} />;
 }
 
-function ChildActivitiesRoute() {
-  return <ChildCategoryView childId={useRequiredParam("childId")} title="Activities" categories={["Activity"]} />;
-}
-
 function ChildDocumentsRoute() {
   return <ChildDocumentsView childId={useRequiredParam("childId")} />;
 }
@@ -58,19 +54,14 @@ export function App() {
       <Route path="/day" element={<PlanningView mode="day" />} />
       <Route path="/week" element={<PlanningView mode="week" />} />
       <Route path="/month" element={<PlanningView mode="month" />} />
-      <Route path="/tasks" element={<PlanningView mode="tasks" />} />
-      <Route path="/tests" element={<PlanningView mode="tests" />} />
-      <Route path="/homework" element={<PlanningView mode="homework" />} />
-      <Route path="/activities" element={<PlanningView mode="activities" />} />
-      <Route path="/children" element={<ChildrenManagementView />} />
       <Route path="/documents" element={<DocumentsRepositoryView />} />
       <Route path="/more" element={<MoreView />} />
+      <Route path="/more/profiles" element={<ChildrenManagementView />} />
       <Route path="/kids" element={<KidsOverviewView />} />
       <Route path="/kids/:childId" element={<ChildOverviewRoute />} />
       <Route path="/kids/:childId/month" element={<ChildMonthRoute />} />
       <Route path="/kids/:childId/tests" element={<ChildTestsRoute />} />
       <Route path="/kids/:childId/homework" element={<ChildHomeworkRoute />} />
-      <Route path="/kids/:childId/activities" element={<ChildActivitiesRoute />} />
       <Route path="/kids/:childId/documents" element={<ChildDocumentsRoute />} />
       <Route path="/scan" element={<ScanInboxView />} />
       <Route path="/scan/history" element={<ScanHistoryView />} />

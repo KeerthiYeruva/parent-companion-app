@@ -9,7 +9,6 @@ const buildLinks = (childId: string) => [
   { href: `/kids/${encodeURIComponent(childId)}/month`, label: "Month" },
   { href: `/kids/${encodeURIComponent(childId)}/tests`, label: "Tests" },
   { href: `/kids/${encodeURIComponent(childId)}/homework`, label: "Homework" },
-  { href: `/kids/${encodeURIComponent(childId)}/activities`, label: "Activities" },
 ];
 
 export function ChildDetailLayout({ childId, title, children }: { childId: string; title: string; children: ReactNode }) {
