@@ -66,8 +66,8 @@ Release workflow: `.github/workflows/release.yml`.
 - Activities Center
 - Child Profiles
 - Documents (reference-first flow)
-- Local persistence with Zustand + localStorage
-- IndexedDB document backup via Dexie
+- Local persistence with Dexie (IndexedDB) as source of truth
+- Zustand localStorage persistence limited to UI selection preferences
 
 ## Architecture Notes
 
@@ -75,6 +75,7 @@ Release workflow: `.github/workflows/release.yml`.
 - Planning selectors are colocated in `src/features/planning/selectors/planning-selectors.ts`.
 - Children management screen entry point is `src/features/children/components/children-management-view.tsx`.
 - Documents repository screen entry point is `src/features/documents/components/documents-repository-view.tsx`.
+- Core entities (`children`, `items`, `documents`) are hydrated from Dexie via `src/store/use-app-store.ts`.
 - `src/components/dashboard-view.tsx` and `src/store/selectors.ts` are compatibility re-exports during migration.
 - `src/components/children-page.tsx` and `src/components/documents-page.tsx` remain compatibility re-exports during migration.
 
