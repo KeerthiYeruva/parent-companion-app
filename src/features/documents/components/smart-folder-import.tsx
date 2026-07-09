@@ -657,24 +657,15 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         let extractionError: string | undefined;
         try {
           contentText = await extractPdfText(file);
-          console.log("PDF TEXT LENGTH", file.name, contentText.length);
-          console.log("PDF TEXT PREVIEW", contentText.slice(0, 300));
           extractionStatus =
             contentText.trim().length > 0 ? "success" : "empty";
         } catch (error) {
           console.error(error);
 
-          if (error instanceof Error) {
-            console.error(error.stack);
-
-            extractionError = `
-${error.name}
-${error.message}
-${error.stack}
-`;
-          } else {
-            extractionError = JSON.stringify(error);
-          }
+          extractionError =
+            error instanceof Error
+              ? `${error.name}: ${error.message}`
+              : "PDF text extraction failed.";
         }
 
         const relativePath =
