@@ -678,7 +678,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           modifiedAt: new Date(file.lastModified).toISOString(),
           contentText,
         });
-        
+
         const rawRows = contentText
           ? extractPlannerRows({
               contentText,
@@ -908,40 +908,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           Rebuild Imported Items
         </button>
       </div>
-
-      {replaceableImportedCount > 0 ? (
-        <p className="text-sm text-amber-800">
-          Parser changes apply after you reselect the PDFs and rebuild imported
-          items. This will clear {replaceableImportedCount} existing item
-          {replaceableImportedCount === 1 ? "" : "s"} and import{" "}
-          {readyPreviewItems.length} ready item
-          {readyPreviewItems.length === 1 ? "" : "s"} from the selected document
-          {scanQueue.length === 1 ? "" : "s"}.
-        </p>
-      ) : readyPreviewItems.length > 0 && readyUnimportedCount > 0 ? (
-        <p className="text-sm text-amber-800">
-          Rebuild will import {readyPreviewItems.length} ready item
-          {readyPreviewItems.length === 1 ? "" : "s"} from the selected document
-          {scanQueue.length === 1 ? "" : "s"}, including {readyUnimportedCount}{" "}
-          missing item{readyUnimportedCount === 1 ? "" : "s"}.
-        </p>
-      ) : null}
-
-      {lastRebuildSummary ? (
-        <p className="text-sm text-emerald-700">
-          Rebuild complete: cleared {lastRebuildSummary.cleared} old item
-          {lastRebuildSummary.cleared === 1 ? "" : "s"} and imported{" "}
-          {lastRebuildSummary.imported} ready item
-          {lastRebuildSummary.imported === 1 ? "" : "s"}. The selected documents
-          are saved and Today is updated.
-        </p>
-      ) : scannedItemsImported && scannedDocumentsSaved ? (
-        <p className="text-sm text-slate-600">
-          These documents were saved automatically and their ready items were
-          added to Today. Use Rebuild Imported Items when parser changes should
-          replace them.
-        </p>
-      ) : null}
 
       {isScanning ? (
         <p className="text-sm text-slate-600">
