@@ -678,7 +678,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           modifiedAt: new Date(file.lastModified).toISOString(),
           contentText,
         });
-
+        
         const rawRows = contentText
           ? extractPlannerRows({
               contentText,
