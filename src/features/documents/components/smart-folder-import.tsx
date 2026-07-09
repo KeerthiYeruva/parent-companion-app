@@ -657,6 +657,8 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         let extractionError: string | undefined;
         try {
           contentText = await extractPdfText(file);
+          console.log("PDF TEXT LENGTH", file.name, contentText.length);
+          console.log("PDF TEXT PREVIEW", contentText.slice(0, 300));
           extractionStatus =
             contentText.trim().length > 0 ? "success" : "empty";
         } catch (error) {
