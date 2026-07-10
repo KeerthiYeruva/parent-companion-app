@@ -1,21 +1,40 @@
 import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
 import { deriveStatus } from "@/lib/status";
-import type { AppState, ImportedItemReplacementScope, SchoolItem } from "@/types/domain";
+import type {
+  AppState,
+  ImportedItemReplacementScope,
+  SchoolItem,
+} from "@/types/domain";
+import { upsertCloudItem } from "@/features/import/services/cloud-sync";
 
-type ItemsSlice = Pick<AppState, "items" | "addItem" | "replaceItemsForSourceDocuments" | "toggleItemComplete" | "setItemPrepStatus">;
+type ItemsSlice = Pick<
+  AppState,
+  | "items"
+  | "addItem"
+  | "replaceItemsForSourceDocuments"
+  | "toggleItemComplete"
+  | "setItemPrepStatus"
+>;
 
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
-const itemKey = (item: Omit<SchoolItem, "id" | "status" | "completedAt"> | SchoolItem) => [
-  item.childId,
-  item.category,
-  item.subject ?? "",
-  item.title.trim().toLowerCase(),
-  item.dueDate,
-].join("__");
+const itemKey = (
+  item: Omit<SchoolItem, "id" | "status" | "completedAt"> | SchoolItem,
+) =>
+  [
+    item.childId,
+    item.category,
+    item.subject ?? "",
+    item.title.trim().toLowerCase(),
+    item.dueDate,
+  ].join("__");
 
-const dedupeByItemKey = <T extends Omit<SchoolItem, "id" | "status" | "completedAt"> | SchoolItem>(items: T[]) => {
+const dedupeByItemKey = <
+  T extends Omit<SchoolItem, "id" | "status" | "completedAt"> | SchoolItem,
+>(
+  items: T[],
+) => {
   const seen = new Set<string>();
   return items.filter((item) => {
     const key = itemKey(item);
@@ -28,7 +47,10 @@ const dedupeByItemKey = <T extends Omit<SchoolItem, "id" | "status" | "completed
   });
 };
 
-export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set, get) => ({
+export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
+  set,
+  get,
+) => ({
   items: [],
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => {
     if (get().items.some((existing) => itemKey(existing) === itemKey(item))) {
@@ -42,14 +64,20 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
     };
 
     appRepository.upsertItem(newItem).catch(() => {
-      get().pushPersistenceWarning("New item could not be saved to local database.");
+      get().pushPersistenceWarning(
+        "New item could not be saved to local database.",
+      );
     });
 
     set((state) => ({
       items: [...state.items, newItem],
     }));
   },
-  replaceItemsForSourceDocuments: (sourceDocumentIds: string[], items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>, scope?: ImportedItemReplacementScope) => {
+  replaceItemsForSourceDocuments: (
+    sourceDocumentIds: string[],
+    items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>,
+    scope?: ImportedItemReplacementScope,
+  ) => {
     const sourceDocumentIdSet = new Set(sourceDocumentIds);
     const nextItems = dedupeByItemKey(items).map((item) => ({
       ...item,
@@ -57,18 +85,32 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
       status: deriveStatus(item.dueDate),
     }));
 
-    appRepository.replaceItemsForSourceDocuments(sourceDocumentIds, nextItems, scope).catch(() => {
-      get().pushPersistenceWarning("Re-imported items could not be saved to local database.");
-    });
+    appRepository
+      .replaceItemsForSourceDocuments(sourceDocumentIds, nextItems, scope)
+      .catch(() => {
+        get().pushPersistenceWarning(
+          "Re-imported items could not be saved to local database.",
+        );
+      });
 
     set((state) => ({
       items: [
         ...state.items.filter((item) => {
-          if (item.sourceDocumentId && sourceDocumentIdSet.has(item.sourceDocumentId)) {
+          if (
+            item.sourceDocumentId &&
+            sourceDocumentIdSet.has(item.sourceDocumentId)
+          ) {
             return false;
           }
 
-          if (scope && item.sourceDocumentId && scope.childIds.includes(item.childId) && scope.categories.includes(item.category) && item.dueDate >= scope.fromDate && item.dueDate <= scope.toDate) {
+          if (
+            scope &&
+            item.sourceDocumentId &&
+            scope.childIds.includes(item.childId) &&
+            scope.categories.includes(item.category) &&
+            item.dueDate >= scope.fromDate &&
+            item.dueDate <= scope.toDate
+          ) {
             return false;
           }
 
@@ -85,7 +127,9 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
           return item;
         }
 
-        const completedAt = item.completedAt ? undefined : new Date().toISOString();
+        const completedAt = item.completedAt
+          ? undefined
+          : new Date().toISOString();
         const nextItem = {
           ...item,
           completedAt,
@@ -93,21 +137,34 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
         };
 
         appRepository.upsertItem(nextItem).catch(() => {
-          get().pushPersistenceWarning("Item update could not be saved to local database.");
+          get().pushPersistenceWarning(
+            "Item update could not be saved to local database.",
+          );
+        });
+        void upsertCloudItem(nextItem).catch(() => {
+          get().pushPersistenceWarning(
+            "Item update could not be synced to cloud.",
+          );
         });
 
         return nextItem;
       }),
     }));
   },
-  setItemPrepStatus: (id: string, prepStatus: NonNullable<SchoolItem["prepStatus"]>) => {
+  setItemPrepStatus: (
+    id: string,
+    prepStatus: NonNullable<SchoolItem["prepStatus"]>,
+  ) => {
     set((state) => ({
       items: state.items.map((item) => {
         if (item.id !== id) {
           return item;
         }
 
-        const completedAt = prepStatus === "Ready" ? (item.completedAt ?? new Date().toISOString()) : undefined;
+        const completedAt =
+          prepStatus === "Ready"
+            ? (item.completedAt ?? new Date().toISOString())
+            : undefined;
         const nextItem = {
           ...item,
           prepStatus,
@@ -116,7 +173,14 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
         };
 
         appRepository.upsertItem(nextItem).catch(() => {
-          get().pushPersistenceWarning("Item update could not be saved to local database.");
+          get().pushPersistenceWarning(
+            "Item update could not be saved to local database.",
+          );
+        });
+        void upsertCloudItem(nextItem).catch(() => {
+          get().pushPersistenceWarning(
+            "Item update could not be synced to cloud.",
+          );
         });
 
         return nextItem;

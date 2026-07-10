@@ -11,34 +11,28 @@ const rootElement = document.getElementById("root");
 if (!rootElement) {
   throw new Error("Root element not found.");
 }
-void downloadCloudDataToLocal()
-  .then(({ children, items, documents }) => {
-    if (
-      children.length === 0 &&
-      items.length === 0 &&
-      documents.length === 0
-    ) {
-      return;
+const startApp = async () => {
+  try {
+    const { children, items, documents } = await downloadCloudDataToLocal();
+    if (children.length > 0 || items.length > 0 || documents.length > 0) {
+      useAppStore.setState({
+        children,
+        items,
+        documents,
+      });
     }
-    useAppStore.setState({
-      children,
-      items,
-      documents,
-    });
-  })
-  .catch((error: unknown) => {
-    console.error(
-      "Cloud download failed",
-      error,
-    );
-  });
-createRoot(rootElement).render(
-  <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </StrictMode>,
-);
+  } catch (error: unknown) {
+    console.error("Cloud download failed", error);
+  }
+  createRoot(rootElement).render(
+    <StrictMode>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </StrictMode>,
+  );
+};
+void startApp();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {

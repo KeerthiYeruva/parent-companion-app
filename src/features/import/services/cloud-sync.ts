@@ -1,4 +1,10 @@
-import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  setDoc,
+  writeBatch,
+} from "firebase/firestore";
 import { appRepository } from "@/db/repositories/app-repository";
 import { firestore } from "@/lib/firebase";
 import { ChildProfile, SchoolItem, UploadedDocument } from "@/types/domain";
@@ -69,4 +75,8 @@ export const downloadCloudDataToLocal = async () => {
     items: items,
     documents: documents,
   };
+};
+export const upsertCloudItem = async (item: SchoolItem) => {
+  const reference = doc(firestore, "families", familyId, "items", item.id);
+  await setDoc(reference, removeUndefined(item));
 };
