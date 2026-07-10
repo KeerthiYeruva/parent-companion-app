@@ -1,0 +1,72 @@
+import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
+import { appRepository } from "@/db/repositories/app-repository";
+import { firestore } from "@/lib/firebase";
+import { ChildProfile, SchoolItem, UploadedDocument } from "@/types/domain";
+const familyId = import.meta.env.VITE_FIREBASE_FAMILY_ID;
+if (!familyId) {
+  throw new Error("VITE_FIREBASE_FAMILY_ID is missing.");
+}
+const removeUndefined = <T>(value: T): T => {
+  return JSON.parse(JSON.stringify(value)) as T;
+};
+export const uploadLocalDataToCloud = async () => {
+  const [children, items, documents] = await Promise.all([
+    appRepository.listChildren(),
+    appRepository.listItems(),
+    appRepository.listDocuments(),
+  ]);
+  const batch = writeBatch(firestore);
+  children.forEach((child) => {
+    const reference = doc(
+      collection(firestore, "families", familyId, "children"),
+      child.id,
+    );
+    batch.set(reference, removeUndefined(child));
+  });
+  items.forEach((item) => {
+    const reference = doc(
+      collection(firestore, "families", familyId, "items"),
+      item.id,
+    );
+    batch.set(reference, removeUndefined(item));
+  });
+  documents.forEach((document) => {
+    const reference = doc(
+      collection(firestore, "families", familyId, "documents"),
+      document.id,
+    );
+    batch.set(reference, removeUndefined(document));
+  });
+  await batch.commit();
+  return {
+    children: children.length,
+    items: items.length,
+    documents: documents.length,
+  };
+};
+
+export const downloadCloudDataToLocal = async () => {
+  const [childrenSnapshot, itemsSnapshot, documentsSnapshot] =
+    await Promise.all([
+      getDocs(collection(firestore, "families", familyId, "children")),
+      getDocs(collection(firestore, "families", familyId, "items")),
+      getDocs(collection(firestore, "families", familyId, "documents")),
+    ]);
+  const children = childrenSnapshot.docs.map(
+    (entry) => entry.data() as ChildProfile,
+  );
+  const items = itemsSnapshot.docs.map((entry) => entry.data() as SchoolItem);
+  const documents = documentsSnapshot.docs.map(
+    (entry) => entry.data() as UploadedDocument,
+  );
+  await appRepository.replaceSnapshot({
+    children,
+    items,
+    documents,
+  });
+  return {
+    children: children,
+    items: items,
+    documents: documents,
+  };
+};
