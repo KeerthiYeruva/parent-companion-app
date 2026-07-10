@@ -80,3 +80,35 @@ export const upsertCloudItem = async (item: SchoolItem) => {
   const reference = doc(firestore, "families", familyId, "items", item.id);
   await setDoc(reference, removeUndefined(item));
 };
+
+export const syncAllLocalItemsToCloud = async () => {
+  const localItems = await appRepository.listItems();
+  const itemsCollection = collection(firestore, "families", familyId, "items");
+  const cloudSnapshot = await getDocs(itemsCollection);
+  const localItemIds = new Set(localItems.map((item) => item.id));
+  const batch = writeBatch(firestore);
+  cloudSnapshot.docs.forEach((cloudDocument) => {
+    if (!localItemIds.has(cloudDocument.id)) {
+      batch.delete(cloudDocument.ref);
+    }
+  });
+  localItems.forEach((item) => {
+    batch.set(doc(itemsCollection, item.id), removeUndefined(item));
+  });
+  await batch.commit();
+};
+
+export const upsertCloudChild = async (child: ChildProfile) => {
+  const reference = doc(firestore, "families", familyId, "children", child.id);
+  await setDoc(reference, removeUndefined(child));
+};
+export const upsertCloudDocument = async (document: UploadedDocument) => {
+  const reference = doc(
+    firestore,
+    "families",
+    familyId,
+    "documents",
+    document.id,
+  );
+  await setDoc(reference, removeUndefined(document));
+};

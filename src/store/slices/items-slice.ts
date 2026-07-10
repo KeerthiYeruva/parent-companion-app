@@ -6,7 +6,10 @@ import type {
   ImportedItemReplacementScope,
   SchoolItem,
 } from "@/types/domain";
-import { upsertCloudItem } from "@/features/import/services/cloud-sync";
+import {
+  syncAllLocalItemsToCloud,
+  upsertCloudItem,
+} from "@/features/import/services/cloud-sync";
 
 type ItemsSlice = Pick<
   AppState,
@@ -69,6 +72,10 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
       );
     });
 
+    void upsertCloudItem(newItem).catch(() => {
+      get().pushPersistenceWarning("New item could not be synced to cloud.");
+    });
+
     set((state) => ({
       items: [...state.items, newItem],
     }));
@@ -87,9 +94,10 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
 
     appRepository
       .replaceItemsForSourceDocuments(sourceDocumentIds, nextItems, scope)
+      .then(() => syncAllLocalItemsToCloud())
       .catch(() => {
         get().pushPersistenceWarning(
-          "Re-imported items could not be saved to local database.",
+          "Imported items could not be fully synced.",
         );
       });
 
