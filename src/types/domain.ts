@@ -8,7 +8,12 @@ export type ItemCategory =
   | "Project"
   | "Circular";
 
-export type ItemStatus = "Pending" | "Completed" | "Overdue" | "Upcoming" | "Past";
+export type ItemStatus =
+  | "Pending"
+  | "Completed"
+  | "Overdue"
+  | "Upcoming"
+  | "Past";
 
 export type DocumentType =
   | "ScholasticPlanner"
@@ -157,20 +162,36 @@ export interface AppState {
   importBackupData: (backup: PlannerBackup) => Promise<void>;
   setConnectedFolderName: (folderName: string) => void;
   setScanQueue: (files: ScanSessionFileRecord[], scannedAt: string) => void;
-  updateScanFile: (documentId: string, updater: (file: ScanSessionFileRecord) => ScanSessionFileRecord) => void;
-  hydrateScanFile: (documentId: string) => Promise<ScanSessionFileRecord | undefined>;
+  updateScanFile: (
+    documentId: string,
+    updater: (file: ScanSessionFileRecord) => ScanSessionFileRecord,
+  ) => void;
+  hydrateScanFile: (
+    documentId: string,
+  ) => Promise<ScanSessionFileRecord | undefined>;
   clearScanQueue: () => void;
   hydrateScanHistory: () => Promise<void>;
   upsertReviewDraft: (draft: ReviewDraftRecord) => void;
   clearReviewDraftsForDocument: (documentId: string) => void;
   markDocumentReviewed: (documentId: string) => void;
   addChild: (child: Omit<ChildProfile, "id" | "colorTag">) => void;
-  updateChild: (id: string, updates: Omit<ChildProfile, "id" | "colorTag">) => void;
+  updateChild: (
+    id: string,
+    updates: Omit<ChildProfile, "id" | "colorTag">,
+  ) => void;
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => void;
-  replaceItemsForSourceDocuments: (sourceDocumentIds: string[], items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>, scope?: ImportedItemReplacementScope) => void;
+  replaceItemsForSourceDocuments: (
+    sourceDocumentIds: string[],
+    items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>,
+    scope?: ImportedItemReplacementScope,
+  ) => void;
   toggleItemComplete: (id: string) => void;
-  setItemPrepStatus: (id: string, prepStatus: NonNullable<SchoolItem["prepStatus"]>) => void;
+  setItemPrepStatus: (
+    id: string,
+    prepStatus: NonNullable<SchoolItem["prepStatus"]>,
+  ) => void;
   addDocument: (document: Omit<UploadedDocument, "id" | "uploadedAt">) => void;
+  deleteDocument: (documentId: string) => void;
   setSelectedChildIds: (childIds: string[]) => void;
   hydrateLocalData: () => void;
 }

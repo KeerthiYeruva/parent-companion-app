@@ -2,11 +2,14 @@ import dayjs from "dayjs";
 import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
 import type { AppState, UploadedDocument } from "@/types/domain";
-import { upsertCloudDocument } from "@/features/import/services/cloud-sync";
+import {
+  deleteCloudDocumentAndItems,
+  upsertCloudDocument,
+} from "@/features/import/services/cloud-sync";
 
 type DocumentsSlice = Pick<
   AppState,
-  "documents" | "importIssues" | "addDocument"
+  "documents" | "importIssues" | "addDocument" | "deleteDocument"
 >;
 
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -51,6 +54,26 @@ export const createDocumentsSlice: StateCreator<
         newDoc,
         ...state.documents.filter((entry) => entry.id !== newDoc.id),
       ],
+    }));
+  },
+  deleteDocument: (documentId: string) => {
+    const document = get().documents.find((entry) => entry.id === documentId);
+    const sourceDocumentIds = [documentId, document?.fileHash].filter(
+      (value): value is string => Boolean(value),
+    );
+    void appRepository
+      .deleteDocumentAndItems(documentId, sourceDocumentIds)
+      .then(() => deleteCloudDocumentAndItems(documentId, sourceDocumentIds))
+      .catch(() => {
+        get().pushPersistenceWarning("Document could not be fully deleted.");
+      });
+    set((state) => ({
+      documents: state.documents.filter((entry) => entry.id !== documentId),
+      items: state.items.filter(
+        (item) =>
+          !item.sourceDocumentId ||
+          !sourceDocumentIds.includes(item.sourceDocumentId),
+      ),
     }));
   },
 });

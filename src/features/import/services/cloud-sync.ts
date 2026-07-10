@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  deleteDoc,
   writeBatch,
 } from "firebase/firestore";
 import { appRepository } from "@/db/repositories/app-repository";
@@ -111,4 +112,27 @@ export const upsertCloudDocument = async (document: UploadedDocument) => {
     document.id,
   );
   await setDoc(reference, removeUndefined(document));
+};
+export const deleteCloudDocumentAndItems = async (
+  documentId: string,
+  sourceDocumentIds: string[],
+) => {
+  const itemsCollection = collection(firestore, "families", familyId, "items");
+  const itemsSnapshot = await getDocs(itemsCollection);
+  const batch = writeBatch(firestore);
+  itemsSnapshot.docs.forEach((itemDocument) => {
+    const data = itemDocument.data() as {
+      sourceDocumentId?: string;
+    };
+    if (
+      data.sourceDocumentId &&
+      sourceDocumentIds.includes(data.sourceDocumentId)
+    ) {
+      batch.delete(itemDocument.ref);
+    }
+  });
+  await batch.commit();
+  await deleteDoc(
+    doc(firestore, "families", familyId, "documents", documentId),
+  );
 };
