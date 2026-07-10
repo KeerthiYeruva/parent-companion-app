@@ -549,17 +549,99 @@ const isUnitTestDocument = (contentText: string, relativePath: string) => {
   );
 };
 
-const splitHomeworkCell = (value: string) => {
+const normalizeQuestionText = (value: string) =>
+  normalizeText(value)
+    .replace(/\bQ\.?\s+/gi, "Q")
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s*,\s*/g, ", ")
+    .trim();
+const appendMatrixContext = (previous: string | undefined, next: string) => {
+  const normalizedNext = normalizeText(next);
+  if (!normalizedNext) {
+    return previous ?? "";
+  }
+  if (!previous) {
+    return normalizedNext;
+  }
+  const previousParts = previous
+    .split(" • ")
+    .map((part) => normalizeText(part).toLowerCase());
+  if (previousParts.includes(normalizedNext.toLowerCase())) {
+    return previous;
+  }
+  return `${previous} • ${normalizedNext}`;
+};
+const parseHomeworkContext = (value: string) => {
+  const context = normalizeText(
+    value.replace(/\s*•\s*/g, " • ").replace(/_{3,}/g, " "),
+  );
+  const chapterMatch = context.match(
+    /\bchapter\s*[-:]?\s*(\d+(?:\s*&\s*\d+)*)\b/i,
+  );
+  const revisionMatch = context.match(/\brevision\s*[-:]?\s*(\d+)\b/i);
+  const chapterNumber = chapterMatch?.[1]?.replace(/\s+/g, " ").trim();
+  let chapterName: string | undefined;
+  if (chapterMatch?.index !== undefined) {
+    const chapterTail = context
+      .slice(chapterMatch.index + chapterMatch[0].length)
+      .replace(
+        /\b(?:Q\.?\s*\d+|Oral\s+Discussion|Written\s*[-:]?|H\.?\s*W\.?)\b[\s\S]*$/i,
+        "",
+      )
+      .replace(/\s*•\s*/g, " ")
+      .trim();
+    chapterName = chapterTail || undefined;
+  }
+  const questionMatches = Array.from(
+    context.matchAll(
+      /\bQ\.?\s*\d+(?:\s*[-–]\s*Q?\.?\s*\d+)?(?:\s*[,&]\s*Q?\.?\s*\d+)*/gi,
+    ),
+  );
+  const revisionWork =
+    questionMatches.length > 0
+      ? normalizeQuestionText(questionMatches[questionMatches.length - 1][0])
+      : undefined;
+  return {
+    context,
+    chapterNumber,
+    chapterName,
+    revisionNumber: revisionMatch?.[1],
+    revisionWork,
+  };
+};
+const splitHomeworkCell = (value: string, inheritedContext = "") => {
   const match = value.match(/\b(?:h\.?\s*w\.?|homework)\b\s*[:.-]?\s*/i);
   if (!match || match.index === undefined) {
     return undefined;
   }
-
-  const context = normalizeText(value.slice(0, match.index));
-  const title = normalizeText(value.slice(match.index + match[0].length));
+  const inlineContext = normalizeText(value.slice(0, match.index));
+  const combinedContext = [inheritedContext, inlineContext]
+    .filter(Boolean)
+    .join(" • ");
+  const parsedContext = parseHomeworkContext(combinedContext);
+  const homework = normalizeQuestionText(
+    value.slice(match.index + match[0].length),
+  );
+  const chapterTitle =
+    parsedContext.chapterNumber && parsedContext.chapterName
+      ? `Chapter ${parsedContext.chapterNumber} — ${parsedContext.chapterName}`
+      : parsedContext.chapterNumber
+        ? `Chapter ${parsedContext.chapterNumber}`
+        : undefined;
+  const title = chapterTitle ? `${chapterTitle}: ${homework}` : homework;
+  const descriptionParts = [
+    parsedContext.revisionNumber
+      ? `Revision ${parsedContext.revisionNumber}`
+      : undefined,
+    parsedContext.revisionWork
+      ? `Revision work: ${parsedContext.revisionWork}`
+      : undefined,
+    `Homework: ${homework}`,
+  ].filter((part): part is string => Boolean(part));
   return {
     title,
-    context,
+    context: parsedContext.context,
+    description: descriptionParts.join(" • "),
   };
 };
 
@@ -650,8 +732,7 @@ const isUsefulMatrixContext = (value: string) => {
   const cleaned = cleanTitleFragment(value);
   return (
     Boolean(cleaned) &&
-    !/^chapter\s*[-\d]/i.test(cleaned) &&
-    !/^revision\b/i.test(cleaned) &&
+    !/^_{3,}$/.test(cleaned) &&
     !shouldSkipGenericLine(cleaned)
   );
 };
@@ -820,9 +901,15 @@ const extractScholasticMatrixRows = (
           }
         }
 
-        contextByCell.set(cellKey, cell);
+        contextByCell.set(
+          cellKey,
+          appendMatrixContext(contextByCell.get(cellKey), cell),
+        );
         if (isUsefulMatrixContext(cell)) {
-          contextBySubject.set(subjectForRow, cell);
+          contextBySubject.set(
+            subjectForRow,
+            appendMatrixContext(contextBySubject.get(subjectForRow), cell),
+          );
         }
         return;
       }
@@ -832,7 +919,9 @@ const extractScholasticMatrixRows = (
       }
       const recordKey = `${cellKey}__${category}`;
       const homeworkParts =
-        category === "Homework" ? splitHomeworkCell(cell) : undefined;
+        category === "Homework"
+          ? splitHomeworkCell(cell, contextByCell.get(cellKey) ?? "")
+          : undefined;
       const titlePart =
         homeworkParts?.title ||
         buildMatrixTitle(cell, category, [
@@ -844,9 +933,7 @@ const extractScholasticMatrixRows = (
         return;
       }
 
-      const descriptionPart = homeworkParts?.context
-        ? `Context: ${homeworkParts.context}`
-        : cell;
+      const descriptionPart = homeworkParts?.description ?? cell;
 
       const existing = records.get(recordKey);
       if (existing) {

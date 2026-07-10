@@ -36,10 +36,18 @@ export interface SchoolItem {
   subject?: string;
   title: string;
   description?: string;
+  chapterNumber?: string;
+  chapterName?: string;
+  revisionNumber?: string;
+  revisionWork?: string;
+  homework?: string;
+  pages?: string;
   dueDate: string;
   status: ItemStatus;
   prepStatus?: "NotStarted" | "InProgress" | "Ready";
   sourceDocumentId?: string;
+  sourcePage?: number;
+  sourceText?: string;
   completedAt?: string;
 }
 
