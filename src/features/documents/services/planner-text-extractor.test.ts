@@ -701,6 +701,20 @@ describe("extractPlannerRows", () => {
     expect(rows.map((row) => row.parserIssue)).toEqual(rows.map(() => "Unit test portion found without an exam schedule date"));
   });
 
+  it("ignores non-authoritative Unit Test planner markers", () => {
+    const rows = extractPlannerRows({
+      relativePath: "GRADE_5_JULY_SCHOLASTIC_PLANNER.pdf",
+      childNames: ["Luhas", "Grade 5"],
+      contentText: [
+        "JULY 2026 SCHOLASTIC PLANNER CLASS V",
+        "UNIT TEST -1",
+        "UT-1 Revision",
+        "Exam material",
+      ].join("\n"),
+    });
+
+    expect(rows.filter((row) => row.category === "UnitTest")).toEqual([]);
+  });
   it("extracts circular unit test schedule dates without inventing a 10 July test", () => {
     const rows = extractPlannerRows({
       relativePath: "1782974912050_EXAM_CIRCULAR_UT_12026.pdf",

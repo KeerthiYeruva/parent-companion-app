@@ -32,6 +32,29 @@ export const normalizeGrade = (value: string) => {
   return romanToNumber[normalized] ?? normalized;
 };
 
+export const expandGradeHint = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  const rangeMatch = normalized.match(
+    /^(?:grades?|classes?)\s*([0-9ivx]+)\s*(?:-|\u2013|to)\s*([0-9ivx]+)$/i,
+  );
+  if (rangeMatch?.[1] && rangeMatch[2]) {
+    const start = Number(normalizeGrade(rangeMatch[1]));
+    const end = Number(normalizeGrade(rangeMatch[2]));
+    if (
+      Number.isInteger(start) &&
+      Number.isInteger(end) &&
+      start > 0 &&
+      end >= start
+    ) {
+      return Array.from({ length: end - start + 1 }, (_, index) =>
+        String(start + index),
+      );
+    }
+  }
+
+  const singleMatch = normalized.match(/^(?:grade|class)\s*([0-9ivx]+)$/i);
+  return singleMatch?.[1] ? [normalizeGrade(singleMatch[1])] : [];
+};
 const buildGradeTokens = (grade: string) => {
   const roman = numberToRoman[grade];
   return [grade, roman].filter(Boolean);

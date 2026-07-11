@@ -9,6 +9,7 @@
     "start": "vite preview",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest"
   },

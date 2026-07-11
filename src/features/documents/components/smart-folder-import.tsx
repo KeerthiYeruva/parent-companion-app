@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import Link from "@/components/routing";
 import {
   buildChildAliasMap,
+  expandGradeHint,
   normalizeGrade,
 } from "@/features/documents/services/child-alias-map";
 import { detectPlannerDocument } from "@/features/documents/services/document-detector";
@@ -209,31 +210,8 @@ const normalizeSubjectKey = (value?: string) =>
   value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 
 const isGradeOrClassHint = (value: string) =>
-  /^(grade|class)\b/i.test(value.trim());
+  /^(grades?|classes?)\b/i.test(value.trim());
 
-const expandGradeHint = (value: string) => {
-  const normalized = value.trim().toLowerCase();
-  const rangeMatch = normalized.match(
-    /^(?:grade|class)\s*([0-9ivx]+)\s*[-–]\s*([0-9ivx]+)$/i,
-  );
-  if (rangeMatch?.[1] && rangeMatch[2]) {
-    const start = Number(normalizeGrade(rangeMatch[1]));
-    const end = Number(normalizeGrade(rangeMatch[2]));
-    if (
-      Number.isInteger(start) &&
-      Number.isInteger(end) &&
-      start > 0 &&
-      end >= start
-    ) {
-      return Array.from({ length: end - start + 1 }, (_, index) =>
-        String(start + index),
-      );
-    }
-  }
-
-  const singleMatch = normalized.match(/^(?:grade|class)\s*([0-9ivx]+)$/i);
-  return singleMatch?.[1] ? [normalizeGrade(singleMatch[1])] : [];
-};
 
 const normalizeRowChildNames = (
   rows: RawImportRecord[],
@@ -301,71 +279,61 @@ const classifyRowsByChildProfile = (
   );
 };
 
-const attachUnitTestDatesFromSchedule = (fileRows: RawImportRecord[][]) => {
-  const scheduleBySubject = new Map<string, string>();
-  const portionSubjects = new Set<string>();
-
-  fileRows.flat().forEach((row) => {
-    if (row.category !== "UnitTest" || !row.subject) {
-      return;
-    }
-
-    if (row.dueDate) {
-      scheduleBySubject.set(normalizeSubjectKey(row.subject), row.dueDate);
-    }
-
-    if (
-      /unit test portion found without an exam schedule date/i.test(
-        row.parserIssue ?? "",
-      )
-    ) {
-      portionSubjects.add(normalizeSubjectKey(row.subject));
-    }
-  });
-
-  return fileRows.map((rows) =>
-    rows.flatMap((row) => {
-      if (
-        row.category === "UnitTest" &&
-        row.dueDate &&
-        portionSubjects.has(normalizeSubjectKey(row.subject))
-      ) {
-        return [];
-      }
-
-      if (row.category !== "UnitTest" || row.dueDate || !row.subject) {
-        return [row];
-      }
-
-      const scheduleDate = scheduleBySubject.get(
-        normalizeSubjectKey(row.subject),
-      );
-      if (
-        !scheduleDate ||
-        !/unit test portion found without an exam schedule date/i.test(
-          row.parserIssue ?? "",
-        )
-      ) {
-        return [row];
-      }
-
-      return [
-        {
-          ...row,
-          title: `${row.subject} Unit Test`,
-          description: (
-            row.title ??
-            row.description ??
-            `${row.subject} portions`
-          ).replace(/^Unit Test Portion:\s*/i, "Portions: "),
-          dueDate: scheduleDate,
-          parserIssue: undefined,
-        },
-      ];
-    }),
+export const attachUnitTestDatesFromSchedule = (
+  files: Array<{ rows: RawImportRecord[]; isGradeSpecificSchedule: boolean }>,
+) => {
+  const keyFor = (row: RawImportRecord) =>
+    (row.childName?.trim().toLowerCase() ?? "") + "::" + normalizeSubjectKey(row.subject);
+  const authoritativeChildren = new Set(
+    files.filter((file) => file.isGradeSpecificSchedule).flatMap((file) =>
+      file.rows
+        .filter((row) => row.category === "UnitTest" && Boolean(row.childName && row.subject && row.dueDate))
+        .map((row) => row.childName!.trim().toLowerCase()),
+    ),
   );
-};
+  const scheduleByKey = new Map<string, string>();
+  const portionKeys = new Set<string>();
 
+  files.forEach((file) => file.rows.forEach((row) => {
+    if (row.category !== "UnitTest" || !row.subject || !row.childName) return;
+    const childKey = row.childName.trim().toLowerCase();
+    if (row.dueDate && (!authoritativeChildren.has(childKey) || file.isGradeSpecificSchedule)) {
+      scheduleByKey.set(keyFor(row), row.dueDate);
+    }
+    if (/unit test portion found without an exam schedule date/i.test(row.parserIssue ?? "")) {
+      portionKeys.add(keyFor(row));
+    }
+  }));
+
+  const seenSchedules = new Set<string>();
+  return files.map((file) => file.rows.flatMap((row) => {
+    if (row.category !== "UnitTest" || !row.subject || !row.childName) return [row];
+    const key = keyFor(row);
+    const childKey = row.childName.trim().toLowerCase();
+    if (row.dueDate) {
+      if (
+        (authoritativeChildren.has(childKey) && !file.isGradeSpecificSchedule) ||
+        portionKeys.has(key) ||
+        seenSchedules.has(key)
+      ) return [];
+      seenSchedules.add(key);
+      return [row];
+    }
+
+    const isPortion = /unit test portion found without an exam schedule date/i.test(row.parserIssue ?? "");
+    const scheduleDate = scheduleByKey.get(key);
+    if (!isPortion || !scheduleDate) return [row];
+
+    return [{
+      ...row,
+      title: row.subject + " Unit Test",
+      description: (row.title ?? row.description ?? row.subject + " portions")
+        .replace(/^Unit Test Portion:\s*/i, "Portions: "),
+      dueDate: scheduleDate,
+      parserIssue: undefined,
+    }];
+  }));
+};
 const buildConfidence = ({
   extractionStatus,
   issueCount,
@@ -702,14 +670,46 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         });
       }
 
-      const scheduledRowsByFile = attachUnitTestDatesFromSchedule(
-        scannedFiles.map((entry) =>
-          normalizeRowChildNames(
-            entry.rawRows,
-            scanChildren,
-            scanChildNameToIdMap,
+      const classifiedFiles = scannedFiles.map((entry) => {
+        const normalizedRows = normalizeRowChildNames(
+          entry.rawRows,
+          scanChildren,
+          scanChildNameToIdMap,
+        );
+        const classifiedRows = classifyRowsByChildProfile(
+          normalizedRows,
+          scanChildren,
+          scanChildNameToIdMap,
+        );
+        console.debug("[smart-folder-import] source trace", {
+          fileName: entry.file.name,
+          detectedType: entry.detected.detectedType,
+          childHints: entry.detected.childHints,
+          inferredChildName: entry.rawRows.find((row) => row.childName)?.childName,
+          detectedGradeOrClass: entry.detected.childHints,
+          scheduleRows: classifiedRows.importRows.filter(
+            (row) => row.category === "UnitTest" && Boolean(row.dueDate),
           ),
-        ),
+          portionRows: classifiedRows.importRows.filter(
+            (row) => row.category === "UnitTest" && /portion/i.test(row.parserIssue ?? row.title ?? ""),
+          ),
+          rawRows: normalizedRows,
+          importRows: classifiedRows.importRows,
+        });
+        return {
+          classifiedRows,
+          isGradeSpecificSchedule:
+            entry.detected.detectedType === "ScholasticPlanner" &&
+            classifiedRows.importRows.some(
+              (row) => row.category === "UnitTest" && Boolean(row.dueDate),
+            ),
+        };
+      });
+      const scheduledRowsByFile = attachUnitTestDatesFromSchedule(
+        classifiedFiles.map((file) => ({
+          rows: file.classifiedRows.importRows,
+          isGradeSpecificSchedule: file.isGradeSpecificSchedule,
+        })),
       );
       const nextResults = [];
 
@@ -723,13 +723,17 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           detected,
         } = scannedFile;
         const allRawRows = scheduledRowsByFile[index];
-        const classifiedRows = classifyRowsByChildProfile(
-          allRawRows,
-          scanChildren,
-          scanChildNameToIdMap,
-        );
-        const rawRows = classifiedRows.importRows;
-
+        const classifiedRows = classifiedFiles[index].classifiedRows;
+        const rawRows = allRawRows;
+        console.debug("[smart-folder-import] final merge", {
+          fileName: file.name,
+          subjects: rawRows.filter((row) => row.category === "UnitTest").map((row) => ({
+            childName: row.childName,
+            subject: normalizeSubjectKey(row.subject),
+            dueDate: row.dueDate,
+            portion: row.description,
+          })),
+        });
         const importPreview =
           rawRows.length > 0
             ? importPipeline.run(rawRows, {

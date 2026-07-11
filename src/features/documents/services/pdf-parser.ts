@@ -194,19 +194,22 @@ const groupTextIntoLines = (
   };
 };
 
-export const extractPdfText = async (file: File): Promise<string> => {
+export const extractPdfTextFromData = async (
+  data: Uint8Array,
+  assetBaseUrl?: string,
+): Promise<string> => {
   const pdfjs = await loadPdfJs();
   const { getDocument } = pdfjs;
-  const data = new Uint8Array(await file.arrayBuffer());
-  const standardFontDataUrl = `${window.location.origin}/pdfjs/standard_fonts/`;
+  const standardFontDataUrl = assetBaseUrl
+    ? assetBaseUrl + "/standard_fonts/"
+    : undefined;
 
-  if (pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdfjs/pdf.worker.mjs`;
+  if (pdfjs.GlobalWorkerOptions && assetBaseUrl) {
+    pdfjs.GlobalWorkerOptions.workerSrc = assetBaseUrl + "/pdf.worker.mjs";
   }
-
   const pdf = await getDocument({
     data,
-    standardFontDataUrl,
+    ...(standardFontDataUrl ? { standardFontDataUrl } : {}),
     isEvalSupported: false,
   }).promise;
   const pages: string[] = [];
@@ -221,4 +224,9 @@ export const extractPdfText = async (file: File): Promise<string> => {
   }
 
   return pages.join("\n");
+};
+
+export const extractPdfText = async (file: File): Promise<string> => {
+  const data = new Uint8Array(await file.arrayBuffer());
+  return extractPdfTextFromData(data, window.location.origin + "/pdfjs");
 };

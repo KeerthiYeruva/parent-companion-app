@@ -27,6 +27,20 @@ describe("detectPlannerDocument", () => {
     expect(result.childHints).toContain("GRADE 1-5");
   });
 
+  it.each(["Grades 1\u20135", "Classes I\u2013V"])(
+    "preserves plural shared range hint %s",
+    async (range) => {
+      const result = await detectPlannerDocument({
+        name: "Exam Circular.pdf",
+        relativePath: "Exam Circular.pdf",
+        size: 100,
+        modifiedAt: "2026-07-02T00:00:00.000Z",
+        contentText: range + " Unit Test schedule",
+      });
+
+      expect(result.childHints).toContain(range.replace("\u2013", "-"));
+    },
+  );
   it("formats raw school file names into parent-friendly titles", async () => {
     const result = await detectPlannerDocument({
       name: "Grade_1_Unit_Test_Portion_20262027_9289.pdf",

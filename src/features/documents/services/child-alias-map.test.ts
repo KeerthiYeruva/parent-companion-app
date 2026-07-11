@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { buildChildAliasMap, normalizeGrade } from "@/features/documents/services/child-alias-map";
+import { buildChildAliasMap, expandGradeHint, normalizeGrade } from "@/features/documents/services/child-alias-map";
 
 describe("buildChildAliasMap", () => {
+  it.each([
+    ["Grades 1\u20135", ["1", "2", "3", "4", "5"]],
+    ["Grade 1-5", ["1", "2", "3", "4", "5"]],
+    ["Classes I\u2013V", ["1", "2", "3", "4", "5"]],
+    ["Grades 1 to 5", ["1", "2", "3", "4", "5"]],
+    ["Classes I to V", ["1", "2", "3", "4", "5"]],
+  ])("expands shared grade hint %s", (hint, expected) => {
+    expect(expandGradeHint(hint)).toEqual(expected);
+  });
   it("normalizes detector grade hints with separators", () => {
     expect(normalizeGrade("CLASS- I")).toBe("1");
     expect(normalizeGrade("CLASS-I")).toBe("1");
