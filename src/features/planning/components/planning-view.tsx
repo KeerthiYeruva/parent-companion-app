@@ -239,15 +239,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
             key={group.child.id}
             className="rounded-xl border border-slate-200 bg-white p-4"
           >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`h-3 w-3 rounded-full ${group.child.colorTag}`}
-                />
-                <h3 className="font-semibold text-slate-900">
-                  {group.child.name}
-                </h3>
-              </div>
+            <div className="mb-3 flex justify-end">
               <span className="text-sm font-medium text-slate-600">
                 {group.progress.label}
               </span>
@@ -278,15 +270,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
             key={group.child.id}
             className="rounded-xl border border-slate-200 bg-white p-4"
           >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`h-3 w-3 rounded-full ${group.child.colorTag}`}
-                />
-                <h3 className="font-semibold text-slate-900">
-                  {group.child.name}
-                </h3>
-              </div>
+            <div className="mb-3 flex justify-end">
               <span className="text-sm font-medium text-slate-600">
                 {group.progress.label}
               </span>
@@ -490,7 +474,6 @@ function uniqueItems(items: SchoolItem[]) {
 }
 
 function TodayChildCard({
-  child,
   urgentItems,
   dueTodayItems,
   activityItems,
@@ -511,11 +494,7 @@ function TodayChildCard({
 
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className={`h-3 w-3 rounded-full ${child.colorTag}`} />
-          <h3 className="text-lg font-semibold text-slate-900">{child.name}</h3>
-        </div>
+      <div className="mb-4 flex justify-end">
         <span className="text-sm font-medium text-slate-600">
           {progress.label}
         </span>
@@ -664,13 +643,11 @@ function CompactWeekItemList({
   items: SchoolItem[];
   showDates?: boolean;
 }) {
-  const children = useAppStore((state) => state.children);
   const toggleItemComplete = useAppStore((state) => state.toggleItemComplete);
 
   return (
     <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
       {items.map((item) => {
-        const child = children.find((entry) => entry.id === item.childId);
         const isCompleted = item.status === "Completed";
 
         return (
@@ -707,12 +684,11 @@ function CompactWeekItemList({
                 >
                   {item.title}
                 </p>
-                <p className="text-xs text-slate-500">
-                  {child?.name ?? "Unknown child"}
-                  {showDates
-                    ? ` • ${dayjs(item.dueDate).format("ddd, DD MMM")}`
-                    : ""}
-                </p>
+                {showDates ? (
+                  <p className="text-xs text-slate-500">
+                    {dayjs(item.dueDate).format("ddd, DD MMM")}
+                  </p>
+                ) : null}
               </div>
             </button>
           </li>
