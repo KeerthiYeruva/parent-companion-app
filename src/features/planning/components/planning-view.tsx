@@ -1,6 +1,5 @@
 import dayjs from "dayjs";
-import { useMemo, useState } from "react";
-import { AddItemForm } from "@/components/forms/add-item-form";
+import { useMemo } from "react";
 import { ItemList } from "@/components/item-list";
 import { NavShell } from "@/components/nav-shell";
 import {
@@ -41,7 +40,6 @@ export function PlanningView({
   showKidsTabs?: boolean;
 }) {
   const pathname = usePathname();
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const children = useAppStore((state) => state.children);
   const items = useAppStore((state) => state.items);
   const selectedChildIds = useAppStore((state) => state.selectedChildIds);
@@ -80,13 +78,13 @@ export function PlanningView({
   const monthly = useMemo(() => monthlyCounts(selectedItems), [selectedItems]);
 
   const title =
-    mode === "dashboard"
-      ? "Kids Growth Dashboard"
-      : mode === "day"
-        ? "Today"
-        : mode === "week"
-          ? "This Week"
-          : "This Month";
+    mode === "day"
+      ? "Overview"
+      : mode === "week"
+        ? "Weekly Overview"
+        : mode === "month"
+          ? "Monthly Overview"
+          : "Overview";
 
   let content = null;
 
@@ -316,14 +314,6 @@ export function PlanningView({
 
         <div className="planner-view__controls flex flex-wrap items-center justify-between gap-3">
           <ChildSwitcher />
-          <button
-            type="button"
-            aria-expanded={showQuickAdd}
-            onClick={() => setShowQuickAdd((value) => !value)}
-            className="planner-view__quick-add-toggle rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            {showQuickAdd ? "Hide Quick Add" : "Quick Add"}
-          </button>
         </div>
         {showKidsTabs ? (
           <nav className="rounded-xl border border-slate-200 bg-white p-3">
@@ -352,11 +342,6 @@ export function PlanningView({
               })}
             </div>
           </nav>
-        ) : null}
-        {showQuickAdd ? (
-          <div className="planner-view__quick-add">
-            <AddItemForm />
-          </div>
         ) : null}
         {content}
       </section>
