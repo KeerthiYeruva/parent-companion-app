@@ -21,11 +21,14 @@ describe("importPipeline", () => {
       },
     );
 
-    expect(result.summary).toEqual({
+    expect(result.summary).toMatchObject({
       totalRecords: 1,
       normalizedRecords: 1,
+      resolvedRecords: 1,
       validRecords: 1,
       issuesCount: 0,
+      blockingIssues: 0,
+      warningIssues: 0,
     });
 
     expect(result.normalizedRecords).toHaveLength(1);
@@ -92,3 +95,4 @@ describe("importPipeline", () => {
     expect(result.issues).toEqual([expect.objectContaining({ fieldName: "title", issue: "Row 1: Title is not parent-ready" })]);
   });
 });
+

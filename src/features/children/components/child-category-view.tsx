@@ -4,15 +4,15 @@ import { ItemList } from "@/components/item-list";
 import { ChildDetailLayout } from "@/features/children/components/child-detail-layout";
 import { completionProgress, monthItemsByWeek, splitOpenAndCompletedItems } from "@/features/planning/selectors/planning-selectors";
 import { useAppStore } from "@/store/use-app-store";
-import type { ItemCategory } from "@/types/domain";
+import type { ItemCategory, SchoolItem } from "@/types/domain";
 
 export function ChildCategoryView({ childId, title, categories }: { childId: string; title: string; categories: ItemCategory[] }) {
   const allItems = useAppStore((state) => state.items);
   const items = useMemo(
     () =>
       allItems
-      .filter((item) => item.childId === childId && categories.includes(item.category))
-      .sort((left, right) => left.dueDate.localeCompare(right.dueDate)),
+        .filter((item) => item.childId === childId && categories.includes(item.category))
+        .sort((left, right) => left.dueDate.localeCompare(right.dueDate)),
     [allItems, categories, childId],
   );
 
@@ -34,8 +34,8 @@ export function ChildMonthView({ childId }: { childId: string }) {
   const items = useMemo(
     () =>
       allItems
-      .filter((item) => item.childId === childId && dayjs(item.dueDate).isSame(dayjs(), "month"))
-      .sort((left, right) => left.dueDate.localeCompare(right.dueDate)),
+        .filter((item) => item.childId === childId && dayjs(item.dueDate).isSame(dayjs(), "month"))
+        .sort((left, right) => left.dueDate.localeCompare(right.dueDate)),
     [allItems, childId],
   );
 
@@ -57,7 +57,7 @@ export function ChildMonthView({ childId }: { childId: string }) {
                 <TaskSplitList items={week.items} emptyText="No tasks this week." />
               </div>
             ))}
-            {items.length === 0 ? <ItemList items={[]} emptyText="No items for this month." /> : null}
+            {items.length === 0 ? <ItemList items={[]} emptyText="No items for this month." showChild={false} showCategory={false} /> : null}
           </div>
         </div>
       </section>
@@ -65,25 +65,26 @@ export function ChildMonthView({ childId }: { childId: string }) {
   );
 }
 
-function TaskSplitList({ items, emptyText }: { items: ReturnType<typeof splitOpenAndCompletedItems>["open"]; emptyText: string }) {
+function TaskSplitList({ items, emptyText }: { items: SchoolItem[]; emptyText: string }) {
   const split = splitOpenAndCompletedItems(items);
 
   if (items.length === 0) {
-    return <ItemList items={[]} emptyText={emptyText} />;
+    return <ItemList items={[]} emptyText={emptyText} showChild={false} showCategory={false} />;
   }
 
   return (
     <div className="space-y-3">
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">To Do</h4>
-        <ItemList items={split.open} emptyText="No open tasks." />
+        <ItemList items={split.open} emptyText="No open tasks." showChild={false} showCategory={false} />
       </div>
       {split.completed.length > 0 ? (
         <div>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">Completed</h4>
-          <ItemList items={split.completed} emptyText="No completed tasks." />
+          <ItemList items={split.completed} emptyText="No completed tasks." showChild={false} showCategory={false} />
         </div>
       ) : null}
     </div>
   );
 }
+

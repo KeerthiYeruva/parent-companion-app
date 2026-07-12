@@ -620,7 +620,11 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
                 <span
                   className={`block text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
                 >
-                  {item.title}
+                {item.description ? (
+                  <span className="mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
+                    {item.description}
+                  </span>
+                ) : null}
                 </span>
                 <span className="block text-xs text-slate-500">
                   {item.subject ? `${item.subject} • ` : ""}
@@ -679,11 +683,16 @@ function CompactWeekItemList({
                     </span>
                   ) : null}
                 </div>
-                <p
+                <div
                   className={`mt-1 text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
                 >
                   {item.title}
-                </p>
+                </div>
+                {item.description ? (
+                  <p className="mt-1 whitespace-pre-line text-sm leading-5 text-slate-700">
+                    {item.description}
+                  </p>
+                ) : null}
                 {showDates ? (
                   <p className="text-xs text-slate-500">
                     {dayjs(item.dueDate).format("ddd, DD MMM")}
@@ -980,3 +989,10 @@ function ProgressCard({
     </article>
   );
 }
+
+
+
+
+
+
+

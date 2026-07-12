@@ -1,7 +1,12 @@
 import dayjs from "dayjs";
 import type { ItemCategory } from "@/types/domain";
+import { normalizeCanonicalSubject } from "@/features/import/services/import-content";
 import type { ImportNormalizer } from "@/features/import/contracts/import-contracts";
-import type { ImportPipelineOptions, NormalizedImportRecord, RawImportRecord } from "@/features/import/types/import-types";
+import type {
+  ImportPipelineOptions,
+  NormalizedImportRecord,
+  RawImportRecord,
+} from "@/features/import/types/import-types";
 
 const categoryMap: Record<string, ItemCategory> = {
   homework: "Homework",
@@ -38,7 +43,10 @@ const normalizeDueDate = (value?: string): string | undefined => {
   return parsed.format("YYYY-MM-DD");
 };
 
-const normalizeChildId = (childName: string | undefined, options: ImportPipelineOptions): string | undefined => {
+const normalizeChildId = (
+  childName: string | undefined,
+  options: ImportPipelineOptions,
+): string | undefined => {
   if (!childName || !options.childNameToIdMap) {
     return undefined;
   }
@@ -47,21 +55,29 @@ const normalizeChildId = (childName: string | undefined, options: ImportPipeline
 };
 
 export const importNormalizer: ImportNormalizer = {
-  normalize: (records: RawImportRecord[], options: ImportPipelineOptions): NormalizedImportRecord[] => {
+  normalize: (
+    records: RawImportRecord[],
+    options: ImportPipelineOptions,
+  ): NormalizedImportRecord[] => {
     return records.map((record) => {
       const rawChildName = record.childName?.trim();
       const rawCategory = record.category?.trim();
+      const canonicalSubject = normalizeCanonicalSubject(record.subject);
 
       return {
         childId: normalizeChildId(rawChildName, options),
         rawChildName,
         category: normalizeCategory(rawCategory),
         rawCategory,
-        subject: record.subject?.trim(),
+        subject: canonicalSubject ?? record.subject?.trim(),
+        canonicalSubject,
         title: record.title?.trim() ?? "",
         dueDate: normalizeDueDate(record.dueDate),
         description: record.description?.trim(),
+        chapterNumber: record.chapterNumber?.trim(),
+        chapterName: record.chapterName?.trim(),
         sourceDocumentId: record.sourceDocumentId ?? options.documentId,
+        sourceRole: record.sourceRole,
         parserIssue: record.parserIssue,
       };
     });

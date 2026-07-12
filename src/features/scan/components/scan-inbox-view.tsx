@@ -15,7 +15,7 @@ const formatCategoryCounts = (counts?: Partial<Record<ItemCategory, number>>) =>
   }
 
   const entries = itemCategories.map((category) => [category, counts[category] ?? 0] as const).filter(([, count]) => count > 0);
-  return entries.length > 0 ? entries.map(([category, count]) => `${category}: ${count}`).join(" â€¢ ") : "No weekly or monthly targets found";
+  return entries.length > 0 ? entries.map(([category, count]) => `${category}: ${count}`).join(" • ") : "No weekly or monthly targets found";
 };
 
 const countExtractedItems = (counts?: Partial<Record<ItemCategory, number>>) => {
@@ -24,6 +24,26 @@ const countExtractedItems = (counts?: Partial<Record<ItemCategory, number>>) => 
 
 const countChildAssignmentIssues = (file: { importPreviewIssues?: Array<{ fieldName: string }> }) => {
   return (file.importPreviewIssues ?? []).filter((issue) => issue.fieldName === "childName").length;
+};
+
+const formatStatusLabel = (status: "ready" | "partiallyReady" | "needsReview" | "changed" | "duplicate") => {
+  if (status === "ready") {
+    return "Ready";
+  }
+
+  if (status === "partiallyReady") {
+    return "Partially Ready";
+  }
+
+  if (status === "needsReview") {
+    return "Needs Review";
+  }
+
+  if (status === "changed") {
+    return "Changed";
+  }
+
+  return "Duplicate";
 };
 
 const formatConfidence = (confidence?: "high" | "review" | "low") => {
@@ -84,7 +104,7 @@ export function ScanInboxView() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-slate-900">{formatSchoolDocumentTitle(file.fileName, file.detectedType)}</p>
-                      <p className="text-sm text-slate-600">{file.detectedType} â€¢ {file.monthLabel ?? "Month unknown"} â€¢ {file.relativePath}</p>
+                      <p className="text-sm text-slate-600">{file.detectedType} • {file.monthLabel ?? "Month unknown"} • {file.relativePath}</p>
                       <p className="text-sm font-medium text-emerald-700">Items found: {extractedItems}</p>
                       <p className={`text-xs font-semibold ${file.confidence === "high" ? "text-emerald-700" : file.confidence === "review" ? "text-amber-700" : "text-rose-700"}`}>
                         {formatConfidence(file.confidence)}
@@ -102,7 +122,7 @@ export function ScanInboxView() {
                       ) : null}
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{file.status}</span>
+                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${file.status === "ready" ? "bg-emerald-100 text-emerald-700" : file.status === "partiallyReady" ? "bg-amber-100 text-amber-800" : file.status === "needsReview" ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-700"}`}>{formatStatusLabel(file.status)}</span>
                       <Link href={`/scan/file/${encodeURIComponent(file.documentId)}`} className="text-sm text-blue-700">
                         Open
                       </Link>
@@ -123,7 +143,7 @@ export function ScanInboxView() {
             <ul className="space-y-2">
               {scanHistory.slice(0, 5).map((run) => (
                 <li key={run.id} className="text-sm text-slate-600">
-                  {new Date(run.scannedAt).toLocaleString()} â€¢ {run.fileCount} files â€¢ {run.reviewCount} need review
+                  {new Date(run.scannedAt).toLocaleString()} • {run.fileCount} files • {run.reviewCount} need review
                 </li>
               ))}
             </ul>

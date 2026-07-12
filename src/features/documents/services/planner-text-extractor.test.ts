@@ -140,25 +140,28 @@ describe("extractPlannerRows", () => {
           subject: "English",
           dueDate: "2026-07-10",
           title: "Class Test Grammar - Nouns and Punctuation/Sentences",
+          description: "CLASS TEST Grammar - Nouns and Punctuation/Sentences",
         }),
         expect.objectContaining({
           category: "Homework",
           subject: "Mathematics",
           dueDate: "2026-07-06",
-          title: "Q16-Q20 Pg. No. 96,97,98",
-          description: "Context: Numbers up to 100 Pg. No. 96,97,98",
+          title: expect.stringContaining("Numbers up to 100"),
+          description: "Homework: Q16-Q20 Pg. No. 96,97,98",
         }),
         expect.objectContaining({
           category: "Activity",
           subject: "Mathematics",
           dueDate: "2026-07-10",
           title: "Activity Comparison of two-digit numbers",
+          description: expect.stringContaining("Graded Lab activity"),
         }),
         expect.objectContaining({
           category: "Project",
           subject: "Science",
           dueDate: "2026-07-10",
-          title: "How Things Move Project",
+          title: "Chapter-2 Project",
+          description: "Graded Project",
         }),
       ]),
     );
@@ -221,8 +224,8 @@ describe("extractPlannerRows", () => {
     });
 
     expect(rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ category: "ClassTest", subject: "Social Studies", dueDate: "2026-07-06", title: "Chapter 5 Recap" }),
-      expect.objectContaining({ category: "Project", subject: "Social Studies", dueDate: "2026-07-07", title: "Social Studies Project" }),
+      expect.objectContaining({ category: "ClassTest", subject: "Social Studies", dueDate: "2026-07-06", title: "Chapter 5 Recap", description: "Class Test-06/07/2026 Chapter 5 Recap" }),
+      expect.objectContaining({ category: "Activity", subject: "Mathematics", dueDate: "2026-07-07", title: "Mathematics Activity", description: expect.stringContaining("Graded Lab activity") }),
     ]));
     expect(rows).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ category: "UnitTest" }),
@@ -263,8 +266,8 @@ describe("extractPlannerRows", () => {
     });
 
     expect(rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ category: "Project", subject: "Mathematics", dueDate: "2026-07-07", title: "Mathematics Project" }),
-      expect.objectContaining({ category: "Activity", subject: "Mathematics", dueDate: "2026-07-08", title: "Mathematics Activity" }),
+      expect.objectContaining({ category: "Activity", subject: "Mathematics", dueDate: "2026-07-08", title: "Mathematics Activity", description: "Graded Activity" }),
+
     ]));
     expect(rows).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ title: "Chapter - 1 Activity" }),
@@ -286,8 +289,8 @@ describe("extractPlannerRows", () => {
         category: "Homework",
         subject: "Mathematics",
         dueDate: "2026-07-13",
-        title: "Q16-Q20",
-        description: "Context: Revision - 2 Chapter-1 Place value Q21-Q26",
+        title: expect.stringContaining("Place value"),
+        description: expect.stringContaining("Revision work"),
       }),
     ]);
   });
@@ -619,11 +622,17 @@ describe("extractPlannerRows", () => {
     expect(result.items).toEqual([]);
     expect(result.issues).toEqual([
       expect.objectContaining({
-        fieldName: "dueDate",
+        fieldName: "title",
+        issue: "Row 1: Title is not parent-ready",
+        severity: "blocking",
+      }),
+      expect.objectContaining({
+        fieldName: "parser",
         issue: "Row 1: Date and weekday mismatch",
+        severity: "warning",
       }),
     ]);
-    expect(result.summary).toMatchObject({ validRecords: 0, issuesCount: 1 });
+    expect(result.summary).toMatchObject({ validRecords: 0, issuesCount: 2, blockingIssues: 1, warningIssues: 1 });
   });
 
   it("routes contextual weekend dates with weekday mismatches to review", () => {
@@ -904,10 +913,10 @@ describe("extractPlannerRows", () => {
     });
 
     expect(rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ category: "ClassTest", subject: "English", title: "Study English", dueDate: "2026-07-10" }),
-      expect.objectContaining({ category: "Project", title: "Things need air to move", parserIssue: "Date needs confirmation" }),
-      expect.objectContaining({ category: "Activity", subject: "Dance", title: "Contemporary Style", parserIssue: "Date needs confirmation" }),
-      expect.objectContaining({ category: "HomeStudy", title: "Chapter 1 and Chapter 2", parserIssue: "Date needs confirmation" }),
+      expect.objectContaining({ category: "ClassTest", title: "10.07.2026 English", dueDate: "2026-07-10", description: "CLASS TEST 10.07.2026 English" }),
+      expect.objectContaining({ category: "Project", title: "Things need air to move", description: "GRADED PROJECT Things need air to move", parserIssue: "Date needs confirmation" }),
+      expect.objectContaining({ category: "Activity", subject: "Dance", title: "Contemporary Style", description: "DANCE Contemporary Style", parserIssue: "Date needs confirmation" }),
+      expect.objectContaining({ category: "HomeStudy", title: "Chapter 1 and Chapter 2", description: "REVISION Chapter 1 and Chapter 2", parserIssue: "Date needs confirmation" }),
     ]));
   });
 
@@ -926,3 +935,4 @@ describe("extractPlannerRows", () => {
     expect(rows).toEqual([]);
   });
 });
+

@@ -7,7 +7,10 @@ type ScanSlice = Pick<
   "connectedFolderName" | "lastScanAt" | "scanQueue" | "scanHistory" | "setConnectedFolderName" | "setScanQueue" | "updateScanFile" | "hydrateScanFile" | "clearScanQueue" | "hydrateScanHistory"
 >;
 
-const countByStatus = (files: ScanSessionFileRecord[], status: ScanSessionFileRecord["status"]) => {
+const countByStatus = (
+  files: ScanSessionFileRecord[],
+  status: ScanSessionFileRecord["status"],
+) => {
   return files.filter((file) => file.status === status).length;
 };
 
@@ -25,10 +28,11 @@ export const createScanSlice: StateCreator<AppState, [], [], ScanSlice> = (set, 
       id: scanRunId,
       scannedAt,
       fileCount: files.length,
-      newCount: countByStatus(files, "new"),
+      newCount: countByStatus(files, "ready"),
       changedCount: countByStatus(files, "changed"),
       duplicateCount: countByStatus(files, "duplicate"),
-      reviewCount: files.filter((file) => (file.status === "review") || ((file as { importPreview?: { issues: unknown[] } }).importPreview?.issues.length ?? 0) > 0).length,
+      reviewCount:
+        countByStatus(files, "needsReview") + countByStatus(files, "partiallyReady"),
     };
 
     scanRepository.saveScanRun(run, files).catch(() => {

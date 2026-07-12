@@ -77,6 +77,7 @@ export interface ImportIssue {
   fieldName: string;
   issue: string;
   resolved: boolean;
+  severity?: "blocking" | "warning" | "info";
 }
 
 export interface PlannerBackup {
@@ -99,7 +100,7 @@ export interface ScanSessionFileRecord {
   detectedType: DocumentType | "Unknown";
   monthLabel?: string;
   childHints: string[];
-  status: "new" | "changed" | "duplicate" | "review";
+  status: "ready" | "partiallyReady" | "needsReview" | "changed" | "duplicate";
   scannedAt: string;
   scanRunId: string;
 
@@ -202,3 +203,6 @@ export interface ImportedItemReplacementScope {
   fromDate: string;
   toDate: string;
 }
+
+
+

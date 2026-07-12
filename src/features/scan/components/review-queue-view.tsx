@@ -48,7 +48,7 @@ export function ReviewQueueView() {
   const markDocumentReviewed = useAppStore((state) => state.markDocumentReviewed);
 
   const childNameToIdMap = useMemo(() => buildChildAliasMap(children), [children]);
-  const filesNeedingReview = scanQueue.filter((file) => (file.importPreviewIssues?.length ?? 0) > 0 || file.status === "review");
+  const filesNeedingReview = scanQueue.filter((file) => file.status === "needsReview" || file.status === "partiallyReady" || (file.importPreviewIssues ?? []).some((issue) => issue.severity !== "warning" && issue.severity !== "info"));
 
   const buildDraftRows = (documentId: string) => {
     const file = filesNeedingReview.find((entry) => entry.documentId === documentId);
@@ -85,7 +85,7 @@ export function ReviewQueueView() {
       importPreviewItems: result.items,
       importPreviewIssues: result.issues,
       importPreviewSummary: result.summary,
-      status: result.issues.length > 0 ? "review" : "changed",
+      status: result.issues.some((issue) => issue.severity !== "warning" && issue.severity !== "info") ? (result.items.length > 0 ? "partiallyReady" : "needsReview") : "ready",
     }));
   };
 
@@ -100,7 +100,7 @@ export function ReviewQueueView() {
     clearReviewDraftsForDocument(documentId);
     updateScanFile(documentId, (current) => ({
       ...current,
-      status: "changed",
+      status: "ready",
       importPreviewIssues: [],
       importPreviewSummary: current.importPreviewSummary
         ? {
@@ -150,7 +150,7 @@ export function ReviewQueueView() {
                     <button
                       type="button"
                       onClick={() => importReviewedDocument(file.documentId)}
-                      disabled={(file.importPreviewItems?.length ?? 0) === 0 || (file.importPreviewIssues?.length ?? 0) > 0}
+                      disabled={(file.importPreviewItems?.length ?? 0) === 0 || (file.importPreviewIssues ?? []).some((issue) => issue.severity !== "warning" && issue.severity !== "info")}
                       className="rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Import Valid Rows
@@ -215,3 +215,4 @@ export function ReviewQueueView() {
     </NavShell>
   );
 }
+

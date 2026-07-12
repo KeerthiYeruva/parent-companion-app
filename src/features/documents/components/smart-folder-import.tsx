@@ -43,6 +43,7 @@ const createConfidenceIssue = (
   fieldName: "parser",
   issue,
   resolved: false,
+  severity: "warning",
 });
 
 const countRowsByCategory = (rows: Array<{ category?: string }>) => {
@@ -212,7 +213,6 @@ const normalizeSubjectKey = (value?: string) =>
 const isGradeOrClassHint = (value: string) =>
   /^(grades?|classes?)\b/i.test(value.trim());
 
-
 const normalizeRowChildNames = (
   rows: RawImportRecord[],
   children: ChildProfile[],
@@ -283,56 +283,86 @@ export const attachUnitTestDatesFromSchedule = (
   files: Array<{ rows: RawImportRecord[]; isGradeSpecificSchedule: boolean }>,
 ) => {
   const keyFor = (row: RawImportRecord) =>
-    (row.childName?.trim().toLowerCase() ?? "") + "::" + normalizeSubjectKey(row.subject);
+    (row.childName?.trim().toLowerCase() ?? "") +
+    "::" +
+    normalizeSubjectKey(row.subject);
   const authoritativeChildren = new Set(
-    files.filter((file) => file.isGradeSpecificSchedule).flatMap((file) =>
-      file.rows
-        .filter((row) => row.category === "UnitTest" && Boolean(row.childName && row.subject && row.dueDate))
-        .map((row) => row.childName!.trim().toLowerCase()),
-    ),
+    files
+      .filter((file) => file.isGradeSpecificSchedule)
+      .flatMap((file) =>
+        file.rows
+          .filter(
+            (row) =>
+              row.category === "UnitTest" &&
+              Boolean(row.childName && row.subject && row.dueDate),
+          )
+          .map((row) => row.childName!.trim().toLowerCase()),
+      ),
   );
   const scheduleByKey = new Map<string, string>();
   const portionKeys = new Set<string>();
 
-  files.forEach((file) => file.rows.forEach((row) => {
-    if (row.category !== "UnitTest" || !row.subject || !row.childName) return;
-    const childKey = row.childName.trim().toLowerCase();
-    if (row.dueDate && (!authoritativeChildren.has(childKey) || file.isGradeSpecificSchedule)) {
-      scheduleByKey.set(keyFor(row), row.dueDate);
-    }
-    if (/unit test portion found without an exam schedule date/i.test(row.parserIssue ?? "")) {
-      portionKeys.add(keyFor(row));
-    }
-  }));
+  files.forEach((file) =>
+    file.rows.forEach((row) => {
+      if (row.category !== "UnitTest" || !row.subject || !row.childName) return;
+      const childKey = row.childName.trim().toLowerCase();
+      if (
+        row.dueDate &&
+        (!authoritativeChildren.has(childKey) || file.isGradeSpecificSchedule)
+      ) {
+        scheduleByKey.set(keyFor(row), row.dueDate);
+      }
+      if (
+        /unit test portion found without an exam schedule date/i.test(
+          row.parserIssue ?? "",
+        )
+      ) {
+        portionKeys.add(keyFor(row));
+      }
+    }),
+  );
 
   const seenSchedules = new Set<string>();
-  return files.map((file) => file.rows.flatMap((row) => {
-    if (row.category !== "UnitTest" || !row.subject || !row.childName) return [row];
-    const key = keyFor(row);
-    const childKey = row.childName.trim().toLowerCase();
-    if (row.dueDate) {
-      if (
-        (authoritativeChildren.has(childKey) && !file.isGradeSpecificSchedule) ||
-        portionKeys.has(key) ||
-        seenSchedules.has(key)
-      ) return [];
-      seenSchedules.add(key);
-      return [row];
-    }
+  return files.map((file) =>
+    file.rows.flatMap((row) => {
+      if (row.category !== "UnitTest" || !row.subject || !row.childName)
+        return [row];
+      const key = keyFor(row);
+      const childKey = row.childName.trim().toLowerCase();
+      if (row.dueDate) {
+        if (
+          (authoritativeChildren.has(childKey) &&
+            !file.isGradeSpecificSchedule) ||
+          portionKeys.has(key) ||
+          seenSchedules.has(key)
+        )
+          return [];
+        seenSchedules.add(key);
+        return [row];
+      }
 
-    const isPortion = /unit test portion found without an exam schedule date/i.test(row.parserIssue ?? "");
-    const scheduleDate = scheduleByKey.get(key);
-    if (!isPortion || !scheduleDate) return [row];
+      const isPortion =
+        /unit test portion found without an exam schedule date/i.test(
+          row.parserIssue ?? "",
+        );
+      const scheduleDate = scheduleByKey.get(key);
+      if (!isPortion || !scheduleDate) return [row];
 
-    return [{
-      ...row,
-      title: row.subject + " Unit Test",
-      description: (row.title ?? row.description ?? row.subject + " portions")
-        .replace(/^Unit Test Portion:\s*/i, "Portions: "),
-      dueDate: scheduleDate,
-      parserIssue: undefined,
-    }];
-  }));
+      return [
+        {
+          ...row,
+          title: row.subject + " Unit Test",
+          description: (
+            row.title ??
+            row.description ??
+            row.subject + " portions"
+          ).replace(/^Unit Test Portion:\s*/i, "Portions: "),
+          dueDate: scheduleDate,
+          parserIssue: undefined,
+        },
+      ];
+    }),
+  );
 };
 const buildConfidence = ({
   extractionStatus,
@@ -422,8 +452,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       );
     });
   }, [documents, scanQueue]);
-  const scannedDocumentsSaved =
-    scanQueue.length > 0 && saveableResults.length === 0;
 
   const existingItemKeys = useMemo(() => {
     return new Set(
@@ -440,27 +468,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     );
   }, [items]);
 
-  const readyUnimportedCount = useMemo(() => {
-    return scanQueue.reduce((count, result) => {
-      return (
-        count +
-        (result.importPreviewItems ?? []).filter(
-          (item) =>
-            !existingItemKeys.has(
-              [
-                item.childId,
-                item.category,
-                item.subject ?? "",
-                item.title.trim().toLowerCase(),
-                item.dueDate,
-                item.sourceDocumentId ?? "",
-              ].join("__"),
-            ),
-        ).length
-      );
-    }, 0);
-  }, [existingItemKeys, scanQueue]);
-
   const scannedSourceDocumentIds = useMemo(() => {
     return Array.from(new Set(scanQueue.map((result) => result.documentId)));
   }, [scanQueue]);
@@ -469,8 +476,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     () => scanQueue.flatMap((result) => result.importPreviewItems ?? []),
     [scanQueue],
   );
-  const scannedItemsImported =
-    readyPreviewItems.length > 0 && readyUnimportedCount === 0;
   const replacementScope = useMemo(
     () => buildReplacementScope(readyPreviewItems),
     [readyPreviewItems],
@@ -685,13 +690,16 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           fileName: entry.file.name,
           detectedType: entry.detected.detectedType,
           childHints: entry.detected.childHints,
-          inferredChildName: entry.rawRows.find((row) => row.childName)?.childName,
+          inferredChildName: entry.rawRows.find((row) => row.childName)
+            ?.childName,
           detectedGradeOrClass: entry.detected.childHints,
           scheduleRows: classifiedRows.importRows.filter(
             (row) => row.category === "UnitTest" && Boolean(row.dueDate),
           ),
           portionRows: classifiedRows.importRows.filter(
-            (row) => row.category === "UnitTest" && /portion/i.test(row.parserIssue ?? row.title ?? ""),
+            (row) =>
+              row.category === "UnitTest" &&
+              /portion/i.test(row.parserIssue ?? row.title ?? ""),
           ),
           rawRows: normalizedRows,
           importRows: classifiedRows.importRows,
@@ -705,12 +713,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
             ),
         };
       });
-      const scheduledRowsByFile = attachUnitTestDatesFromSchedule(
-        classifiedFiles.map((file) => ({
-          rows: file.classifiedRows.importRows,
-          isGradeSpecificSchedule: file.isGradeSpecificSchedule,
-        })),
-      );
       const nextResults = [];
 
       for (const [index, scannedFile] of scannedFiles.entries()) {
@@ -722,17 +724,19 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           relativePath,
           detected,
         } = scannedFile;
-        const allRawRows = scheduledRowsByFile[index];
         const classifiedRows = classifiedFiles[index].classifiedRows;
+        const allRawRows = classifiedRows.importRows;
         const rawRows = allRawRows;
         console.debug("[smart-folder-import] final merge", {
           fileName: file.name,
-          subjects: rawRows.filter((row) => row.category === "UnitTest").map((row) => ({
-            childName: row.childName,
-            subject: normalizeSubjectKey(row.subject),
-            dueDate: row.dueDate,
-            portion: row.description,
-          })),
+          subjects: rawRows
+            .filter((row) => row.category === "UnitTest")
+            .map((row) => ({
+              childName: row.childName,
+              subject: normalizeSubjectKey(row.subject),
+              dueDate: row.dueDate,
+              portion: row.description,
+            })),
         });
         const importPreview =
           rawRows.length > 0
@@ -740,6 +744,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                 sourceType: "future-pdf",
                 documentId: detected.fileHash,
                 childNameToIdMap: scanChildNameToIdMap,
+                existingItems: items,
               })
             : undefined;
         const categoryCounts = countRowsByCategory(allRawRows);
@@ -754,23 +759,50 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           ...(importPreview?.issues ?? []),
           ...confidenceIssues,
         ];
+        const blockingIssueCount = importPreviewIssues.filter(
+          (issue) => issue.severity !== "warning" && issue.severity !== "info",
+        ).length;
+        const validItemCount = importPreview?.items.length ?? 0;
         const importPreviewSummary = importPreview
           ? {
               ...importPreview.summary,
               issuesCount:
                 importPreview.issues.length + confidenceIssues.length,
+              blockingIssues:
+                importPreview.issues.filter(
+                  (issue) =>
+                    issue.severity !== "warning" && issue.severity !== "info",
+                ).length +
+                confidenceIssues.filter(
+                  (issue) =>
+                    issue.severity !== "warning" && issue.severity !== "info",
+                ).length,
+              warningIssues:
+                importPreview.issues.filter(
+                  (issue) => issue.severity === "warning",
+                ).length +
+                confidenceIssues.filter((issue) => issue.severity === "warning")
+                  .length,
             }
           : confidenceIssues.length > 0
             ? {
                 totalRecords: rawRows.length,
                 normalizedRecords: rawRows.length,
+                resolvedRecords: rawRows.length,
                 validRecords: 0,
                 issuesCount: confidenceIssues.length,
+                blockingIssues: confidenceIssues.filter(
+                  (issue) =>
+                    issue.severity !== "warning" && issue.severity !== "info",
+                ).length,
+                warningIssues: confidenceIssues.filter(
+                  (issue) => issue.severity === "warning",
+                ).length,
               }
             : undefined;
         const confidence = buildConfidence({
           extractionStatus,
-          issueCount: importPreviewIssues.length,
+          issueCount: blockingIssueCount,
           categoryCounts,
         });
 
@@ -779,11 +811,17 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           ? existing.modifiedAt === new Date(file.lastModified).toISOString()
             ? "duplicate"
             : "changed"
-          : "new";
+          : "ready";
         const status: ScanSessionFileRecord["status"] =
-          importPreviewIssues.length > 0 && derivedStatus !== "duplicate"
-            ? "review"
-            : derivedStatus;
+          derivedStatus === "duplicate" || derivedStatus === "changed"
+            ? derivedStatus
+            : blockingIssueCount > 0
+              ? validItemCount > 0
+                ? "partiallyReady"
+                : "needsReview"
+              : validItemCount > 0
+                ? "ready"
+                : "needsReview";
 
         nextResults.push({
           documentId: detected.fileHash,
@@ -1042,11 +1080,13 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                       </div>
                       <span
                         className={`rounded-full px-2 py-1 text-xs font-medium ${
-                          result.status === "new"
+                          result.status === "ready"
                             ? "bg-emerald-100 text-emerald-700"
                             : result.status === "changed"
                               ? "bg-amber-100 text-amber-700"
-                              : "bg-slate-200 text-slate-700"
+                              : result.status === "duplicate"
+                                ? "bg-slate-200 text-slate-700"
+                                : "bg-slate-200 text-slate-700"
                         }`}
                       >
                         {result.status}

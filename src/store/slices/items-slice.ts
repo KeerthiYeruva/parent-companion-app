@@ -1,6 +1,7 @@
 import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
 import { deriveStatus } from "@/lib/status";
+import { buildLogicalItemKey, mergeResolvedItemFields } from "@/features/import/services/import-content";
 import type {
   AppState,
   ImportedItemReplacementScope,
@@ -24,14 +25,7 @@ const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
 const itemKey = (
   item: Omit<SchoolItem, "id" | "status" | "completedAt"> | SchoolItem,
-) =>
-  [
-    item.childId,
-    item.category,
-    item.subject ?? "",
-    item.title.trim().toLowerCase(),
-    item.dueDate,
-  ].join("__");
+) => buildLogicalItemKey(item);
 
 const dedupeByItemKey = <
   T extends Omit<SchoolItem, "id" | "status" | "completedAt"> | SchoolItem,
@@ -50,34 +44,69 @@ const dedupeByItemKey = <
   });
 };
 
+const mergeItems = (
+  existing: SchoolItem,
+  incoming: Omit<SchoolItem, "id" | "status" | "completedAt">,
+): SchoolItem => {
+  const mergedContent = mergeResolvedItemFields(
+    {
+      title: existing.title,
+      description: existing.description,
+      chapterNumber: existing.chapterNumber,
+      chapterName: existing.chapterName,
+      subject: existing.subject,
+    },
+    {
+      title: incoming.title,
+      description: incoming.description,
+      chapterNumber: incoming.chapterNumber,
+      chapterName: incoming.chapterName,
+      subject: incoming.subject,
+    },
+  );
+  const completedAt = existing.completedAt ?? undefined;
+
+  return {
+    ...existing,
+    ...incoming,
+    ...mergedContent,
+    sourceDocumentId: incoming.sourceDocumentId ?? existing.sourceDocumentId,
+    completedAt,
+    status: deriveStatus(incoming.dueDate ?? existing.dueDate, completedAt),
+  };
+};
+
 export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
   set,
   get,
 ) => ({
   items: [],
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => {
-    if (get().items.some((existing) => itemKey(existing) === itemKey(item))) {
-      return;
-    }
+    const existing = get().items.find((entry) => itemKey(entry) === itemKey(item));
+    const nextItem = existing
+      ? mergeItems(existing, item)
+      : {
+          ...item,
+          id: createId("item"),
+          status: deriveStatus(item.dueDate),
+        };
 
-    const newItem = {
-      ...item,
-      id: createId("item"),
-      status: deriveStatus(item.dueDate),
-    };
-
-    appRepository.upsertItem(newItem).catch(() => {
+    appRepository.upsertItem(nextItem).catch(() => {
       get().pushPersistenceWarning(
         "New item could not be saved to local database.",
       );
     });
 
-    void upsertCloudItem(newItem).catch(() => {
+    void upsertCloudItem(nextItem).catch(() => {
       get().pushPersistenceWarning("New item could not be synced to cloud.");
     });
 
     set((state) => ({
-      items: [...state.items, newItem],
+      items: existing
+        ? state.items.map((entry) =>
+            itemKey(entry) === itemKey(item) ? nextItem : entry,
+          )
+        : [...state.items, nextItem],
     }));
   },
   replaceItemsForSourceDocuments: (
@@ -86,47 +115,60 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
     scope?: ImportedItemReplacementScope,
   ) => {
     const sourceDocumentIdSet = new Set(sourceDocumentIds);
-    const nextItems = dedupeByItemKey(items).map((item) => ({
-      ...item,
-      id: createId("item"),
-      status: deriveStatus(item.dueDate),
-    }));
+    const nextItems = dedupeByItemKey(items);
 
-    appRepository
-      .replaceItemsForSourceDocuments(sourceDocumentIds, nextItems, scope)
-      .then(() => syncAllLocalItemsToCloud())
-      .catch(() => {
-        get().pushPersistenceWarning(
-          "Imported items could not be fully synced.",
-        );
+    set((state) => {
+      const retainedItems = state.items.filter((item) => {
+        if (item.sourceDocumentId && sourceDocumentIdSet.has(item.sourceDocumentId)) {
+          return false;
+        }
+
+        if (
+          scope &&
+          item.sourceDocumentId &&
+          scope.childIds.includes(item.childId) &&
+          scope.categories.includes(item.category) &&
+          item.dueDate >= scope.fromDate &&
+          item.dueDate <= scope.toDate
+        ) {
+          return false;
+        }
+
+        return true;
       });
 
-    set((state) => ({
-      items: [
-        ...state.items.filter((item) => {
-          if (
-            item.sourceDocumentId &&
-            sourceDocumentIdSet.has(item.sourceDocumentId)
-          ) {
-            return false;
-          }
+      const mergedItems = [...retainedItems];
+      nextItems.forEach((incoming) => {
+        const existingIndex = mergedItems.findIndex((entry) => itemKey(entry) === itemKey(incoming));
+        if (existingIndex >= 0) {
+          mergedItems[existingIndex] = mergeItems(mergedItems[existingIndex], incoming);
+          return;
+        }
 
-          if (
-            scope &&
-            item.sourceDocumentId &&
-            scope.childIds.includes(item.childId) &&
-            scope.categories.includes(item.category) &&
-            item.dueDate >= scope.fromDate &&
-            item.dueDate <= scope.toDate
-          ) {
-            return false;
-          }
+        mergedItems.push({
+          ...incoming,
+          id: createId("item"),
+          status: deriveStatus(incoming.dueDate),
+        });
+      });
 
-          return true;
-        }),
-        ...nextItems,
-      ],
-    }));
+      appRepository
+        .replaceItemsForSourceDocuments(
+          sourceDocumentIds,
+          mergedItems,
+          scope,
+        )
+        .then(() => syncAllLocalItemsToCloud())
+        .catch(() => {
+          get().pushPersistenceWarning(
+            "Imported items could not be fully synced.",
+          );
+        });
+
+      return {
+        items: mergedItems,
+      };
+    });
   },
   toggleItemComplete: (id: string) => {
     set((state) => ({

@@ -178,6 +178,7 @@ export const childReviewSummary = (child: ChildProfile, scanQueue: ScanSessionFi
 
   return {
     fileCount: matchingFiles.length,
-    reviewCount: matchingFiles.filter((file) => file.status === "review").length,
+    reviewCount: matchingFiles.filter((file) => file.status === "needsReview" || file.status === "partiallyReady").length,
   };
 };
+
