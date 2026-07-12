@@ -195,16 +195,15 @@ export function PlanningView({
           progress: completionProgress(priorityItems),
         };
       });
-    const todayPriorityProgress = completionProgress(
-      uniqueItems(
-        groups.flatMap((group) => [
-          ...group.urgentItems,
-          ...group.dueTodayItems,
-          ...group.activityItems,
-          ...group.tomorrowTests,
-        ]),
-      ),
+    const todayItems = uniqueItems(
+      groups.flatMap((group) => [
+        ...group.urgentItems,
+        ...group.dueTodayItems,
+        ...group.activityItems,
+      ]),
     );
+
+    const todayPriorityProgress = completionProgress(todayItems);
     const upcomingEndDate = todayDate.add(3, "day");
 
     const upcomingItems = selectedItems
@@ -233,24 +232,28 @@ export function PlanningView({
             showDates
           />
         ) : null}
-        <div className="planner-today__priority-summary planner-progress-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="planner-progress-card__header flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="planner-progress-card__label text-sm font-medium text-slate-500">
-                Today
-              </p>
+        {todayItems.length > 0 ? (
+          <div className="planner-today__priority-summary planner-progress-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="planner-progress-card__header flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="planner-progress-card__label text-sm font-medium text-slate-500">
+                  Today
+                </p>
+              </div>
+
+              <span className="planner-progress-card__status rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+                {todayPriorityProgress.label}
+              </span>
             </div>
-            <span className="planner-progress-card__status rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
-              {todayPriorityProgress.label}
-            </span>
+
+            <div className="planner-progress-card__track mt-4 h-2 rounded-full bg-slate-100">
+              <div
+                className="planner-progress-card__bar h-2 rounded-full bg-emerald-500"
+                style={{ width: `${todayPriorityProgress.percent}%` }}
+              />
+            </div>
           </div>
-          <div className="planner-progress-card__track mt-4 h-2 rounded-full bg-slate-100">
-            <div
-              className="planner-progress-card__bar h-2 rounded-full bg-emerald-500"
-              style={{ width: `${todayPriorityProgress.percent}%` }}
-            />
-          </div>
-        </div>
+        ) : null}
         {groups.map((group) => (
           <TodayChildCard key={group.child.id} {...group} />
         ))}
