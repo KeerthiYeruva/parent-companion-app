@@ -42,7 +42,7 @@ export function NavShell({ children }: { children: ReactNode }) {
   const retryPendingItemSync = useAppStore(
     (state) => state.retryPendingItemSync,
   );
-  const showWarnings = warnings.length > 0;
+  const showWarnings = warnings.length > 0 || pendingItemSyncIds.length > 0;
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -88,9 +88,15 @@ export function NavShell({ children }: { children: ReactNode }) {
         <div className="border-b border-amber-200 bg-amber-50">
           <div className="mx-auto flex max-w-7xl items-start justify-between gap-3 px-4 py-3">
             <p className="text-sm text-amber-900">
-              {warnings[0]}
+              {warnings[0] ??
+                `${pendingItemSyncIds.length} item change${
+                  pendingItemSyncIds.length === 1 ? "" : "s"
+                } waiting to sync.`}
+
               {warnings.length > 1
-                ? ` (${warnings.length - 1} more warning${warnings.length - 1 > 1 ? "s" : ""})`
+                ? ` (${warnings.length - 1} more warning${
+                    warnings.length - 1 > 1 ? "s" : ""
+                  })`
                 : ""}
             </p>
             <div className="flex shrink-0 gap-2">
