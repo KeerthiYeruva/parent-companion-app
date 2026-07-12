@@ -1,7 +1,6 @@
 import dayjs from "dayjs";
 import { useMemo, useState } from "react";
 import { AddItemForm } from "@/components/forms/add-item-form";
-import { ChildFilter } from "@/components/child-filter";
 import { ItemList } from "@/components/item-list";
 import { NavShell } from "@/components/nav-shell";
 import {
@@ -19,6 +18,7 @@ import { buildPlannerItemDisplay } from "@/features/planning/services/planner-it
 import type { ChildProfile, SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
 import Link, { usePathname } from "@/components/routing";
+import { ChildSwitcher } from "@/features/children/components/child-switcher";
 
 export type PlanningMode = "dashboard" | "day" | "week" | "month";
 
@@ -315,7 +315,7 @@ export function PlanningView({
         </div>
 
         <div className="planner-view__controls flex flex-wrap items-center justify-between gap-3">
-          <ChildFilter />
+          <ChildSwitcher />
           <button
             type="button"
             aria-expanded={showQuickAdd}
@@ -329,9 +329,9 @@ export function PlanningView({
           <nav className="rounded-xl border border-slate-200 bg-white p-3">
             <div className="flex flex-wrap gap-2">
               {[
-                { href: "/kids/day", label: "Today" },
-                { href: "/kids/week", label: "Week" },
-                { href: "/kids/month", label: "Month" },
+                { href: "/", label: "Today" },
+                { href: "/week", label: "Week" },
+                { href: "/month", label: "Month" },
               ].map((tab) => {
                 const active = pathname === tab.href;
 

@@ -8,11 +8,11 @@ import { ChildDocumentsView } from "@/features/children/components/child-documen
 import { ChildOverviewView } from "@/features/children/components/child-overview-view";
 import { DocumentsRepositoryView } from "@/features/documents/components/documents-repository-view";
 import { PlanningView } from "@/features/planning/components/planning-view";
+import { MoreView } from "@/features/planning/components/more-view";
 import { FileReviewView } from "@/features/scan/components/file-review-view";
 import { ReviewQueueView } from "@/features/scan/components/review-queue-view";
 import { ScanHistoryView } from "@/features/scan/components/scan-history-view";
 import { ScanInboxView } from "@/features/scan/components/scan-inbox-view";
-import { MoreView } from "@/features/planning/components/more-view";
 import { TestsView } from "./components/tests-view";
 
 const useRequiredParam = (name: string) => {
@@ -65,42 +65,97 @@ function FileReviewRoute() {
 export function App() {
   return (
     <Routes>
-      <Route path="/" element={<PlanningView mode="day" />} />
-      <Route path="/day" element={<PlanningView mode="day" />} />
-      <Route path="/week" element={<PlanningView mode="week" />} />
-      <Route path="/month" element={<PlanningView mode="month" />} />
-      <Route path="/documents" element={<DocumentsRepositoryView />} />
-      <Route path="/more" element={<MoreView />} />
-      <Route path="/more/profiles" element={<ChildrenManagementView />} />
-      <Route path="/kids" element={<Navigate to="/kids/day" replace />} />
-
+      {/* Main planner */}
       <Route
-        path="/kids/day"
+        path="/"
         element={<PlanningView mode="day" showKidsTabs />}
       />
 
       <Route
-        path="/kids/week"
+        path="/week"
         element={<PlanningView mode="week" showKidsTabs />}
       />
 
       <Route
-        path="/kids/month"
+        path="/month"
         element={<PlanningView mode="month" showKidsTabs />}
       />
-      <Route path="/kids/:childId" element={<ChildOverviewRoute />} />
-      <Route path="/kids/:childId/month" element={<ChildMonthRoute />} />
-      <Route path="/kids/:childId/tests" element={<ChildTestsRoute />} />
-      <Route path="/kids/:childId/homework" element={<ChildHomeworkRoute />} />
+
+      {/* Old planner route */}
+      <Route path="/day" element={<Navigate to="/" replace />} />
+
+      {/* Main navigation */}
+      <Route path="/tests" element={<TestsView />} />
+      <Route path="/more" element={<MoreView />} />
+
+      {/* More */}
+      <Route
+        path="/more/profiles"
+        element={<ChildrenManagementView />}
+      />
+
+      <Route
+        path="/documents"
+        element={<DocumentsRepositoryView />}
+      />
+
+      {/* Old Kids planner routes */}
+      <Route path="/kids" element={<Navigate to="/" replace />} />
+      <Route path="/kids/day" element={<Navigate to="/" replace />} />
+      <Route
+        path="/kids/week"
+        element={<Navigate to="/week" replace />}
+      />
+      <Route
+        path="/kids/month"
+        element={<Navigate to="/month" replace />}
+      />
+
+      {/* Existing child-specific routes */}
+      <Route
+        path="/kids/:childId"
+        element={<ChildOverviewRoute />}
+      />
+
+      <Route
+        path="/kids/:childId/month"
+        element={<ChildMonthRoute />}
+      />
+
+      <Route
+        path="/kids/:childId/tests"
+        element={<ChildTestsRoute />}
+      />
+
+      <Route
+        path="/kids/:childId/homework"
+        element={<ChildHomeworkRoute />}
+      />
+
       <Route
         path="/kids/:childId/documents"
         element={<ChildDocumentsRoute />}
       />
+
+      {/* Scan and review */}
       <Route path="/scan" element={<ScanInboxView />} />
-      <Route path="/scan/history" element={<ScanHistoryView />} />
-      <Route path="/scan/review" element={<ReviewQueueView />} />
-      <Route path="/scan/file/:documentId" element={<FileReviewRoute />} />
-      <Route path="/tests" element={<TestsView />} />
+
+      <Route
+        path="/scan/history"
+        element={<ScanHistoryView />}
+      />
+
+      <Route
+        path="/scan/review"
+        element={<ReviewQueueView />}
+      />
+
+      <Route
+        path="/scan/file/:documentId"
+        element={<FileReviewRoute />}
+      />
+
+      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
