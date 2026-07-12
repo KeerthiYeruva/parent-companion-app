@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import Link, { usePathname } from "@/components/routing";
 import { useAppStore } from "@/store/use-app-store";
 
@@ -34,16 +34,12 @@ const isActiveLink = (pathname: string, href: string) => {
 
 export function NavShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const hydrateLocalData = useAppStore((state) => state.hydrateLocalData);
+
   const warnings = useAppStore((state) => state.persistenceWarnings);
   const clearWarnings = useAppStore((state) => state.clearPersistenceWarnings);
   const showWarnings =
     warnings.length > 0 &&
     (pathname === "/documents" || pathname.startsWith("/scan"));
-
-  useEffect(() => {
-    hydrateLocalData();
-  }, [hydrateLocalData]);
 
   return (
     <div className="min-h-screen bg-slate-100">
