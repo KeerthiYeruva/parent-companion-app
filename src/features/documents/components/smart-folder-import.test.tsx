@@ -65,4 +65,36 @@ describe("July Unit Test fixture merge", () => {
       ]),
     );
   });
+
+  it("matches portion rows to schedule rows when subject casing differs", () => {
+    const scheduleRow = {
+      childName: "Luhas",
+      category: "UnitTest" as const,
+      subject: "General knowledge",
+      title: "General knowledge Unit Test",
+      dueDate: "2026-07-28",
+    };
+    const portionRow = {
+      ...scheduleRow,
+      dueDate: undefined,
+      subject: "general knowledge",
+      title: "Unit Test Portion: general knowledge",
+      description: "general knowledge fixture portion",
+      parserIssue: "Unit test portion found without an exam schedule date",
+    };
+
+    const merged = attachUnitTestDatesFromSchedule([
+      { rows: [scheduleRow], isGradeSpecificSchedule: true },
+      { rows: [portionRow], isGradeSpecificSchedule: false },
+    ]).flat();
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toEqual(
+      expect.objectContaining({
+        subject: "general knowledge",
+        dueDate: "2026-07-28",
+        parserIssue: undefined,
+      }),
+    );
+  });
 });

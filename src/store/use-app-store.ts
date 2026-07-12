@@ -66,6 +66,7 @@ export const useAppStore = create<AppState>()(
         scanQueue: state.scanQueue,
         reviewDrafts: state.reviewDrafts,
         reviewedDocumentIds: state.reviewedDocumentIds,
+        persistenceWarnings: state.persistenceWarnings,
       }),
     },
   ),
