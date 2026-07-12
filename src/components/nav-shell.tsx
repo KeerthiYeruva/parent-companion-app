@@ -2,10 +2,19 @@ import { useEffect, type ReactNode } from "react";
 import Link, { usePathname } from "@/components/routing";
 import { useAppStore } from "@/store/use-app-store";
 
-const primaryLinks = [
-  { href: "/", label: "Today" },
-  { href: "/week", label: "Week" },
-  { href: "/month", label: "Month" },
+const desktopLinks = [
+  { href: "/", label: "Overview" },
+  { href: "/tests", label: "Tests" },
+  { href: "/homework", label: "Homework" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/kids", label: "Kids" },
+  { href: "/more", label: "More" },
+];
+
+const mobileLinks = [
+  { href: "/", label: "Overview" },
+  { href: "/tests", label: "Tests" },
+  { href: "/homework", label: "Homework" },
   { href: "/kids", label: "Kids" },
   { href: "/more", label: "More" },
 ];
@@ -55,7 +64,7 @@ export function NavShell({ children }: { children: ReactNode }) {
 
           <nav className="hidden md:block">
             <ul className="flex items-center gap-1">
-              {primaryLinks.map((link) => {
+              {desktopLinks.map((link) => {
                 const active = isActiveLink(pathname, link.href);
 
                 return (
@@ -105,7 +114,7 @@ export function NavShell({ children }: { children: ReactNode }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-[0_-6px_20px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
         <ul className="mx-auto grid max-w-md grid-cols-5 gap-1">
-          {primaryLinks.map((link) => {
+          {mobileLinks.map((link) => {
             const active = isActiveLink(pathname, link.href);
             return (
               <li key={link.href}>

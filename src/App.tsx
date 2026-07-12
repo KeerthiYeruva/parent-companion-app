@@ -11,6 +11,7 @@ import { ReviewQueueView } from "@/features/scan/components/review-queue-view";
 import { ScanHistoryView } from "@/features/scan/components/scan-history-view";
 import { ScanInboxView } from "@/features/scan/components/scan-inbox-view";
 import { MoreView } from "@/features/planning/components/more-view";
+import { TestsView } from "./components/tests-view";
 
 const useRequiredParam = (name: string) => {
   const params = useParams();
@@ -67,6 +68,7 @@ export function App() {
       <Route path="/scan/history" element={<ScanHistoryView />} />
       <Route path="/scan/review" element={<ReviewQueueView />} />
       <Route path="/scan/file/:documentId" element={<FileReviewRoute />} />
+      <Route path="/tests" element={<TestsView />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

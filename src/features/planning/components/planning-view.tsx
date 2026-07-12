@@ -192,9 +192,6 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
           <div className="planner-progress-card__header flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="planner-progress-card__label text-sm font-medium text-slate-500">Today</p>
-              <h3 className="planner-progress-card__title mt-1 text-3xl font-bold text-slate-950">
-                What needs attention now
-              </h3>
             </div>
             <span className="planner-progress-card__status rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
               {todayPriorityProgress.label}
