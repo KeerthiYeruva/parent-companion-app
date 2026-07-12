@@ -59,22 +59,32 @@ export const downloadCloudDataToLocal = async () => {
       getDocs(collection(firestore, "families", familyId, "items")),
       getDocs(collection(firestore, "families", familyId, "documents")),
     ]);
+
   const children = childrenSnapshot.docs.map(
     (entry) => entry.data() as ChildProfile,
   );
+
   const items = itemsSnapshot.docs.map((entry) => entry.data() as SchoolItem);
+
   const documents = documentsSnapshot.docs.map(
     (entry) => entry.data() as UploadedDocument,
   );
-  await appRepository.replaceSnapshot({
+
+  const hasCloudData =
+    children.length > 0 || items.length > 0 || documents.length > 0;
+
+  if (hasCloudData) {
+    await appRepository.replaceSnapshot({
+      children,
+      items,
+      documents,
+    });
+  }
+
+  return {
     children,
     items,
     documents,
-  });
-  return {
-    children: children,
-    items: items,
-    documents: documents,
   };
 };
 export const upsertCloudItem = async (item: SchoolItem) => {

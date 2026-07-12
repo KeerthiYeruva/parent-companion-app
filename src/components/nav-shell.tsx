@@ -110,7 +110,7 @@ export function NavShell({ children }: { children: ReactNode }) {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-[0_-6px_20px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
-        <ul className="mx-auto grid max-w-md grid-cols-3 gap-1">
+        <ul className="mx-auto grid max-w-md grid-cols-4 gap-1">
           {mobileLinks.map((link) => {
             const active = isActiveLink(pathname, link.href);
             return (
