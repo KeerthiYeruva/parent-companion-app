@@ -1,9 +1,7 @@
 import { NavShell } from "@/components/nav-shell";
-import { ItemList } from "@/components/item-list";
 import { useAppStore } from "@/store/use-app-store";
 import { ChildSwitcher } from "@/features/children/components/child-switcher";
-
-const testCategories = ["ClassTest", "UnitTest", "Exam"];
+import { TestSection } from "@/features/planning/components/test-section";
 
 export function TestsView() {
   const children = useAppStore((state) => state.children);
@@ -12,13 +10,25 @@ export function TestsView() {
 
   const selectedChildId = selectedChildIds[0] ?? children[0]?.id;
 
-  const selectedChild = children.find((child) => child.id === selectedChildId);
+  const classTests = items
+    .filter(
+      (item) =>
+        item.childId === selectedChildId && item.category === "ClassTest",
+    )
+    .sort((first, second) => first.dueDate.localeCompare(second.dueDate));
 
-  const selectedChildTests = items.filter(
-    (item) =>
-      item.childId === selectedChildId &&
-      testCategories.includes(item.category),
-  );
+  const unitTests = items
+    .filter(
+      (item) =>
+        item.childId === selectedChildId && item.category === "UnitTest",
+    )
+    .sort((first, second) => first.dueDate.localeCompare(second.dueDate));
+
+  const exams = items
+    .filter(
+      (item) => item.childId === selectedChildId && item.category === "Exam",
+    )
+    .sort((first, second) => first.dueDate.localeCompare(second.dueDate));
 
   return (
     <NavShell>
@@ -33,25 +43,19 @@ export function TestsView() {
 
         <ChildSwitcher />
 
-        {selectedChild ? (
-          <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="mb-3">
-              <h3 className="font-semibold text-slate-900">
-                {selectedChild.name}
-              </h3>
+        <div className="grid gap-3">
+          {classTests.length > 0 ? (
+            <TestSection title="Class Tests" items={classTests} defaultOpen />
+          ) : null}
 
-              <p className="text-sm text-slate-600">
-                Grade {selectedChild.grade} • Section {selectedChild.section}
-              </p>
-            </div>
+          {unitTests.length > 0 ? (
+            <TestSection title="Unit Tests" items={unitTests} />
+          ) : null}
 
-            <ItemList
-              items={selectedChildTests}
-              emptyText="No tests found for this child."
-              showCategory
-            />
-          </section>
-        ) : null}
+          {exams.length > 0 ? (
+            <TestSection title="Exams" items={exams} />
+          ) : null}
+        </div>
       </section>
     </NavShell>
   );
