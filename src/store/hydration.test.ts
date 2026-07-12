@@ -136,4 +136,25 @@ describe("hydration helpers", () => {
       expect.objectContaining({ subject: "Kannada", title: "Study Kannada" }),
     ]);
   });
+
+  it("keeps valid unit-test items with real dates intact", () => {
+    const validUnitTest: SchoolItem = {
+      id: "item-6",
+      childId: "child-1",
+      category: "UnitTest",
+      subject: "Mathematics",
+      title: "Mathematics Unit Test",
+      dueDate: "2026-07-20",
+      status: "Pending",
+    };
+
+    const snapshot = buildHydratedSnapshot({
+      children,
+      items: [validUnitTest],
+      documents,
+      selectedChildIds: [],
+    });
+
+    expect(snapshot.items).toEqual([validUnitTest]);
+  });
 });

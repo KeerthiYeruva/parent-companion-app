@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   childrenToArray: vi.fn(),
@@ -43,6 +43,10 @@ vi.mock("@/lib/db", () => ({
 import { appRepository } from "@/db/repositories/app-repository";
 
 describe("appRepository", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+  });
+
   it("delegates list operations to db tables", async () => {
     mocks.childrenToArray.mockResolvedValueOnce([{ id: "child-1" }]);
     mocks.itemsToArray.mockResolvedValueOnce([{ id: "item-1" }]);
@@ -107,5 +111,24 @@ describe("appRepository", () => {
 
     expect(mocks.itemsBulkDelete).toHaveBeenCalledWith(["item-old-scope"]);
     expect(mocks.itemsBulkPut).toHaveBeenCalledWith([item]);
+  });
+
+  it("does not delete items outside the replacement scope", async () => {
+    const replacementItem = { id: "item-new", childId: "child-1", category: "UnitTest", dueDate: "2026-07-17" };
+    const outOfScopeItem = { id: "item-outside", childId: "child-1", category: "UnitTest", dueDate: "2026-07-30" };
+    mocks.itemsWhere.mockReturnValueOnce({ anyOf: mocks.itemsAnyOf });
+    mocks.itemsAnyOf.mockReturnValueOnce({ toArray: mocks.itemsAnyOfToArray });
+    mocks.itemsAnyOfToArray.mockResolvedValueOnce([]);
+    mocks.itemsToArray.mockResolvedValueOnce([outOfScopeItem]);
+
+    await appRepository.replaceItemsForSourceDocuments(["doc-1"], [replacementItem] as never, {
+      childIds: ["child-1"],
+      categories: ["UnitTest"],
+      fromDate: "2026-07-17",
+      toDate: "2026-07-28",
+    });
+
+    expect(mocks.itemsBulkDelete).not.toHaveBeenCalled();
+    expect(mocks.itemsBulkPut).toHaveBeenCalledWith([replacementItem]);
   });
 });

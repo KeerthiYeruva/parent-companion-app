@@ -37,6 +37,11 @@ export function NavShell({ children }: { children: ReactNode }) {
 
   const warnings = useAppStore((state) => state.persistenceWarnings);
   const clearWarnings = useAppStore((state) => state.clearPersistenceWarnings);
+  const pendingItemSyncIds = useAppStore((state) => state.pendingItemSyncIds);
+
+  const retryPendingItemSync = useAppStore(
+    (state) => state.retryPendingItemSync,
+  );
   const showWarnings = warnings.length > 0;
 
   return (
@@ -88,13 +93,27 @@ export function NavShell({ children }: { children: ReactNode }) {
                 ? ` (${warnings.length - 1} more warning${warnings.length - 1 > 1 ? "s" : ""})`
                 : ""}
             </p>
-            <button
-              type="button"
-              onClick={clearWarnings}
-              className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-900"
-            >
-              Dismiss
-            </button>
+            <div className="flex shrink-0 gap-2">
+              {pendingItemSyncIds.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void retryPendingItemSync();
+                  }}
+                  className="rounded-md bg-amber-900 px-2 py-1 text-xs font-medium text-white"
+                >
+                  Retry Sync
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={clearWarnings}
+                className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-900"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

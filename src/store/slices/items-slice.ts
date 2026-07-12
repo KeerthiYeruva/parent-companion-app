@@ -1,7 +1,10 @@
 import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
 import { deriveStatus } from "@/lib/status";
-import { buildLogicalItemKey, mergeResolvedItemFields } from "@/features/import/services/import-content";
+import {
+  buildLogicalItemKey,
+  mergeResolvedItemFields,
+} from "@/features/import/services/import-content";
 import type {
   AppState,
   ImportedItemReplacementScope,
@@ -90,7 +93,9 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
 ) => ({
   items: [],
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => {
-    const existing = get().items.find((entry) => itemKey(entry) === itemKey(item));
+    const existing = get().items.find(
+      (entry) => itemKey(entry) === itemKey(item),
+    );
     const nextItem = existing
       ? mergeItems(existing, item)
       : {
@@ -105,9 +110,15 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
       );
     });
 
-    void upsertCloudItem(nextItem).catch(() => {
-      get().pushPersistenceWarning("New item could not be synced to cloud.");
-    });
+    void upsertCloudItem(nextItem)
+      .then(() => {
+        get().clearItemSync(nextItem.id);
+      })
+      .catch(() => {
+        get().queueItemSync(nextItem.id);
+
+        get().pushPersistenceWarning("New item could not be synced to cloud.");
+      });
 
     set((state) => ({
       items: existing
@@ -158,9 +169,14 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
 
       const mergedItems = [...retainedItems];
       nextItems.forEach((incoming) => {
-        const existingIndex = mergedItems.findIndex((entry) => itemKey(entry) === itemKey(incoming));
+        const existingIndex = mergedItems.findIndex(
+          (entry) => itemKey(entry) === itemKey(incoming),
+        );
         if (existingIndex >= 0) {
-          mergedItems[existingIndex] = mergeItems(mergedItems[existingIndex], incoming);
+          mergedItems[existingIndex] = mergeItems(
+            mergedItems[existingIndex],
+            incoming,
+          );
           return;
         }
 
@@ -172,11 +188,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
       });
 
       appRepository
-        .replaceItemsForSourceDocuments(
-          sourceDocumentIds,
-          mergedItems,
-          scope,
-        )
+        .replaceItemsForSourceDocuments(sourceDocumentIds, mergedItems, scope)
         .then(() => syncAllLocalItemsToCloud())
         .catch(() => {
           get().pushPersistenceWarning(
@@ -210,11 +222,17 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
             "Item update could not be saved to local database.",
           );
         });
-        void upsertCloudItem(nextItem).catch(() => {
-          get().pushPersistenceWarning(
-            "Item update could not be synced to cloud.",
-          );
-        });
+        void upsertCloudItem(nextItem)
+          .then(() => {
+            get().clearItemSync(nextItem.id);
+          })
+          .catch(() => {
+            get().queueItemSync(nextItem.id);
+
+            get().pushPersistenceWarning(
+              "Item update could not be synced to cloud.",
+            );
+          });
 
         return nextItem;
       }),
@@ -246,11 +264,17 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
             "Item update could not be saved to local database.",
           );
         });
-        void upsertCloudItem(nextItem).catch(() => {
-          get().pushPersistenceWarning(
-            "Item update could not be synced to cloud.",
-          );
-        });
+        void upsertCloudItem(nextItem)
+          .then(() => {
+            get().clearItemSync(nextItem.id);
+          })
+          .catch(() => {
+            get().queueItemSync(nextItem.id);
+
+            get().pushPersistenceWarning(
+              "Item update could not be synced to cloud.",
+            );
+          });
 
         return nextItem;
       }),

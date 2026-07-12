@@ -51,4 +51,15 @@ describe("buildPlannerItemDisplay", () => {
       category: "Tests",
     });
   });
+
+  it("keeps a description when it adds new information beyond the title", () => {
+    const display = buildPlannerItemDisplay(
+      item({
+        title: "Class Test",
+        description: "Bring the notebook",
+      }),
+    );
+
+    expect(display.description).toBe("Bring the notebook");
+  });
 });

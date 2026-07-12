@@ -153,6 +153,7 @@ export interface AppState {
   documents: UploadedDocument[];
   importIssues: ImportIssue[];
   persistenceWarnings: string[];
+  pendingItemSyncIds: string[];
   selectedChildIds: string[];
   connectedFolderName?: string;
   lastScanAt?: string;
@@ -162,6 +163,9 @@ export interface AppState {
   reviewedDocumentIds: string[];
   pushPersistenceWarning: (message: string) => void;
   clearPersistenceWarnings: () => void;
+  queueItemSync: (itemId: string) => void;
+  clearItemSync: (itemId: string) => void;
+  retryPendingItemSync: () => Promise<void>;
   importBackupData: (backup: PlannerBackup) => Promise<void>;
   setConnectedFolderName: (folderName: string) => void;
   setScanQueue: (files: ScanSessionFileRecord[], scannedAt: string) => void;
@@ -205,6 +209,3 @@ export interface ImportedItemReplacementScope {
   fromDate: string;
   toDate: string;
 }
-
-
-

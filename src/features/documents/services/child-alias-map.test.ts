@@ -93,6 +93,23 @@ describe("buildChildAliasMap", () => {
     expect(map["class i sec b"]).toBe("child-2");
   });
 
+  it("supports both grade and class spellings for a single child profile", () => {
+    const map = buildChildAliasMap([
+      {
+        id: "child-5",
+        name: "Myra",
+        grade: "Grade 5",
+        section: "B",
+        academicYear: "2026-2027",
+        colorTag: "bg-emerald-500",
+      },
+    ]);
+
+    expect(map["grade 5"]).toBe("child-5");
+    expect(map["class 5"]).toBe("child-5");
+    expect(map["class v"]).toBe("child-5");
+  });
+
   it("normalizes roman grade values from child profiles", () => {
     const map = buildChildAliasMap([
       {

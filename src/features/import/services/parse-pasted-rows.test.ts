@@ -36,4 +36,18 @@ describe("parsePastedRows", () => {
       },
     ]);
   });
+
+  it("trims whitespace around pasted fields", () => {
+    const rows = parsePastedRows("  Aarav , Homework , Math worksheet , 2026-07-10 , Do chapter 3  ");
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        childName: "Aarav",
+        category: "Homework",
+        title: "Math worksheet",
+        dueDate: "2026-07-10",
+        description: "Do chapter 3",
+      }),
+    ]);
+  });
 });
