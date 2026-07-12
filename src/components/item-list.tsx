@@ -1,5 +1,4 @@
 import dayjs from "dayjs";
-import { taskCategoryLabel } from "@/features/planning/selectors/planning-selectors";
 import { buildPlannerItemDisplay } from "@/features/planning/services/planner-item-display";
 import type { SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
@@ -11,13 +10,7 @@ type ItemListProps = {
   showCategory?: boolean;
 };
 
-export function ItemList({
-  items,
-  emptyText,
-  showChild = true,
-  showCategory = true,
-}: ItemListProps) {
-  const children = useAppStore((state) => state.children);
+export function ItemList({ items, emptyText }: ItemListProps) {
   const toggleItemComplete = useAppStore((state) => state.toggleItemComplete);
 
   if (items.length === 0) {
@@ -31,15 +24,12 @@ export function ItemList({
   return (
     <ul className="item-list space-y-2">
       {items.map((item) => {
-        const child = children.find((entry) => entry.id === item.childId);
         const isCompleted = item.status === "Completed";
         const display = buildPlannerItemDisplay(item);
 
-        const metadata = [
-          showCategory ? taskCategoryLabel(item.category) : null,
-          showChild ? (child?.name ?? "Unknown child") : null,
-          dayjs(item.dueDate).format("ddd, DD MMM"),
-        ].filter(Boolean);
+        const metadata = [dayjs(item.dueDate).format("ddd, DD MMM")].filter(
+          Boolean,
+        );
 
         return (
           <li
@@ -85,7 +75,7 @@ export function ItemList({
                       : "text-slate-900"
                   }`}
                 >
-                  {display.heading}
+                  {display.category} : {display.subject}
                 </span>
 
                 {display.chapter ? (
@@ -94,11 +84,9 @@ export function ItemList({
                   </span>
                 ) : null}
 
-                {display.description ? (
-                  <span className="item-list__description planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
-                    {display.description}
-                  </span>
-                ) : null}
+                <span className="item-list__description planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
+                  {display.description|| display.heading}
+                </span>
 
                 <span className="item-list__metadata planner-item__metadata mt-2 block text-sm text-slate-500">
                   {metadata.join(" • ")}
