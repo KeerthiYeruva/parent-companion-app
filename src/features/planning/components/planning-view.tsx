@@ -124,6 +124,35 @@ export function PlanningView({
   if (mode === "day") {
     const today = dayjs().format("YYYY-MM-DD");
     const tomorrow = dayjs().add(1, "day").format("YYYY-MM-DD");
+    const todayDate = dayjs();
+    const isWeekend = todayDate.day() === 0 || todayDate.day() === 6;
+
+    const previousMonday = todayDate.subtract(
+      todayDate.day() === 6 ? 5 : 6,
+      "day",
+    );
+
+    const previousFriday = previousMonday.add(4, "day");
+
+    const previousWeekCatchUpItems = isWeekend
+      ? selectedItems
+          .filter((item) => {
+            const dueDate = dayjs(item.dueDate);
+
+            const isPreviousSchoolWeek =
+              !dueDate.isBefore(previousMonday, "day") &&
+              !dueDate.isAfter(previousFriday, "day");
+
+            const isIncomplete = item.status !== "Completed";
+
+            const isSchoolWork =
+              !testCategories.includes(item.category) &&
+              item.category !== "Circular";
+
+            return isPreviousSchoolWeek && isIncomplete && isSchoolWork;
+          })
+          .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
+      : [];
     const groups = children
       .filter((child) => activeChildIds.includes(child.id))
       .map((child) => {
@@ -176,7 +205,6 @@ export function PlanningView({
         ]),
       ),
     );
-    const todayDate = dayjs();
     const upcomingEndDate = todayDate.add(3, "day");
 
     const upcomingItems = selectedItems
@@ -194,6 +222,17 @@ export function PlanningView({
 
     content = (
       <section className="planner-today space-y-3">
+        {isWeekend ? (
+          <SummarySection
+            title="Previous Week Catch-up"
+            subtitle={`${previousMonday.format("DD MMM")} – ${previousFriday.format(
+              "DD MMM",
+            )}`}
+            items={previousWeekCatchUpItems}
+            emptyText="Great! No unfinished work from the previous week."
+            showDates
+          />
+        ) : null}
         <div className="planner-today__priority-summary planner-progress-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="planner-progress-card__header flex flex-wrap items-start justify-between gap-3">
             <div>
