@@ -1,9 +1,11 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { ChildrenManagementView } from "@/features/children/components/children-management-view";
-import { ChildCategoryView, ChildMonthView } from "@/features/children/components/child-category-view";
+import {
+  ChildCategoryView,
+  ChildMonthView,
+} from "@/features/children/components/child-category-view";
 import { ChildDocumentsView } from "@/features/children/components/child-documents-view";
 import { ChildOverviewView } from "@/features/children/components/child-overview-view";
-import { KidsOverviewView } from "@/features/children/components/kids-overview-view";
 import { DocumentsRepositoryView } from "@/features/documents/components/documents-repository-view";
 import { PlanningView } from "@/features/planning/components/planning-view";
 import { FileReviewView } from "@/features/scan/components/file-review-view";
@@ -33,11 +35,23 @@ function ChildMonthRoute() {
 }
 
 function ChildTestsRoute() {
-  return <ChildCategoryView childId={useRequiredParam("childId")} title="Tests" categories={["ClassTest", "UnitTest", "Exam"]} />;
+  return (
+    <ChildCategoryView
+      childId={useRequiredParam("childId")}
+      title="Tests"
+      categories={["ClassTest", "UnitTest", "Exam"]}
+    />
+  );
 }
 
 function ChildHomeworkRoute() {
-  return <ChildCategoryView childId={useRequiredParam("childId")} title="Homework" categories={["Homework", "HomeStudy", "Project"]} />;
+  return (
+    <ChildCategoryView
+      childId={useRequiredParam("childId")}
+      title="Homework"
+      categories={["Homework", "HomeStudy", "Project"]}
+    />
+  );
 }
 
 function ChildDocumentsRoute() {
@@ -58,12 +72,30 @@ export function App() {
       <Route path="/documents" element={<DocumentsRepositoryView />} />
       <Route path="/more" element={<MoreView />} />
       <Route path="/more/profiles" element={<ChildrenManagementView />} />
-      <Route path="/kids" element={<KidsOverviewView />} />
+      <Route path="/kids" element={<Navigate to="/kids/day" replace />} />
+
+      <Route
+        path="/kids/day"
+        element={<PlanningView mode="day" showKidsTabs />}
+      />
+
+      <Route
+        path="/kids/week"
+        element={<PlanningView mode="week" showKidsTabs />}
+      />
+
+      <Route
+        path="/kids/month"
+        element={<PlanningView mode="month" showKidsTabs />}
+      />
       <Route path="/kids/:childId" element={<ChildOverviewRoute />} />
       <Route path="/kids/:childId/month" element={<ChildMonthRoute />} />
       <Route path="/kids/:childId/tests" element={<ChildTestsRoute />} />
       <Route path="/kids/:childId/homework" element={<ChildHomeworkRoute />} />
-      <Route path="/kids/:childId/documents" element={<ChildDocumentsRoute />} />
+      <Route
+        path="/kids/:childId/documents"
+        element={<ChildDocumentsRoute />}
+      />
       <Route path="/scan" element={<ScanInboxView />} />
       <Route path="/scan/history" element={<ScanHistoryView />} />
       <Route path="/scan/review" element={<ReviewQueueView />} />
