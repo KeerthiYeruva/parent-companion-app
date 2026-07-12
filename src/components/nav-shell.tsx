@@ -37,9 +37,7 @@ export function NavShell({ children }: { children: ReactNode }) {
 
   const warnings = useAppStore((state) => state.persistenceWarnings);
   const clearWarnings = useAppStore((state) => state.clearPersistenceWarnings);
-  const showWarnings =
-    warnings.length > 0 &&
-    (pathname === "/documents" || pathname.startsWith("/scan"));
+  const showWarnings = warnings.length > 0;
 
   return (
     <div className="min-h-screen bg-slate-100">
