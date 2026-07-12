@@ -71,8 +71,13 @@ export const createDocumentsSlice: StateCreator<
       documents: state.documents.filter((entry) => entry.id !== documentId),
       items: state.items.filter(
         (item) =>
-          !item.sourceDocumentId ||
-          !sourceDocumentIds.includes(item.sourceDocumentId),
+          !(
+            (item.sourceDocumentId &&
+              sourceDocumentIds.includes(item.sourceDocumentId)) ||
+            (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
+              sourceDocumentIds.includes(sourceDocumentId),
+            )
+          ),
       ),
     }));
   },

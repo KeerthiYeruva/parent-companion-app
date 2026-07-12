@@ -8,6 +8,7 @@ import type {
 
 const createIssue = (
   options: ImportPipelineOptions,
+  record: NormalizedImportRecord,
   index: number,
   fieldName: string,
   issue: string,
@@ -15,7 +16,7 @@ const createIssue = (
 ): ImportIssue => {
   return {
     id: `import-issue-${crypto.randomUUID()}`,
-    documentId: options.documentId,
+    documentId: record.sourceDocumentId ?? options.documentId,
     rowIndex: index,
     fieldName,
     issue: `Row ${index + 1}: ${issue}`,
@@ -76,10 +77,10 @@ export const importValidator: ImportValidator = {
 
     records.forEach((record, index) => {
       if (!record.title) {
-        issues.push(createIssue(options, index, "title", "Title is required"));
+        issues.push(createIssue(options, record, index, "title", "Title is required"));
       } else if (!hasParentReadyTitle(record)) {
         issues.push(
-          createIssue(options, index, "title", "Title is not parent-ready"),
+          createIssue(options, record, index, "title", "Title is not parent-ready"),
         );
       }
 
@@ -87,6 +88,7 @@ export const importValidator: ImportValidator = {
         issues.push(
           createIssue(
             options,
+            record,
             index,
             "childName",
             "Child could not be matched",
@@ -98,6 +100,7 @@ export const importValidator: ImportValidator = {
         issues.push(
           createIssue(
             options,
+            record,
             index,
             "category",
             "Category is invalid or missing",
@@ -112,6 +115,7 @@ export const importValidator: ImportValidator = {
         issues.push(
           createIssue(
             options,
+            record,
             index,
             "dueDate",
             "Due date is invalid or missing",
@@ -121,7 +125,7 @@ export const importValidator: ImportValidator = {
 
       if (record.parserIssue) {
         issues.push(
-          createIssue(options, index, "parser", record.parserIssue, "warning"),
+          createIssue(options, record, index, "parser", record.parserIssue, "warning"),
         );
       }
 

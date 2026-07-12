@@ -15,6 +15,7 @@ import {
   thisMonthItems,
   thisWeekItems,
 } from "@/features/planning/selectors/planning-selectors";
+import { buildPlannerItemDisplay } from "@/features/planning/services/planner-item-display";
 import type { ChildProfile, SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
 
@@ -611,6 +612,7 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
     <ul className="planner-item-list planner-item-list--today space-y-2">
       {items.map((item) => {
         const isCompleted = item.status === "Completed";
+        const display = buildPlannerItemDisplay(item);
 
         return (
           <li
@@ -634,22 +636,36 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
                     : "border-slate-300 bg-white text-transparent"
                 }`}
               >
-                {isCompleted ? "✓" : ""}
+                {isCompleted ? "?" : ""}
               </span>
               <span className="planner-item__content min-w-0">
+                <span className="planner-item__header flex flex-wrap items-center gap-2">
+                  <span className="planner-item__category rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                    {display.category}
+                  </span>
+                  {display.subject ? (
+                    <span className="planner-item__subject text-xs font-medium text-slate-500">
+                      {display.subject}
+                    </span>
+                  ) : null}
+                </span>
                 <span
-                  className={`planner-item__title block text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
+                  className={`planner-item__title mt-1 block text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
                 >
-                {item.description ? (
-                  <span className="planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
-                    {item.description}
+                  {display.heading}
+                </span>
+                {display.chapter ? (
+                  <span className="planner-item__chapter mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
+                    {display.chapter}
                   </span>
                 ) : null}
-                </span>
-                <span className="planner-item__metadata block text-xs text-slate-500">
-                  {item.subject ? `${item.subject} • ` : ""}
-                  {taskCategoryLabel(item.category)} •{" "}
-                  {dayjs(item.dueDate).format("ddd, DD MMM")}
+                {display.description ? (
+                  <span className="planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
+                    {display.description}
+                  </span>
+                ) : null}
+                <span className="planner-item__date block text-xs text-slate-500">
+                  {display.date}
                 </span>
               </span>
             </button>
@@ -659,7 +675,6 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
     </ul>
   );
 }
-
 function CompactWeekItemList({
   items,
   showDates = false,
@@ -673,6 +688,7 @@ function CompactWeekItemList({
     <ul className="planner-item-list planner-item-list--compact divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
       {items.map((item) => {
         const isCompleted = item.status === "Completed";
+        const display = buildPlannerItemDisplay(item);
 
         return (
           <li
@@ -696,32 +712,37 @@ function CompactWeekItemList({
                     : "border-slate-300 bg-white text-transparent"
                 }`}
               >
-                {isCompleted ? "✓" : ""}
+                {isCompleted ? "?" : ""}
               </span>
               <div className="planner-item__content min-w-0">
                 <div className="planner-item__header flex flex-wrap items-center gap-2">
                   <span className="planner-item__category rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                    {taskCategoryLabel(item.category)}
+                    {display.category}
                   </span>
-                  {item.subject ? (
+                  {display.subject ? (
                     <span className="planner-item__subject text-xs font-medium text-slate-500">
-                      {item.subject}
+                      {display.subject}
                     </span>
                   ) : null}
                 </div>
                 <div
                   className={`planner-item__title mt-1 text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
                 >
-                  {item.title}
+                  {display.heading}
                 </div>
-                {item.description ? (
+                {display.chapter ? (
+                  <p className="planner-item__chapter mt-1 whitespace-pre-line text-sm leading-5 text-slate-700">
+                    {display.chapter}
+                  </p>
+                ) : null}
+                {display.description ? (
                   <p className="planner-item__description mt-1 whitespace-pre-line text-sm leading-5 text-slate-700">
-                    {item.description}
+                    {display.description}
                   </p>
                 ) : null}
                 {showDates ? (
                   <p className="planner-item__date text-xs text-slate-500">
-                    {dayjs(item.dueDate).format("ddd, DD MMM")}
+                    {display.date}
                   </p>
                 ) : null}
               </div>
@@ -732,7 +753,6 @@ function CompactWeekItemList({
     </ul>
   );
 }
-
 function summarizeItems(items: SchoolItem[]) {
   return {
     tasks: items.filter((item) => studyCategories.includes(item.category))
@@ -1018,6 +1038,7 @@ function ProgressCard({
     </article>
   );
 }
+
 
 
 

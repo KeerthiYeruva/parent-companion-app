@@ -71,6 +71,14 @@ const mergeItems = (
     ...incoming,
     ...mergedContent,
     sourceDocumentId: incoming.sourceDocumentId ?? existing.sourceDocumentId,
+    sourceDocumentIds: Array.from(
+      new Set([
+        ...(existing.sourceDocumentIds ?? []),
+        ...(incoming.sourceDocumentIds ?? []),
+        ...(existing.sourceDocumentId ? [existing.sourceDocumentId] : []),
+        ...(incoming.sourceDocumentId ? [incoming.sourceDocumentId] : []),
+      ]),
+    ),
     completedAt,
     status: deriveStatus(incoming.dueDate ?? existing.dueDate, completedAt),
   };
@@ -119,7 +127,18 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
 
     set((state) => {
       const retainedItems = state.items.filter((item) => {
-        if (item.sourceDocumentId && sourceDocumentIdSet.has(item.sourceDocumentId)) {
+        if (
+          item.sourceDocumentId &&
+          sourceDocumentIdSet.has(item.sourceDocumentId)
+        ) {
+          return false;
+        }
+
+        if (
+          (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
+            sourceDocumentIdSet.has(sourceDocumentId),
+          )
+        ) {
           return false;
         }
 

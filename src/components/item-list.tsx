@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
 import { taskCategoryLabel } from "@/features/planning/selectors/planning-selectors";
+import { buildPlannerItemDisplay } from "@/features/planning/services/planner-item-display";
 import type { SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
 
@@ -32,6 +33,7 @@ export function ItemList({
       {items.map((item) => {
         const child = children.find((entry) => entry.id === item.childId);
         const isCompleted = item.status === "Completed";
+        const display = buildPlannerItemDisplay(item);
 
         const metadata = [
           showCategory ? taskCategoryLabel(item.category) : null,
@@ -83,12 +85,18 @@ export function ItemList({
                       : "text-slate-900"
                   }`}
                 >
-                  {item.title}
+                  {display.heading}
                 </span>
 
-                {item.description ? (
+                {display.chapter ? (
+                  <span className="item-list__chapter planner-item__chapter mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
+                    {display.chapter}
+                  </span>
+                ) : null}
+
+                {display.description ? (
                   <span className="item-list__description planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
-                    {item.description}
+                    {display.description}
                   </span>
                 ) : null}
 

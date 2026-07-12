@@ -34,14 +34,15 @@ describe("importPipeline", () => {
     expect(result.normalizedRecords).toHaveLength(1);
 
     expect(result.items).toEqual([
-      {
+      expect.objectContaining({
         childId: "child-1",
         category: "Homework",
         title: "Math worksheet",
         description: undefined,
         dueDate: "2026-07-10",
         sourceDocumentId: "doc-1",
-      },
+        sourceDocumentIds: ["doc-1"],
+      }),
     ]);
   });
 
@@ -93,6 +94,120 @@ describe("importPipeline", () => {
     expect(result.items).toEqual([]);
     expect(result.summary).toMatchObject({ validRecords: 0, issuesCount: 1 });
     expect(result.issues).toEqual([expect.objectContaining({ fieldName: "title", issue: "Row 1: Title is not parent-ready" })]);
+  });
+
+  it("merges unit test schedule and portion rows uploaded together", () => {
+    const result = importPipeline.run(
+      [
+        {
+          childName: "aarav",
+          category: "UnitTest",
+          subject: "Math",
+          title: "Mathematics Unit Test",
+          dueDate: "2026-07-20",
+          description: "20/07/2026 MONDAY MATHEMATICS",
+          sourceDocumentId: "planner-doc",
+          sourceRole: "schedule",
+        },
+        {
+          childName: "aarav",
+          category: "UnitTest",
+          subject: "Mathematics",
+          title: "Mathematics portions",
+          description: "Chapter 1 - Place Value",
+          sourceDocumentId: "portion-doc",
+          sourceRole: "portion",
+          parserIssue: "Unit test portion found without an exam schedule date",
+        },
+      ],
+      {
+        sourceType: "future-pdf",
+        documentId: "scan-run",
+        childNameToIdMap: { aarav: "child-1" },
+      },
+    );
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        childId: "child-1",
+        category: "UnitTest",
+        subject: "Mathematics",
+        title: "Mathematics Unit Test",
+        dueDate: "2026-07-20",
+        description: "Chapter 1 - Place Value",
+        sourceDocumentIds: ["planner-doc", "portion-doc"],
+      }),
+    ]);
+    expect(result.items[0].description).not.toContain("20/07/2026");
+    expect(result.issues).toEqual([]);
+  });
+
+  it("keeps two homework rows on the same subject and date separate", () => {
+    const result = importPipeline.run(
+      [
+        {
+          childName: "aarav",
+          category: "Homework",
+          subject: "Mathematics",
+          title: "Exercise 1",
+          dueDate: "2026-07-15",
+        },
+        {
+          childName: "aarav",
+          category: "Homework",
+          subject: "Mathematics",
+          title: "Worksheet 2",
+          dueDate: "2026-07-15",
+        },
+      ],
+      {
+        sourceType: "future-pdf",
+        documentId: "doc-4",
+        childNameToIdMap: { aarav: "child-1" },
+      },
+    );
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((item) => item.title)).toEqual([
+      "Exercise 1",
+      "Worksheet 2",
+    ]);
+  });
+
+  it("keeps unit tests from different assessment cycles separate", () => {
+    const result = importPipeline.run(
+      [
+        {
+          childName: "aarav",
+          category: "UnitTest",
+          subject: "Mathematics",
+          title: "Mathematics Unit Test",
+          dueDate: "2026-07-20",
+          sourceDocumentId: "july-doc",
+          sourceRole: "schedule",
+        },
+        {
+          childName: "aarav",
+          category: "UnitTest",
+          subject: "Mathematics",
+          title: "Mathematics Unit Test",
+          dueDate: "2026-08-20",
+          sourceDocumentId: "aug-doc",
+          sourceRole: "schedule",
+        },
+      ],
+      {
+        sourceType: "future-pdf",
+        documentId: "doc-5",
+        childNameToIdMap: { aarav: "child-1" },
+      },
+    );
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((item) => item.dueDate).sort()).toEqual([
+      "2026-07-20",
+      "2026-08-20",
+    ]);
   });
 });
 

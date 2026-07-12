@@ -77,6 +77,12 @@ export const importNormalizer: ImportNormalizer = {
         chapterNumber: record.chapterNumber?.trim(),
         chapterName: record.chapterName?.trim(),
         sourceDocumentId: record.sourceDocumentId ?? options.documentId,
+        sourceDocumentIds: Array.from(
+          new Set([
+            ...(record.sourceDocumentIds ?? []),
+            record.sourceDocumentId ?? options.documentId,
+          ]),
+        ),
         sourceRole: record.sourceRole,
         parserIssue: record.parserIssue,
       };

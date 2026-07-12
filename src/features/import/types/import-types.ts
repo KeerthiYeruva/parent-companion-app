@@ -13,6 +13,7 @@ export interface RawImportRecord {
   chapterNumber?: string;
   chapterName?: string;
   sourceDocumentId?: string;
+  sourceDocumentIds?: string[];
   sourceRole?: ImportSourceRole;
   parserIssue?: string;
 }
@@ -30,6 +31,7 @@ export interface NormalizedImportRecord {
   chapterNumber?: string;
   chapterName?: string;
   sourceDocumentId?: string;
+  sourceDocumentIds?: string[];
   sourceRole?: ImportSourceRole;
   parserIssue?: string;
 }

@@ -51,6 +51,7 @@ export interface SchoolItem {
   status: ItemStatus;
   prepStatus?: "NotStarted" | "InProgress" | "Ready";
   sourceDocumentId?: string;
+  sourceDocumentIds?: string[];
   sourcePage?: number;
   sourceText?: string;
   completedAt?: string;
@@ -142,6 +143,7 @@ export interface ReviewDraftRecord {
   dueDate?: string;
   description?: string;
   sourceDocumentId?: string;
+  sourceDocumentIds?: string[];
   parserIssue?: string;
 }
 

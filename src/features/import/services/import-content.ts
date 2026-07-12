@@ -20,6 +20,13 @@ const subjectAliases: Record<string, string> = {
 
 const normalizeText = (value: string) => value.trim().replace(/\s+/g, " ");
 
+export const normalizeForComparison = (value?: string) =>
+  normalizeText(value ?? "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 export const normalizeSubjectKey = (value?: string) => {
   return normalizeText(value ?? "").toLowerCase();
 };
@@ -54,13 +61,24 @@ export const buildImportKey = (
 };
 
 export const buildLogicalItemKey = (
-  item: Pick<SchoolItem, "childId" | "category" | "subject" | "dueDate">,
+  item: Pick<
+    SchoolItem,
+    "childId" | "category" | "subject" | "dueDate" | "title" | "description"
+  >,
 ) => {
+  const contentKey =
+    item.category === "UnitTest"
+      ? ""
+      : normalizeForComparison(
+          [item.title, item.description].filter(Boolean).join(" "),
+        );
+
   return [
     item.childId,
     item.category,
     normalizeSubjectKey(item.subject),
     item.dueDate,
+    contentKey,
   ].join("__");
 };
 
@@ -101,12 +119,15 @@ export const buildUnitTestDescription = (options: {
       ? `Chapter ${options.chapterNumber} — ${options.chapterName}`
       : `Chapter ${options.chapterNumber}`
     : undefined;
-  return dedupeTextBlocks(
-    chapter,
-    options.description,
-    options.title,
-    options.subject ? `${options.subject} portions` : undefined,
-  );
+  const genericTitle =
+    options.title &&
+    options.subject &&
+    normalizeForComparison(options.title) ===
+      normalizeForComparison(`${options.subject} portions`)
+      ? undefined
+      : options.title;
+  const meaningful = dedupeTextBlocks(chapter, options.description, genericTitle);
+  return meaningful || (options.subject ? `${options.subject} portions` : "");
 };
 
 export const mergeResolvedItemFields = (

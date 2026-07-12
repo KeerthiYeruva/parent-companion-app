@@ -123,10 +123,14 @@ export const deleteCloudDocumentAndItems = async (
   itemsSnapshot.docs.forEach((itemDocument) => {
     const data = itemDocument.data() as {
       sourceDocumentId?: string;
+      sourceDocumentIds?: string[];
     };
     if (
-      data.sourceDocumentId &&
-      sourceDocumentIds.includes(data.sourceDocumentId)
+      (data.sourceDocumentId &&
+        sourceDocumentIds.includes(data.sourceDocumentId)) ||
+      (data.sourceDocumentIds ?? []).some((sourceDocumentId) =>
+        sourceDocumentIds.includes(sourceDocumentId),
+      )
     ) {
       batch.delete(itemDocument.ref);
     }

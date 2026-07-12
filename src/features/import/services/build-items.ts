@@ -16,6 +16,7 @@ export const importItemBuilder: ImportItemBuilder = {
       chapterName: record.chapterName,
       dueDate: record.dueDate!,
       sourceDocumentId: record.sourceDocumentId,
+      sourceDocumentIds: record.sourceDocumentIds,
     }));
   },
 };

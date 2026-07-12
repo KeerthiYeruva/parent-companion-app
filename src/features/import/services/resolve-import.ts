@@ -10,11 +10,22 @@ import {
   dedupeTextBlocks,
   mergeResolvedItemFields,
   normalizeCanonicalSubject,
+  normalizeForComparison,
   normalizeSubjectKey,
 } from "@/features/import/services/import-content";
 
 const isUnitTest = (record: NormalizedImportRecord) =>
   record.category === "UnitTest";
+
+const unitTestBaseKey = (record: Pick<NormalizedImportRecord, "childId" | "subject" | "canonicalSubject">) =>
+  [
+    record.childId,
+    "UnitTest",
+    normalizeSubjectKey(record.canonicalSubject ?? record.subject),
+  ].join("__");
+
+const unitTestCycleKey = (record: NormalizedImportRecord) =>
+  [unitTestBaseKey(record), record.dueDate ?? "undated"].join("__");
 
 const recordRichness = (record: NormalizedImportRecord) => {
   return [
@@ -66,8 +77,39 @@ const mergeGeneralRecords = (records: NormalizedImportRecord[]) => {
       sourceRole: current.sourceRole ?? incoming.sourceRole,
       parserIssue: current.parserIssue ?? incoming.parserIssue,
       sourceDocumentId: current.sourceDocumentId ?? incoming.sourceDocumentId,
+      sourceDocumentIds: mergeSourceDocumentIds(current, incoming),
     };
   }, first);
+};
+
+const mergeSourceDocumentIds = (
+  ...records: Array<Pick<NormalizedImportRecord, "sourceDocumentId" | "sourceDocumentIds"> | undefined>
+) =>
+  Array.from(
+    new Set(
+      records.flatMap((record) =>
+        record
+          ? [
+              ...(record.sourceDocumentIds ?? []),
+              ...(record.sourceDocumentId ? [record.sourceDocumentId] : []),
+            ]
+          : [],
+      ),
+    ),
+  );
+
+const isScheduleOnlyText = (value?: string) => {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = normalizeForComparison(value);
+  return (
+    /\b\d{1,2}\s+\d{1,2}\s+\d{2,4}\b/.test(normalized) ||
+    /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/.test(
+      normalized,
+    )
+  );
 };
 
 const mergeUnitTestGroup = (
@@ -104,7 +146,9 @@ const mergeUnitTestGroup = (
     description: dedupeTextBlocks(
       portion?.description,
       existing?.description,
-      schedule?.description,
+      schedule?.sourceRole !== "schedule" && !isScheduleOnlyText(schedule?.description)
+        ? schedule?.description
+        : undefined,
     ),
     title: portion?.title,
     chapterNumber:
@@ -142,6 +186,7 @@ const mergeUnitTestGroup = (
       existing?.sourceDocumentId ??
       portion?.sourceDocumentId ??
       primary.sourceDocumentId,
+    sourceDocumentIds: mergeSourceDocumentIds(schedule, portion, existing, primary),
     sourceRole:
       schedule && portion
         ? "combined"
@@ -150,11 +195,7 @@ const mergeUnitTestGroup = (
           : portion
             ? "portion"
             : primary.sourceRole,
-    parserIssue:
-      schedule?.parserIssue ??
-      portion?.parserIssue ??
-      existing?.parserIssue ??
-      primary.parserIssue,
+    parserIssue: dueDate && description ? undefined : (portion?.parserIssue ?? schedule?.parserIssue ?? existing?.parserIssue ?? primary.parserIssue),
   };
 };
 
@@ -170,9 +211,12 @@ export const importResolver: ImportResolver = {
       }
 
       const subject = normalizeCanonicalSubject(item.subject);
-      const key = [item.childId, "UnitTest", normalizeSubjectKey(subject)].join(
-        "__",
-      );
+      const key = [
+        item.childId,
+        "UnitTest",
+        normalizeSubjectKey(subject),
+        item.dueDate,
+      ].join("__");
       const current = existingByUnitTestKey.get(key) ?? [];
       current.push({
         childId: item.childId,
@@ -185,6 +229,7 @@ export const importResolver: ImportResolver = {
         chapterNumber: item.chapterNumber,
         chapterName: item.chapterName,
         sourceDocumentId: item.sourceDocumentId,
+        sourceDocumentIds: item.sourceDocumentIds,
         sourceRole: "source",
       });
       existingByUnitTestKey.set(key, current);
@@ -200,6 +245,8 @@ export const importResolver: ImportResolver = {
           category: record.category ?? "Homework",
           subject: record.subject,
           dueDate: record.dueDate ?? "",
+          title: record.title,
+          description: record.description,
         });
         const current = generalGroups.get(key) ?? [];
         current.push(record);
@@ -208,11 +255,7 @@ export const importResolver: ImportResolver = {
       }
 
       if (isUnitTest(record)) {
-        const key = [
-          record.childId,
-          "UnitTest",
-          normalizeSubjectKey(record.canonicalSubject ?? record.subject),
-        ].join("__");
+        const key = unitTestCycleKey(record);
         const current = unitTestGroups.get(key) ?? [];
         current.push(record);
         unitTestGroups.set(key, current);
@@ -224,10 +267,33 @@ export const importResolver: ImportResolver = {
         category: record.category,
         subject: record.subject,
         dueDate: record.dueDate ?? "",
+        title: record.title,
+        description: record.description,
       });
       const current = generalGroups.get(key) ?? [];
       current.push(record);
       generalGroups.set(key, current);
+    });
+
+    Array.from(unitTestGroups.entries()).forEach(([key, group]) => {
+      if (!key.endsWith("__undated")) {
+        return;
+      }
+
+      const baseKey = key.replace(/__undated$/, "");
+      const datedKeys = Array.from(unitTestGroups.keys()).filter(
+        (candidate) =>
+          candidate.startsWith(`${baseKey}__`) &&
+          !candidate.endsWith("__undated"),
+      );
+
+      if (datedKeys.length === 1) {
+        unitTestGroups.set(datedKeys[0], [
+          ...(unitTestGroups.get(datedKeys[0]) ?? []),
+          ...group,
+        ]);
+        unitTestGroups.delete(key);
+      }
     });
 
     const resolvedUnitTests = Array.from(unitTestGroups.entries()).flatMap(

@@ -195,7 +195,7 @@ const isInReplacementScope = (
   item: SchoolItem,
   scope?: ImportedItemReplacementScope,
 ) => {
-  if (!scope || !item.sourceDocumentId) {
+  if (!scope || (!item.sourceDocumentId && !item.sourceDocumentIds?.length)) {
     return false;
   }
 
@@ -206,6 +206,17 @@ const isInReplacementScope = (
     item.dueDate <= scope.toDate
   );
 };
+
+const itemHasAnySourceDocument = (
+  item: Pick<SchoolItem, "sourceDocumentId" | "sourceDocumentIds">,
+  sourceDocumentIds: Set<string>,
+) =>
+  Boolean(
+    (item.sourceDocumentId && sourceDocumentIds.has(item.sourceDocumentId)) ||
+      (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
+        sourceDocumentIds.has(sourceDocumentId),
+      ),
+  );
 
 const normalizeSubjectKey = (value?: string) =>
   value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
@@ -466,6 +477,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           item.title.trim().toLowerCase(),
           item.dueDate,
           item.sourceDocumentId ?? "",
+          ...(item.sourceDocumentIds ?? []),
         ].join("__"),
       ),
     );
@@ -488,8 +500,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     const scannedSourceDocumentIdSet = new Set(scannedSourceDocumentIds);
     return items.filter(
       (item) =>
-        (item.sourceDocumentId &&
-          scannedSourceDocumentIdSet.has(item.sourceDocumentId)) ||
+        itemHasAnySourceDocument(item, scannedSourceDocumentIdSet) ||
         isInReplacementScope(item, replacementScope),
     ).length;
   }, [items, replacementScope, scannedSourceDocumentIds]);
@@ -576,6 +587,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           item.title.trim().toLowerCase(),
           item.dueDate,
           item.sourceDocumentId ?? "",
+          ...(item.sourceDocumentIds ?? []),
         ].join("__");
         if (!existingItemKeys.has(key)) {
           addItem(item);
@@ -620,7 +632,15 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       ).webkitRelativePath;
       const rootFolderName =
         firstRelativePath?.split("/")[0] || "Selected folder";
-      const scannedFiles = [];
+      const scannedFiles: Array<{
+        file: File;
+        contentText: string;
+        extractionStatus: ScanSessionFileRecord["extractionStatus"];
+        extractionError?: string;
+        relativePath: string;
+        detected: Awaited<ReturnType<typeof detectPlannerDocument>>;
+        rawRows: RawImportRecord[];
+      }> = [];
       const scanChildren =
         children.length > 0
           ? children
@@ -716,6 +736,45 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
             ),
         };
       });
+      const currentBatchDocumentIds = new Set(
+        scannedFiles.map((entry) => entry.detected.fileHash),
+      );
+      const historicalRows = scanQueue.flatMap((file) =>
+        (file.rawRows ?? [])
+          .filter(() => !currentBatchDocumentIds.has(file.documentId))
+          .map((row) => ({
+            childName: row.childName,
+            category: row.category,
+            subject: row.subject,
+            title: row.title,
+            dueDate: row.dueDate,
+            description: row.description,
+            sourceDocumentId: row.sourceDocumentId ?? file.documentId,
+            sourceDocumentIds: row.sourceDocumentIds ?? [
+              row.sourceDocumentId ?? file.documentId,
+            ],
+            parserIssue: row.parserIssue,
+          })),
+      );
+      const batchRows = [
+        ...historicalRows,
+        ...classifiedFiles.flatMap((entry, index) =>
+          entry.classifiedRows.importRows.map((row) => ({
+            ...row,
+            sourceDocumentId: scannedFiles[index].detected.fileHash,
+            sourceDocumentIds: [scannedFiles[index].detected.fileHash],
+          })),
+        ),
+      ];
+      const batchPreview =
+        batchRows.length > 0
+          ? importPipeline.run(batchRows, {
+              sourceType: "future-pdf",
+              documentId: scanRunId,
+              childNameToIdMap: scanChildNameToIdMap,
+              existingItems: items,
+            })
+          : undefined;
       const nextResults = [];
 
       for (const [index, scannedFile] of scannedFiles.entries()) {
@@ -741,15 +800,24 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
               portion: row.description,
             })),
         });
-        const importPreview =
-          rawRows.length > 0
-            ? importPipeline.run(rawRows, {
-                sourceType: "future-pdf",
-                documentId: detected.fileHash,
-                childNameToIdMap: scanChildNameToIdMap,
-                existingItems: items,
-              })
-            : undefined;
+        const fileSourceIds = new Set([detected.fileHash]);
+        const importPreview = batchPreview
+          ? {
+              ...batchPreview,
+              items: batchPreview.items.filter((item) =>
+                itemHasAnySourceDocument(item, fileSourceIds),
+              ),
+              issues: batchPreview.issues.filter(
+                (issue) => issue.documentId === detected.fileHash,
+              ),
+              resolvedRecords: batchPreview.resolvedRecords.filter((record) =>
+                itemHasAnySourceDocument(record, fileSourceIds),
+              ),
+              normalizedRecords: batchPreview.normalizedRecords.filter(
+                (record) => itemHasAnySourceDocument(record, fileSourceIds),
+              ),
+            }
+          : undefined;
         const categoryCounts = countRowsByCategory(allRawRows);
         const confidenceIssues = buildScanConfidenceIssues({
           documentId: detected.fileHash,
@@ -768,7 +836,10 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         const validItemCount = importPreview?.items.length ?? 0;
         const importPreviewSummary = importPreview
           ? {
-              ...importPreview.summary,
+              ...batchPreview!.summary,
+              normalizedRecords: importPreview.normalizedRecords.length,
+              resolvedRecords: importPreview.resolvedRecords.length,
+              validRecords: importPreview.items.length,
               issuesCount:
                 importPreview.issues.length + confidenceIssues.length,
               blockingIssues:
@@ -852,7 +923,8 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
             title: row.title,
             dueDate: row.dueDate,
             description: row.description,
-            sourceDocumentId: row.sourceDocumentId,
+            sourceDocumentId: row.sourceDocumentId ?? detected.fileHash,
+            sourceDocumentIds: row.sourceDocumentIds ?? [detected.fileHash],
             parserIssue: row.parserIssue,
           })),
           importPreviewItems: importPreview?.items,
