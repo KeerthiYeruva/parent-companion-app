@@ -1,4 +1,4 @@
-import type { ItemCategory, SchoolItem } from "@/types/domain";
+import type { SchoolItem } from "@/types/domain";
 
 export type ImportSourceRole = "source" | "schedule" | "portion" | "combined";
 

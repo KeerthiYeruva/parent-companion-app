@@ -400,6 +400,9 @@ const formatConfidence = (confidence?: ScanSessionFileRecord["confidence"]) => {
   return "Low Confidence";
 };
 
+const statusModifierClass = (status: ScanSessionFileRecord["status"]) =>
+  `document-file--${status.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}`;
+
 export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -421,7 +424,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     (state) => state.pushPersistenceWarning,
   );
   const [isScanning, setIsScanning] = useState(false);
-  const [lastRebuildSummary, setLastRebuildSummary] = useState<
+  const [, setLastRebuildSummary] = useState<
     { cleared: number; imported: number } | undefined
   >();
 
@@ -888,19 +891,19 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
   };
 
   return (
-    <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-      <div>
-        <h3 className="font-semibold text-slate-900">
+    <section className="document-import space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="document-import__header">
+        <h3 className="document-import__title font-semibold text-slate-900">
           {simple ? "Upload School Documents" : "Add School Files"}
         </h3>
-        <p className="text-sm text-slate-600">
+        <p className="document-import__description text-sm text-slate-600">
           {simple
             ? "Choose the folder or PDFs from school. The app saves them, extracts targets, and updates Today, This Week, This Month, and Kids automatically."
             : "Choose a school folder and Parent Companion will save it and turn planner PDFs into tasks, tests, activities, and projects."}
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="document-import__upload-controls flex flex-wrap gap-2">
         <input
           ref={pdfInputRef}
           type="file"
@@ -912,7 +915,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
               input.value = "";
             });
           }}
-          className="hidden"
+          className="document-import__pdf-input hidden"
         />
         <input
           ref={folderInputRef}
@@ -925,20 +928,20 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
               input.value = "";
             });
           }}
-          className="hidden"
+          className="document-import__folder-input hidden"
           {...directoryPickerProps}
         />
         <button
           type="button"
           onClick={() => pdfInputRef.current?.click()}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
+          className="document-import__choose-pdfs rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
         >
           Choose PDFs
         </button>
         <button
           type="button"
           onClick={() => folderInputRef.current?.click()}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="document-import__choose-folder rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
         >
           Choose Folder
         </button>
@@ -946,63 +949,63 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           type="button"
           onClick={replaceImportedItems}
           disabled={readyPreviewItems.length === 0}
-          className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
+          className="document-import__rebuild rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Rebuild Imported Items
         </button>
       </div>
 
       {isScanning ? (
-        <p className="text-sm text-slate-600">
+        <p className="document-import__status text-sm text-slate-600">
           Reading school files and building the family calendar...
         </p>
       ) : null}
 
       {!isScanning && scanQueue.length > 0 ? (
         simple ? (
-          <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-            <p className="font-medium text-emerald-700">
+          <div className="document-import__summary rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+            <p className="document-import__final-count font-medium text-emerald-700">
               Imported for planning: {scanTotals.ready} item
               {scanTotals.ready === 1 ? "" : "s"}
             </p>
-            <p className="mt-1 text-slate-600">
+            <p className="document-import__summary-text mt-1 text-slate-600">
               Added matched school items from {scanQueue.length} document
               {scanQueue.length === 1 ? "" : "s"} to Today, Week, Month, and
               Kids.
             </p>
             {scanTotals.skipped > 0 ? (
-              <p className="mt-1 text-slate-500">
+              <p className="document-import__skipped-rows mt-1 text-slate-500">
                 Ignored {scanTotals.skipped} row
                 {scanTotals.skipped === 1 ? "" : "s"} for grades or children
                 that are not set up in this app.
               </p>
             ) : null}
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <div className="rounded-md bg-white p-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <div className="document-import__summary-breakdown mt-2 grid gap-2 md:grid-cols-2">
+              <div className="document-import__child-counts rounded-md bg-white p-2">
+                <p className="document-import__summary-label text-xs font-semibold uppercase tracking-wide text-slate-400">
                   By Child
                 </p>
-                <p className="mt-1 text-sm text-slate-700">
+                <p className="document-import__summary-value mt-1 text-sm text-slate-700">
                   {formatCounts(scanTotals.byChild)}
                 </p>
               </div>
-              <div className="rounded-md bg-white p-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <div className="document-import__category-counts rounded-md bg-white p-2">
+                <p className="document-import__summary-label text-xs font-semibold uppercase tracking-wide text-slate-400">
                   By Type
                 </p>
-                <p className="mt-1 text-sm text-slate-700">
+                <p className="document-import__summary-value mt-1 text-sm text-slate-700">
                   {formatCounts(scanTotals.byCategory)}
                 </p>
               </div>
             </div>
             {scanTotals.assignmentIssues > 0 ? (
-              <p className="mt-2 text-amber-800">
+              <p className="document-import__issues document-import__issues--assignment mt-2 text-amber-800">
                 Review exceptions: assign {scanTotals.assignmentIssues} item
                 {scanTotals.assignmentIssues === 1 ? "" : "s"} to a child.
               </p>
             ) : null}
             {scanTotals.otherIssues > 0 ? (
-              <p className="mt-1 text-rose-700">
+              <p className="document-import__issues document-import__issues--blocking mt-1 text-rose-700">
                 Review exceptions: {scanTotals.otherIssues} detail
                 {scanTotals.otherIssues === 1 ? "" : "s"} need cleanup.
               </p>
@@ -1040,11 +1043,26 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       ) : null}
 
       {scanQueue.length > 0 && !simple ? (
-        <div className="space-y-2">
+        <div className="document-import__scan-results space-y-2">
           {scanQueue.map((result) => (
             <article
               key={result.documentId}
-              className="rounded-lg border border-slate-200 p-3"
+              className={`document-file ${statusModifierClass(result.status)} rounded-lg border border-slate-200 p-3`}
+              data-document-id={result.documentId}
+              data-file-name={result.fileName}
+              data-document-type={result.detectedType}
+              data-status={result.status}
+              data-extracted-row-count={countExtractedItems(
+                result.importPreviewCategoryCounts,
+              )}
+              data-resolved-row-count={
+                result.importPreviewSummary?.normalizedRecords ?? ""
+              }
+              data-final-item-count={
+                result.importPreviewSummary?.validRecords ?? ""
+              }
+              data-issue-count={result.importPreviewSummary?.issuesCount ?? ""}
+              data-skipped-row-count={result.skippedImportCount ?? 0}
             >
               {(() => {
                 const extractedItems = countExtractedItems(
@@ -1055,21 +1073,21 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                 );
                 return (
                   <>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-slate-900">
+                    <div className="document-file__header flex items-start justify-between gap-2">
+                      <div className="document-file__identity">
+                        <p className="document-file__name font-medium text-slate-900">
                           {formatSchoolDocumentTitle(
                             result.fileName,
                             result.detectedType,
                           )}
                         </p>
-                        <p className="text-sm text-slate-600">
+                        <p className="document-file__metadata text-sm text-slate-600">
                           {result.detectedType} •{" "}
                           {result.monthLabel ?? "Month unknown"} •{" "}
                           {result.relativePath}
                         </p>
                         {result.skippedImportCount ? (
-                          <p className="mt-1 text-sm text-amber-800">
+                          <p className="document-file__skipped-rows mt-1 text-sm text-amber-800">
                             Skipped {result.skippedImportCount} item
                             {result.skippedImportCount === 1 ? "" : "s"}:{" "}
                             {result.skippedImportReason ??
@@ -1079,7 +1097,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                         ) : null}
                       </div>
                       <span
-                        className={`rounded-full px-2 py-1 text-xs font-medium ${
+                        className={`document-file__status ${statusModifierClass(result.status)} rounded-full px-2 py-1 text-xs font-medium ${
                           result.status === "ready"
                             ? "bg-emerald-100 text-emerald-700"
                             : result.status === "changed"
@@ -1093,34 +1111,34 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                       </span>
                     </div>
                     {result.childHints.length > 0 ? (
-                      <p className="mt-2 text-sm text-slate-600">
+                      <p className="document-file__child-hints mt-2 text-sm text-slate-600">
                         Hints: {result.childHints.join(", ")}
                       </p>
                     ) : null}
                     {result.importPreviewSummary ? (
-                      <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm text-slate-700">
-                        <p className="font-medium text-emerald-700">
+                      <div className="document-file__preview-summary mt-2 rounded-md bg-slate-50 p-2 text-sm text-slate-700">
+                        <p className="document-file__extracted-row-count font-medium text-emerald-700">
                           Items found: {extractedItems}
                         </p>
                         <p
-                          className={`mt-1 text-xs font-semibold ${result.confidence === "high" ? "text-emerald-700" : result.confidence === "review" ? "text-amber-700" : "text-rose-700"}`}
+                          className={`document-file__confidence mt-1 text-xs font-semibold ${result.confidence === "high" ? "text-emerald-700" : result.confidence === "review" ? "text-amber-700" : "text-rose-700"}`}
                         >
                           {formatConfidence(result.confidence)}
                         </p>
-                        <p className="mt-1 text-xs text-slate-600">
+                        <p className="document-file__category-counts mt-1 text-xs text-slate-600">
                           {formatCategoryCounts(
                             result.importPreviewCategoryCounts,
                           )}
                         </p>
                         {childAssignmentIssues > 0 ? (
-                          <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-amber-800">
+                          <p className="document-file__issues document-file__issues--assignment mt-2 rounded-md bg-amber-50 px-2 py-1 text-amber-800">
                             Child assignment needed for {childAssignmentIssues}{" "}
                             item{childAssignmentIssues > 1 ? "s" : ""}.
                           </p>
                         ) : null}
                         {(result.importPreviewIssues?.length ?? 0) >
                         childAssignmentIssues ? (
-                          <p className="mt-2 rounded-md bg-rose-50 px-2 py-1 text-rose-700">
+                          <p className="document-file__issues document-file__issues--blocking mt-2 rounded-md bg-rose-50 px-2 py-1 text-rose-700">
                             {(result.importPreviewIssues?.length ?? 0) -
                               childAssignmentIssues}{" "}
                             detail
@@ -1134,7 +1152,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                         ) : null}
                       </div>
                     ) : null}
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="document-file__extraction-status mt-2 text-xs text-slate-500">
                       Extraction: {result.extractionStatus ?? "unknown"}
                       {result.extractionError
                         ? ` • ${result.extractionError}`
@@ -1148,20 +1166,23 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         </div>
       ) : null}
       {simple && documents.length > 0 ? (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-slate-900">
+        <div className="document-import__imported-files space-y-2">
+          <h3 className="document-import__imported-files-title text-sm font-semibold text-slate-900">
             Imported Files
           </h3>
           {documents.map((document) => (
             <div
               key={document.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
+              className="document-file document-file--imported flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
+              data-document-id={document.id}
+              data-file-name={document.fileName ?? ""}
+              data-document-type={document.type}
             >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-900">
+              <div className="document-file__identity min-w-0">
+                <p className="document-file__name truncate text-sm font-medium text-slate-900">
                   {document.title}
                 </p>
-                <p className="truncate text-xs text-slate-500">
+                <p className="document-file__metadata truncate text-xs text-slate-500">
                   {document.fileName ?? document.type}
                 </p>
               </div>
@@ -1175,7 +1196,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                     deleteDocument(document.id);
                   }
                 }}
-                className="shrink-0 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+                className="document-file__delete shrink-0 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
               >
                 Delete
               </button>

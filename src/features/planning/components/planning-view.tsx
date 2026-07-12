@@ -85,13 +85,13 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
     const familyOpen = splitOpenAndCompletedItems(weekItems).open.length;
     content = (
       <>
-        <section className="grid gap-3 md:grid-cols-3">
+        <section className="planner-dashboard__metrics grid gap-3 md:grid-cols-3">
           <ProgressCard label="This Week" progress={weeklyProgress} />
           <ProgressCard label="This Month" progress={monthlyProgress} />
           <MetricCard label="Open This Week" value={familyOpen} />
         </section>
 
-        <section className="grid gap-3 xl:grid-cols-2">
+        <section className="planner-dashboard__children grid gap-3 xl:grid-cols-2">
           {children.map((child) => {
             const childWeekItems = weekItems.filter(
               (item) => item.childId === child.id,
@@ -186,22 +186,22 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
     const monthSummary = summarizeItems(monthItems);
 
     content = (
-      <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+      <section className="planner-today space-y-3">
+        <div className="planner-today__priority-summary planner-progress-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="planner-progress-card__header flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-slate-500">Today</p>
-              <h3 className="mt-1 text-3xl font-bold text-slate-950">
+              <p className="planner-progress-card__label text-sm font-medium text-slate-500">Today</p>
+              <h3 className="planner-progress-card__title mt-1 text-3xl font-bold text-slate-950">
                 What needs attention now
               </h3>
             </div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+            <span className="planner-progress-card__status rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
               {todayPriorityProgress.label}
             </span>
           </div>
-          <div className="mt-4 h-2 rounded-full bg-slate-100">
+          <div className="planner-progress-card__track mt-4 h-2 rounded-full bg-slate-100">
             <div
-              className="h-2 rounded-full bg-emerald-500"
+              className="planner-progress-card__bar h-2 rounded-full bg-emerald-500"
               style={{ width: `${todayPriorityProgress.percent}%` }}
             />
           </div>
@@ -218,7 +218,7 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
           showDates
         />
 
-        <section className="grid gap-3 sm:grid-cols-2">
+        <section className="planner-today__summary-grid grid gap-3 sm:grid-cols-2">
           <PlanSummaryCard title="This Week" summary={weekSummary} />
           <PlanSummaryCard title="This Month" summary={monthSummary} />
         </section>
@@ -232,12 +232,13 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
     );
 
     content = (
-      <section className="space-y-3">
+      <section className="planner-week space-y-3">
         <ProgressCard label="Weekly Progress" progress={weeklyProgress} />
         {groups.map((group) => (
           <div
             key={group.child.id}
-            className="rounded-xl border border-slate-200 bg-white p-4"
+            className="planner-week__child-group rounded-xl border border-slate-200 bg-white p-4"
+            data-child-id={group.child.id}
           >
             <div className="mb-3 flex justify-end">
               <span className="text-sm font-medium text-slate-600">
@@ -257,8 +258,8 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
     );
 
     content = (
-      <section className="space-y-3">
-        <div className="grid gap-3 md:grid-cols-4">
+      <section className="planner-month space-y-3">
+        <div className="planner-month__metrics grid gap-3 md:grid-cols-4">
           <ProgressCard label="Monthly Progress" progress={monthlyProgress} />
           <MetricCard label="Homework" value={monthly.homework} />
           <MetricCard label="Tests" value={monthly.tests} />
@@ -268,14 +269,15 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
         {childGroups.map((group) => (
           <div
             key={group.child.id}
-            className="rounded-xl border border-slate-200 bg-white p-4"
+            className="planner-month__child-group rounded-xl border border-slate-200 bg-white p-4"
+            data-child-id={group.child.id}
           >
             <div className="mb-3 flex justify-end">
               <span className="text-sm font-medium text-slate-600">
                 {group.progress.label}
               </span>
             </div>
-            <div className="space-y-3">
+            <div className="planner-month__week-list space-y-3">
               {monthItemsByWeek(group.items).map((week) => (
                 <MonthWeekGroup
                   key={`${group.child.id}-${week.key}`}
@@ -294,26 +296,26 @@ export function PlanningView({ mode }: { mode: PlanningMode }) {
 
   return (
     <NavShell>
-      <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-          <p className="text-sm text-slate-600">
+      <section className={`planner-view planner-view--${mode} space-y-3`}>
+        <div className="planner-view__header rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="planner-view__title text-xl font-semibold text-slate-900">{title}</h2>
+          <p className="planner-view__date text-sm text-slate-600">
             {dayjs().format("dddd, DD MMMM YYYY")}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="planner-view__controls flex flex-wrap items-center justify-between gap-3">
           <ChildFilter />
           <button
             type="button"
             aria-expanded={showQuickAdd}
             onClick={() => setShowQuickAdd((value) => !value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="planner-view__quick-add-toggle rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             {showQuickAdd ? "Hide Quick Add" : "Quick Add"}
           </button>
         </div>
-        {showQuickAdd ? <AddItemForm /> : null}
+        {showQuickAdd ? <div className="planner-view__quick-add"><AddItemForm /></div> : null}
         {content}
       </section>
     </NavShell>
@@ -329,27 +331,28 @@ function WeekTaskBuckets({ items }: { items: SchoolItem[] }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <div className="planner-week__task-buckets space-y-4">
+      <div className="planner-task-section planner-task-section--open">
+        <div className="planner-task-section__header mb-2 flex items-center justify-between gap-3">
+          <h4 className="planner-task-section__title text-xs font-semibold uppercase tracking-wide text-slate-500">
             To Do
           </h4>
-          <span className="text-xs font-medium text-slate-500">
+          <span className="planner-task-section__count text-xs font-medium text-slate-500">
             {split.open.length} open
           </span>
         </div>
-        <div className="space-y-3">
+        <div className="planner-week__day-list space-y-3">
           {openDayGroups.map((dayGroup) => (
             <div
               key={dayGroup.date}
-              className="rounded-lg border border-slate-100 bg-slate-50 p-3"
+              className="planner-week-group rounded-lg border border-slate-100 bg-slate-50 p-3"
+              data-due-date={dayGroup.date}
             >
-              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                <h5 className="text-sm font-semibold text-slate-800">
+              <div className="planner-week-group__header mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <h5 className="planner-week-group__date text-sm font-semibold text-slate-800">
                   {dayjs(dayGroup.date).format("dddd, DD MMM")}
                 </h5>
-                <span className="text-xs font-medium text-slate-500">
+                <span className="planner-week-group__count text-xs font-medium text-slate-500">
                   {dayGroup.items.length} item
                   {dayGroup.items.length === 1 ? "" : "s"}
                 </span>
@@ -363,12 +366,12 @@ function WeekTaskBuckets({ items }: { items: SchoolItem[] }) {
         </div>
       </div>
       {split.completed.length > 0 ? (
-        <div>
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+        <div className="planner-task-section planner-task-section--completed">
+          <div className="planner-task-section__header mb-2 flex items-center justify-between gap-3">
+            <h4 className="planner-task-section__title text-xs font-semibold uppercase tracking-wide text-emerald-700">
               Completed
             </h4>
-            <span className="text-xs font-medium text-emerald-700">
+            <span className="planner-task-section__count text-xs font-medium text-emerald-700">
               {split.completed.length} done
             </span>
           </div>
@@ -473,6 +476,17 @@ function uniqueItems(items: SchoolItem[]) {
   });
 }
 
+function itemInspectAttributes(item: SchoolItem) {
+  return {
+    "data-item-id": item.id,
+    "data-child-id": item.childId,
+    "data-category": item.category,
+    "data-subject": item.subject ?? "",
+    "data-due-date": item.dueDate,
+    "data-status": item.status,
+  };
+}
+
 function TodayChildCard({
   urgentItems,
   dueTodayItems,
@@ -493,16 +507,16 @@ function TodayChildCard({
     activityItems.length > 0;
 
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="mb-4 flex justify-end">
-        <span className="text-sm font-medium text-slate-600">
+    <article className="planner-today__child-card rounded-xl border border-slate-200 bg-white p-4">
+      <div className="planner-today__child-progress mb-4 flex justify-end">
+        <span className="planner-item__status text-sm font-medium text-slate-600">
           {progress.label}
         </span>
       </div>
 
       {tomorrowTests.length > 0 ? (
-        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-          <p className="text-sm font-semibold text-amber-900">
+        <div className="planner-today__tomorrow-tests mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="planner-today__alert-title text-sm font-semibold text-amber-900">
             {tomorrowTests.length} test{tomorrowTests.length === 1 ? "" : "s"}{" "}
             tomorrow
           </p>
@@ -511,7 +525,7 @@ function TodayChildCard({
       ) : null}
 
       {hasItems ? (
-        <div className="space-y-3">
+        <div className="planner-today__priority-sections space-y-3">
           <TodayPrioritySection
             tone="urgent"
             title="Urgent"
@@ -532,7 +546,7 @@ function TodayChildCard({
           />
         </div>
       ) : (
-        <p className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-500">
+        <p className="planner-empty-state rounded-lg border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-500">
           Nothing due today.
         </p>
       )}
@@ -561,14 +575,14 @@ function TodayPrioritySection({
   const hiddenCount = items.length - visibleItems.length;
 
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between gap-2">
+    <section className={`planner-today__priority-section planner-today__priority-section--${tone}`}>
+      <div className="planner-today__priority-header mb-2 flex items-center justify-between gap-2">
         <h4
-          className={`text-xs font-semibold uppercase tracking-wide ${toneClass}`}
+          className={`planner-today__priority-title text-xs font-semibold uppercase tracking-wide ${toneClass}`}
         >
           {title}
         </h4>
-        <span className="text-xs font-medium text-slate-500">
+        <span className="planner-today__priority-count text-xs font-medium text-slate-500">
           {items.length}
         </span>
       </div>
@@ -576,13 +590,13 @@ function TodayPrioritySection({
         <>
           <TodayTaskList items={visibleItems} />
           {hiddenCount > 0 ? (
-            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">
+            <p className="planner-today__hidden-count mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">
               {hiddenCount} more in Tasks
             </p>
           ) : null}
         </>
       ) : (
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">
+        <p className="planner-empty-state rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">
           {emptyText}
         </p>
       )}
@@ -594,21 +608,27 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
   const toggleItemComplete = useAppStore((state) => state.toggleItemComplete);
 
   return (
-    <ul className="space-y-2">
+    <ul className="planner-item-list planner-item-list--today space-y-2">
       {items.map((item) => {
         const isCompleted = item.status === "Completed";
 
         return (
-          <li key={item.id}>
+          <li
+            key={item.id}
+            className={`planner-item ${
+              isCompleted ? "planner-item--completed" : "planner-item--open"
+            }`}
+            {...itemInspectAttributes(item)}
+          >
             <button
               type="button"
               aria-pressed={isCompleted}
               aria-label={`${isCompleted ? "Mark incomplete" : "Mark complete"}: ${item.title}`}
               onClick={() => toggleItemComplete(item.id)}
-              className="flex w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-blue-200 hover:bg-blue-50/40"
+              className="planner-item__button flex w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-blue-200 hover:bg-blue-50/40"
             >
               <span
-                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
+                className={`planner-item__checkbox mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
                   isCompleted
                     ? "border-emerald-500 bg-emerald-500 text-white"
                     : "border-slate-300 bg-white text-transparent"
@@ -616,17 +636,17 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
               >
                 {isCompleted ? "✓" : ""}
               </span>
-              <span className="min-w-0">
+              <span className="planner-item__content min-w-0">
                 <span
-                  className={`block text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
+                  className={`planner-item__title block text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
                 >
                 {item.description ? (
-                  <span className="mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
+                  <span className="planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
                     {item.description}
                   </span>
                 ) : null}
                 </span>
-                <span className="block text-xs text-slate-500">
+                <span className="planner-item__metadata block text-xs text-slate-500">
                   {item.subject ? `${item.subject} • ` : ""}
                   {taskCategoryLabel(item.category)} •{" "}
                   {dayjs(item.dueDate).format("ddd, DD MMM")}
@@ -650,21 +670,27 @@ function CompactWeekItemList({
   const toggleItemComplete = useAppStore((state) => state.toggleItemComplete);
 
   return (
-    <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <ul className="planner-item-list planner-item-list--compact divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
       {items.map((item) => {
         const isCompleted = item.status === "Completed";
 
         return (
-          <li key={item.id}>
+          <li
+            key={item.id}
+            className={`planner-item ${
+              isCompleted ? "planner-item--completed" : "planner-item--open"
+            }`}
+            {...itemInspectAttributes(item)}
+          >
             <button
               type="button"
               aria-pressed={isCompleted}
               aria-label={`${isCompleted ? "Mark incomplete" : "Mark complete"}: ${item.title}`}
               onClick={() => toggleItemComplete(item.id)}
-              className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-blue-50/50"
+              className="planner-item__button flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-blue-50/50"
             >
               <span
-                className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
+                className={`planner-item__checkbox mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
                   isCompleted
                     ? "border-emerald-500 bg-emerald-500 text-white"
                     : "border-slate-300 bg-white text-transparent"
@@ -672,29 +698,29 @@ function CompactWeekItemList({
               >
                 {isCompleted ? "✓" : ""}
               </span>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+              <div className="planner-item__content min-w-0">
+                <div className="planner-item__header flex flex-wrap items-center gap-2">
+                  <span className="planner-item__category rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                     {taskCategoryLabel(item.category)}
                   </span>
                   {item.subject ? (
-                    <span className="text-xs font-medium text-slate-500">
+                    <span className="planner-item__subject text-xs font-medium text-slate-500">
                       {item.subject}
                     </span>
                   ) : null}
                 </div>
                 <div
-                  className={`mt-1 text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
+                  className={`planner-item__title mt-1 text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
                 >
                   {item.title}
                 </div>
                 {item.description ? (
-                  <p className="mt-1 whitespace-pre-line text-sm leading-5 text-slate-700">
+                  <p className="planner-item__description mt-1 whitespace-pre-line text-sm leading-5 text-slate-700">
                     {item.description}
                   </p>
                 ) : null}
                 {showDates ? (
-                  <p className="text-xs text-slate-500">
+                  <p className="planner-item__date text-xs text-slate-500">
                     {dayjs(item.dueDate).format("ddd, DD MMM")}
                   </p>
                 ) : null}
@@ -725,23 +751,23 @@ function PlanSummaryCard({
   summary: ReturnType<typeof summarizeItems>;
 }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="font-semibold text-slate-900">{title}</h3>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm text-slate-600">
-        <p className="rounded-lg bg-slate-50 px-2 py-2">
-          <span className="block text-lg font-bold text-slate-950">
+    <article className="planner-summary-card rounded-xl border border-slate-200 bg-white p-4">
+      <h3 className="planner-summary-card__title font-semibold text-slate-900">{title}</h3>
+      <div className="planner-summary-card__metrics mt-3 grid grid-cols-3 gap-2 text-center text-sm text-slate-600">
+        <p className="planner-summary-card__metric rounded-lg bg-slate-50 px-2 py-2">
+          <span className="planner-summary-card__value block text-lg font-bold text-slate-950">
             {summary.tasks}
           </span>
           Tasks
         </p>
-        <p className="rounded-lg bg-slate-50 px-2 py-2">
-          <span className="block text-lg font-bold text-slate-950">
+        <p className="planner-summary-card__metric rounded-lg bg-slate-50 px-2 py-2">
+          <span className="planner-summary-card__value block text-lg font-bold text-slate-950">
             {summary.tests}
           </span>
           Tests
         </p>
-        <p className="rounded-lg bg-slate-50 px-2 py-2">
-          <span className="block text-lg font-bold text-slate-950">
+        <p className="planner-summary-card__metric rounded-lg bg-slate-50 px-2 py-2">
+          <span className="planner-summary-card__value block text-lg font-bold text-slate-950">
             {summary.activities}
           </span>
           Activities
@@ -765,15 +791,15 @@ function SummarySection({
   showDates?: boolean;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
+    <section className="planner-summary-section rounded-xl border border-slate-200 bg-white p-4">
+      <div className="planner-summary-section__header mb-3 flex items-baseline justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-slate-900">{title}</h3>
+          <h3 className="planner-summary-section__title font-semibold text-slate-900">{title}</h3>
           {subtitle ? (
-            <p className="text-sm text-slate-500">{subtitle}</p>
+            <p className="planner-summary-section__subtitle text-sm text-slate-500">{subtitle}</p>
           ) : null}
         </div>
-        <span className="text-xs font-medium text-slate-500">
+        <span className="planner-summary-section__count text-xs font-medium text-slate-500">
           {items.length}
         </span>
       </div>
@@ -794,30 +820,30 @@ function MonthWeekGroup({
   const split = splitOpenAndCompletedItems(week.items);
 
   return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+    <div className="planner-month-group rounded-lg border border-slate-100 bg-slate-50 p-3">
+      <div className="planner-month-group__header mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h4 className="text-sm font-semibold text-slate-800">
+          <h4 className="planner-month-group__title text-sm font-semibold text-slate-800">
             Week of {week.label}
           </h4>
-          <p className="text-xs text-slate-500">
+          <p className="planner-month-group__summary text-xs text-slate-500">
             {split.open.length} open • {split.completed.length} completed
           </p>
         </div>
-        <span className="rounded-full bg-white px-2 py-1 text-xs font-medium text-slate-600">
+        <span className="planner-month-group__progress rounded-full bg-white px-2 py-1 text-xs font-medium text-slate-600">
           {week.progress.label}
         </span>
       </div>
-      <div className="space-y-3">
-        <div>
-          <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="planner-month-group__sections space-y-3">
+        <div className="planner-task-section planner-task-section--open">
+          <h5 className="planner-task-section__title mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             To Do
           </h5>
           <ItemList items={split.open} emptyText="No open tasks this week." />
         </div>
         {split.completed.length > 0 ? (
-          <div>
-            <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+          <div className="planner-task-section planner-task-section--completed">
+            <h5 className="planner-task-section__title mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
               Completed
             </h5>
             <ItemList
@@ -861,20 +887,20 @@ function ChildTodayCard({
   const weekProgress = completionProgress(weekItems);
 
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className={`h-3 w-3 rounded-full ${child.colorTag}`} />
+    <article className="planner-dashboard__child-card rounded-xl border border-slate-200 bg-white p-4" data-child-id={child.id}>
+      <div className="planner-dashboard__child-header mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="planner-dashboard__child-identity flex items-center gap-2">
+          <span className={`planner-dashboard__child-color h-3 w-3 rounded-full ${child.colorTag}`} />
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">
+            <h3 className="planner-dashboard__child-name text-lg font-semibold text-slate-900">
               {child.name}
             </h3>
-            <p className="text-sm text-slate-500">
+            <p className="planner-dashboard__child-week-progress text-sm text-slate-500">
               {weekProgress.label} this week
             </p>
           </div>
         </div>
-        <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+        <span className="planner-dashboard__child-month-progress rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
           {monthProgress.label} this month
         </span>
       </div>
@@ -896,7 +922,7 @@ function ChildTodayCard({
       />
 
       {tests.length > 0 ? (
-        <p className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800">
+        <p className="planner-dashboard__test-count mt-3 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800">
           {tests.length} upcoming test{tests.length > 1 ? "s" : ""} this week
         </p>
       ) : null}
@@ -914,33 +940,36 @@ function DashboardTaskSection({
   emptyText: string;
 }) {
   return (
-    <div className="mt-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold text-slate-800">{title}</h4>
-        <span className="text-xs text-slate-500">{items.length}</span>
+    <div className="planner-dashboard__task-section mt-3">
+      <div className="planner-dashboard__task-section-header mb-2 flex items-center justify-between gap-2">
+        <h4 className="planner-dashboard__task-section-title text-sm font-semibold text-slate-800">{title}</h4>
+        <span className="planner-dashboard__task-section-count text-xs text-slate-500">{items.length}</span>
       </div>
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-sm text-slate-500">
+        <p className="planner-empty-state rounded-lg border border-dashed border-slate-200 px-3 py-2 text-sm text-slate-500">
           {emptyText}
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="planner-item-list planner-item-list--dashboard space-y-2">
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2"
+              className={`planner-item ${
+                item.status === "Completed" ? "planner-item--completed" : "planner-item--open"
+              } flex items-start justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2`}
+              {...itemInspectAttributes(item)}
             >
-              <div>
-                <p className="text-sm font-medium text-slate-900">
+              <div className="planner-item__content">
+                <p className="planner-item__title text-sm font-medium text-slate-900">
                   {item.title}
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="planner-item__metadata text-xs text-slate-500">
                   {item.subject ? `${item.subject} • ` : ""}
                   {taskCategoryLabel(item.category)} •{" "}
                   {dayjs(item.dueDate).format("ddd, DD MMM")}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+              <span className="planner-item__status shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
                 {item.prepStatus === "InProgress"
                   ? "In Progress"
                   : item.status === "Completed"
@@ -957,9 +986,9 @@ function DashboardTaskSection({
 
 function MetricCard({ label, value }: { label: string; value: number }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-sm text-slate-600">{label}</p>
-      <p className="text-3xl font-bold text-slate-900">{value}</p>
+    <article className="planner-metric-card rounded-xl border border-slate-200 bg-white p-4">
+      <p className="planner-metric-card__label text-sm text-slate-600">{label}</p>
+      <p className="planner-metric-card__value text-3xl font-bold text-slate-900">{value}</p>
     </article>
   );
 }
@@ -977,18 +1006,19 @@ function ProgressCard({
   };
 }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-sm text-slate-600">{label}</p>
-      <p className="text-3xl font-bold text-slate-900">{progress.label}</p>
-      <div className="mt-3 h-2 rounded-full bg-slate-100">
+    <article className="planner-progress-card rounded-xl border border-slate-200 bg-white p-4">
+      <p className="planner-progress-card__label text-sm text-slate-600">{label}</p>
+      <p className="planner-progress-card__value text-3xl font-bold text-slate-900">{progress.label}</p>
+      <div className="planner-progress-card__track mt-3 h-2 rounded-full bg-slate-100">
         <div
-          className="h-2 rounded-full bg-emerald-500"
+          className="planner-progress-card__bar h-2 rounded-full bg-emerald-500"
           style={{ width: `${progress.percent}%` }}
         />
       </div>
     </article>
   );
 }
+
 
 
 

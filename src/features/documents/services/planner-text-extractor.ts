@@ -209,7 +209,6 @@ const isSchoolNoteLine = (line: string) =>
 const scheduleSubjectPattern = unitTestScheduleSubjects
   .map((subject) => subject.replace(/\s+/g, "\\s+"))
   .join("|");
-const weekdayPattern = new RegExp(`^${weekdayToken}$`, "i");
 const isScheduleArtifactLine = (line: string) => {
   const normalized = line.trim();
   const compactDateCount = (
@@ -1494,15 +1493,6 @@ const cleanExtractedSectionTitle = (value: string) => {
     )
     .replace(/^[\s,.;:–-]+|[\s,.;:–-]+$/g, "")
     .trim();
-};
-
-const isStitchedPlannerTitle = (value: string) => {
-  const normalized = normalizeText(value);
-  return (
-    normalized.length > 120 ||
-    /\bJULY\s*:\s*WEEK\b/i.test(normalized) ||
-    /\bACTIVITIES\s+OF\s+THE\s+MONTH\b/i.test(normalized)
-  );
 };
 
 const normalizeUnitTestSubject = (subject: string) => {

@@ -18,10 +18,10 @@ export function ChildCategoryView({ childId, title, categories }: { childId: str
 
   return (
     <ChildDetailLayout childId={childId} title={title}>
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <span className="text-sm font-medium text-slate-600">{completionProgress(items).label}</span>
+      <div className="child-category-view rounded-xl border border-slate-200 bg-white p-4" data-child-id={childId}>
+        <div className="child-category-view__header mb-3 flex items-center justify-between gap-3">
+          <h3 className="child-category-view__title text-lg font-semibold">{title}</h3>
+          <span className="child-category-view__progress text-sm font-medium text-slate-600">{completionProgress(items).label}</span>
         </div>
         <TaskSplitList items={items} emptyText={`No ${title.toLowerCase()} for this child.`} />
       </div>
@@ -41,18 +41,18 @@ export function ChildMonthView({ childId }: { childId: string }) {
 
   return (
     <ChildDetailLayout childId={childId} title="Month">
-      <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold">This Month</h3>
-            <span className="text-sm font-medium text-slate-600">{completionProgress(items).label}</span>
+      <section className="child-month-view space-y-3" data-child-id={childId}>
+        <div className="child-month-view__panel rounded-xl border border-slate-200 bg-white p-4">
+          <div className="child-month-view__header mb-3 flex items-center justify-between gap-3">
+            <h3 className="child-month-view__title text-lg font-semibold">This Month</h3>
+            <span className="child-month-view__progress text-sm font-medium text-slate-600">{completionProgress(items).label}</span>
           </div>
-          <div className="space-y-3">
+          <div className="child-month-view__weeks space-y-3">
             {monthItemsByWeek(items).map((week) => (
-              <div key={week.key} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h4 className="text-sm font-semibold text-slate-800">Week of {week.label}</h4>
-                  <span className="rounded-full bg-white px-2 py-1 text-xs font-medium text-slate-600">{week.progress.label}</span>
+              <div key={week.key} className="child-month-view__week rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <div className="child-month-view__week-header mb-3 flex items-center justify-between gap-3">
+                  <h4 className="child-month-view__week-title text-sm font-semibold text-slate-800">Week of {week.label}</h4>
+                  <span className="child-month-view__week-progress rounded-full bg-white px-2 py-1 text-xs font-medium text-slate-600">{week.progress.label}</span>
                 </div>
                 <TaskSplitList items={week.items} emptyText="No tasks this week." />
               </div>
@@ -73,14 +73,14 @@ function TaskSplitList({ items, emptyText }: { items: SchoolItem[]; emptyText: s
   }
 
   return (
-    <div className="space-y-3">
-      <div>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">To Do</h4>
+    <div className="child-task-list space-y-3">
+      <div className="child-task-section child-task-list__open">
+        <h4 className="child-task-section__title mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">To Do</h4>
         <ItemList items={split.open} emptyText="No open tasks." showChild={false} showCategory={false} />
       </div>
       {split.completed.length > 0 ? (
-        <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">Completed</h4>
+        <div className="child-task-section child-task-list__completed">
+          <h4 className="child-task-section__title mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">Completed</h4>
           <ItemList items={split.completed} emptyText="No completed tasks." showChild={false} showCategory={false} />
         </div>
       ) : null}
