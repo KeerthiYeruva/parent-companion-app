@@ -128,9 +128,11 @@ export function ItemList({ items, emptyText }: ItemListProps) {
                   </span>
                 ) : null}
 
-                <span className="item-list__description planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
-                  {display.description || display.heading}
-                </span>
+                {display.description ? (
+                  <span className="item-list__description planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
+                    {display.description}
+                  </span>
+                ) : null}
 
                 <span className="item-list__metadata planner-item__metadata mt-2 block text-sm text-slate-500">
                   {metadata.join(" - ")}

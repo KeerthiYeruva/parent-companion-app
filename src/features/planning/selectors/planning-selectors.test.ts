@@ -17,6 +17,7 @@ import {
   thisWeekItems,
   todayPlannerSections,
   todayItems,
+  testsDueTomorrow,
 } from "./planning-selectors";
 
 const childA: ChildProfile = {
@@ -144,6 +145,36 @@ describe("planning selectors", () => {
     expect(sections.dueToday.map((item) => item.id)).toEqual(["today"]);
     expect(sections.upcoming.map((item) => item.id)).toEqual(["tomorrow"]);
     expect(sections.completed.map((item) => item.id)).toEqual(["completed"]);
+  });
+
+  it("returns only incomplete tests due tomorrow", () => {
+    const items: SchoolItem[] = [
+      { ...baseItems[2], id: "class-test", category: "ClassTest", dueDate: "2026-07-09", status: "Pending" },
+      { ...baseItems[2], id: "unit-test", category: "UnitTest", dueDate: "2026-07-09", status: "Pending" },
+      { ...baseItems[2], id: "exam", category: "Exam", dueDate: "2026-07-09", status: "Pending" },
+      { ...baseItems[0], id: "homework", category: "Homework", dueDate: "2026-07-09", status: "Pending" },
+      { ...baseItems[2], id: "completed", category: "ClassTest", dueDate: "2026-07-09", status: "Completed" },
+      { ...baseItems[2], id: "today-test", category: "ClassTest", dueDate: "2026-07-08", status: "Pending" },
+      { ...baseItems[2], id: "later-test", category: "ClassTest", dueDate: "2026-07-10", status: "Pending" },
+    ];
+
+    expect(testsDueTomorrow(items, dayjs("2026-07-08")).map((item) => item.id).sort()).toEqual([
+      "class-test",
+      "exam",
+      "unit-test",
+    ]);
+  });
+
+  it("finds tomorrow tests across month and year boundaries", () => {
+    const monthBoundary: SchoolItem[] = [
+      { ...baseItems[2], id: "next-month", category: "ClassTest", dueDate: "2026-08-01", status: "Pending" },
+    ];
+    const yearBoundary: SchoolItem[] = [
+      { ...baseItems[2], id: "next-year", category: "Exam", dueDate: "2027-01-01", status: "Pending" },
+    ];
+
+    expect(testsDueTomorrow(monthBoundary, dayjs("2026-07-31")).map((item) => item.id)).toEqual(["next-month"]);
+    expect(testsDueTomorrow(yearBoundary, dayjs("2026-12-31")).map((item) => item.id)).toEqual(["next-year"]);
   });
 
   it("computes monthly category counts", () => {

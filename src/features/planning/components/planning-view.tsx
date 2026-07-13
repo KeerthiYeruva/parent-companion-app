@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import { useMemo, useState } from "react";
 import {
+  BellRing,
   BookOpen,
   CalendarDays,
   CalendarRange,
@@ -28,6 +29,7 @@ import {
   splitOpenAndCompletedItems,
   taskCategoryLabel,
   todayPlannerSections,
+  testsDueTomorrow,
   thisWeekItems,
   itemsForMonth,
 } from "@/features/planning/selectors/planning-selectors";
@@ -148,6 +150,7 @@ export function PlanningView({
   if (mode === "day") {
     const todayDate = dayjs();
     const sections = todayPlannerSections(selectedItems, todayDate);
+    const tomorrowTests = testsDueTomorrow(selectedItems, todayDate);
     const todayProgress = completionProgress(sections.progressItems);
     const hasAnyTodayContent =
       sections.overdue.length > 0 ||
@@ -158,6 +161,9 @@ export function PlanningView({
     content = (
       <section className="planner-today space-y-3">
         <ProgressCard label="Today Progress" progress={todayProgress} />
+        {tomorrowTests.length > 0 ? (
+          <TomorrowTestAlert items={tomorrowTests} />
+        ) : null}
         {sections.overdue.length > 0 ? (
           <PlannerSection
             title="Overdue"
@@ -461,6 +467,64 @@ function PlannerSection({
         </span>
       </div>
       <CompactWeekItemList items={items} showDates={showDates} />
+    </section>
+  );
+}
+
+export function TomorrowTestAlert({ items }: { items: SchoolItem[] }) {
+  const visibleItems = items.slice(0, 3);
+  const hiddenCount = items.length - visibleItems.length;
+
+  return (
+    <section
+      className="planner-tomorrow-test-alert rounded-xl border border-amber-200 bg-amber-50 p-4"
+      aria-labelledby="planner-tomorrow-test-alert-title"
+    >
+      <div className="flex items-start gap-3">
+        <span className="planner-tomorrow-test-alert__icon mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+          <BellRing aria-hidden="true" className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3
+            id="planner-tomorrow-test-alert-title"
+            className="planner-tomorrow-test-alert__title text-xs font-semibold uppercase tracking-wide text-amber-900"
+          >
+            {items.length === 1 ? "Test Tomorrow" : `${items.length} Tests Tomorrow`}
+          </h3>
+          <ul className="planner-tomorrow-test-alert__items mt-2 space-y-1">
+            {visibleItems.map((item) => {
+              const display = buildPlannerItemDisplay(item);
+              const summary = [
+                display.subject,
+                display.heading,
+                display.chapter,
+              ]
+                .filter(Boolean)
+                .join(" - ");
+
+              return (
+                <li
+                  key={item.id}
+                  className="planner-tomorrow-test-alert__item text-sm font-medium text-amber-950"
+                  data-item-id={item.id}
+                  data-category={item.category}
+                  data-subject={item.subject ?? ""}
+                >
+                  {summary || item.title}
+                </li>
+              );
+            })}
+          </ul>
+          {hiddenCount > 0 ? (
+            <p className="planner-tomorrow-test-alert__more mt-1 text-sm font-medium text-amber-900">
+              +{hiddenCount} more
+            </p>
+          ) : null}
+          <p className="planner-tomorrow-test-alert__date mt-2 text-xs font-medium text-amber-800">
+            Tomorrow
+          </p>
+        </div>
+      </div>
     </section>
   );
 }

@@ -121,6 +121,24 @@ export const todayPlannerSections = (items: SchoolItem[], today = dayjs()) => {
   };
 };
 
+export const testsDueTomorrow = (items: SchoolItem[], today = dayjs()) => {
+  const tomorrow = today.startOf("day").add(1, "day");
+
+  return orderPlannerItems(
+    items.filter((item) => {
+      if (!["ClassTest", "UnitTest", "Exam"].includes(item.category)) {
+        return false;
+      }
+
+      if (isItemCompleted(item)) {
+        return false;
+      }
+
+      return dayjs(item.dueDate).startOf("day").isSame(tomorrow, "day");
+    }),
+  );
+};
+
 export const bySelectedChildren = (items: SchoolItem[], selectedChildIds: string[]) => {
   if (selectedChildIds.length === 0) {
     return items;
