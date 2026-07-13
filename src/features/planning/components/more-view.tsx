@@ -1,17 +1,21 @@
 import Link from "@/components/routing";
 import { NavShell } from "@/components/nav-shell";
-import { DataBackupPanel } from "@/features/planning/components/data-backup-panel";
 
-const links = [
+export const morePageLinks = [
   {
     href: "/more/profiles",
     title: "Manage Kids",
-    description: "Add children and update grade, section, and academic year",
+    description: "Add or update child profiles",
   },
   {
     href: "/documents",
     title: "School Files",
-    description: "PDF import, extraction, and scanning",
+    description: "Upload, scan, review, and manage school documents",
+  },
+  {
+    href: "/backup",
+    title: "Data & Backup",
+    description: "Export, import, and manage planner data",
   },
 ];
 
@@ -22,12 +26,12 @@ export function MoreView() {
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-xl font-semibold text-slate-900">More</h2>
           <p className="text-sm text-slate-600">
-            Settings and document management.
+            Manage profiles, school files, and planner data.
           </p>
         </div>
 
         <div className="grid gap-3">
-          {links.map((link) => (
+          {morePageLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -39,7 +43,6 @@ export function MoreView() {
           ))}
         </div>
 
-        <DataBackupPanel />
       </section>
     </NavShell>
   );

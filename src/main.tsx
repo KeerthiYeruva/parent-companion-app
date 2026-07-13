@@ -8,7 +8,7 @@ import {
   retryQueuedCloudOperations,
   startCloudSnapshotListeners,
   uploadLocalDataToCloud,
-} from "@/features/import/services/cloud-sync";
+} from "@/features/sync/services/cloud-sync";
 import { buildHydratedSnapshot } from "@/store/hydration";
 import { useAppStore } from "@/store/use-app-store";
 import "@/styles/globals.css";

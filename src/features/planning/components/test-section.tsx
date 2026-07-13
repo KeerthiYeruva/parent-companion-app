@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ItemList } from "@/components/item-list";
+import { ChevronIcon } from "@/components/ui/chevron-icon";
 import type { SchoolItem } from "@/types/domain";
 
 type TestSectionProps = {
@@ -16,28 +17,30 @@ export function TestSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <section className="test-section overflow-hidden rounded-xl border border-slate-200 bg-white">
       <button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="flex w-full items-center justify-between gap-3 p-4 text-left"
+        className="test-section__toggle flex w-full items-center justify-between gap-3 p-4 text-left"
         aria-expanded={isOpen}
       >
         <div>
-          <h3 className="font-semibold text-slate-900">{title}</h3>
+          <h3 className="test-section__title font-semibold text-slate-900">
+            {title}
+          </h3>
 
-          <p className="text-sm text-slate-500">
+          <p className="test-section__count text-sm text-slate-500">
             {items.length} {items.length === 1 ? "test" : "tests"}
           </p>
         </div>
 
-        <span className="text-lg text-slate-500">
-          {isOpen ? "⌃" : "⌄"}
+        <span className="test-section__chevron text-slate-500">
+          <ChevronIcon direction={isOpen ? "up" : "down"} />
         </span>
       </button>
 
       {isOpen ? (
-        <div className="border-t border-slate-100 p-4">
+        <div className="test-section__content border-t border-slate-100 p-4">
           <ItemList items={items} emptyText="No tests" />
         </div>
       ) : null}

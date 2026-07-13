@@ -69,8 +69,10 @@ export const todayItems = (items: SchoolItem[]) => {
 };
 
 export const thisWeekItems = (items: SchoolItem[]) => {
-  const start = dayjs().startOf("day");
-  const end = dayjs().add(6, "day").endOf("day");
+  const today = dayjs().startOf("day");
+  const daysSinceMonday = (today.day() + 6) % 7;
+  const start = today.subtract(daysSinceMonday, "day");
+  const end = start.add(6, "day").endOf("day");
 
   return items.filter((item) => {
     const due = dayjs(item.dueDate);

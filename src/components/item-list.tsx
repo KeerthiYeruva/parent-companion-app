@@ -1,4 +1,10 @@
 import dayjs from "dayjs";
+import { CheckIcon } from "@/components/ui/check-icon";
+import {
+  completionButtonLabel,
+  isItemCompleted,
+  isItemFutureLocked,
+} from "@/features/planning/services/item-completion";
 import { buildPlannerItemDisplay } from "@/features/planning/services/planner-item-display";
 import type { SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
@@ -24,9 +30,9 @@ export function ItemList({ items, emptyText }: ItemListProps) {
   return (
     <ul className="item-list space-y-2">
       {items.map((item) => {
-        const isCompleted = item.status === "Completed";
+        const isCompleted = isItemCompleted(item);
+        const isFutureLocked = isItemFutureLocked(item);
         const display = buildPlannerItemDisplay(item);
-
         const metadata = [dayjs(item.dueDate).format("ddd, DD MMM")].filter(
           Boolean,
         );
@@ -36,7 +42,7 @@ export function ItemList({ items, emptyText }: ItemListProps) {
             key={item.id}
             className={`item-list__item planner-item ${
               isCompleted ? "planner-item--completed" : "planner-item--open"
-            }`}
+            } ${isFutureLocked ? "planner-item--future-locked" : ""}`}
             data-item-id={item.id}
             data-child-id={item.childId}
             data-category={item.category}
@@ -46,15 +52,20 @@ export function ItemList({ items, emptyText }: ItemListProps) {
           >
             <button
               type="button"
-              aria-pressed={isCompleted}
-              aria-label={`${
-                isCompleted ? "Mark incomplete" : "Mark complete"
-              }: ${item.title}`}
-              onClick={() => toggleItemComplete(item.id)}
+              aria-pressed={isFutureLocked ? undefined : isCompleted}
+              aria-label={completionButtonLabel(item)}
+              disabled={isFutureLocked}
+              onClick={() => {
+                if (!isFutureLocked) {
+                  toggleItemComplete(item.id);
+                }
+              }}
               className={`item-list__button planner-item__button flex w-full items-start gap-3 rounded-xl border p-3 text-left ${
-                isCompleted
-                  ? "border-emerald-200 bg-emerald-50"
-                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
+                isFutureLocked
+                  ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-75"
+                  : isCompleted
+                    ? "border-emerald-200 bg-emerald-50"
+                    : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
               }`}
             >
               <span
@@ -64,7 +75,7 @@ export function ItemList({ items, emptyText }: ItemListProps) {
                     : "border-slate-300 bg-white text-transparent"
                 }`}
               >
-                {isCompleted ? "✓" : ""}
+                {isCompleted ? <CheckIcon /> : null}
               </span>
 
               <span className="item-list__content planner-item__content min-w-0 flex-1">
@@ -85,12 +96,17 @@ export function ItemList({ items, emptyText }: ItemListProps) {
                 ) : null}
 
                 <span className="item-list__description planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
-                  {display.description|| display.heading}
+                  {display.description || display.heading}
                 </span>
 
                 <span className="item-list__metadata planner-item__metadata mt-2 block text-sm text-slate-500">
-                  {metadata.join(" • ")}
+                  {metadata.join(" - ")}
                 </span>
+                {isFutureLocked ? (
+                  <span className="planner-item__helper mt-1 block text-xs text-slate-500">
+                    Available on the due date
+                  </span>
+                ) : null}
               </span>
             </button>
           </li>

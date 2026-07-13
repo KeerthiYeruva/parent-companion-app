@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
 import type { AppState, ChildProfile } from "@/types/domain";
-import { upsertCloudChild, withUpdatedAt } from "@/features/import/services/cloud-sync";
+import { upsertCloudChild, withUpdatedAt } from "@/features/sync/services/cloud-sync";
 
 const childColors = [
   "bg-blue-500",

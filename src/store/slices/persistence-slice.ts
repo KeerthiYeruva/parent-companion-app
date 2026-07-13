@@ -3,7 +3,7 @@ import { appRepository } from "@/db/repositories/app-repository";
 import {
   retryQueuedCloudOperations,
   uploadLocalDataToCloud,
-} from "@/features/import/services/cloud-sync";
+} from "@/features/sync/services/cloud-sync";
 import { buildHydratedSnapshot } from "@/store/hydration";
 import type { AppState } from "@/types/domain";
 

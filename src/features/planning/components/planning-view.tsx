@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import { ItemList } from "@/components/item-list";
+import { CheckIcon } from "@/components/ui/check-icon";
 import { NavShell } from "@/components/nav-shell";
 import {
   bySelectedChildren,
@@ -14,6 +15,11 @@ import {
   thisWeekItems,
 } from "@/features/planning/selectors/planning-selectors";
 import { buildPlannerItemDisplay } from "@/features/planning/services/planner-item-display";
+import {
+  completionButtonLabel,
+  isItemCompleted,
+  isItemFutureLocked,
+} from "@/features/planning/services/item-completion";
 import type { ChildProfile, SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
 import Link, { usePathname } from "@/components/routing";
@@ -681,7 +687,8 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
   return (
     <ul className="planner-item-list planner-item-list--today space-y-2">
       {items.map((item) => {
-        const isCompleted = item.status === "Completed";
+        const isCompleted = isItemCompleted(item);
+        const isFutureLocked = isItemFutureLocked(item);
         const display = buildPlannerItemDisplay(item);
 
         return (
@@ -689,15 +696,24 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
             key={item.id}
             className={`planner-item ${
               isCompleted ? "planner-item--completed" : "planner-item--open"
-            }`}
+            } ${isFutureLocked ? "planner-item--future-locked" : ""}`}
             {...itemInspectAttributes(item)}
           >
             <button
               type="button"
-              aria-pressed={isCompleted}
-              aria-label={`${isCompleted ? "Mark incomplete" : "Mark complete"}: ${item.title}`}
-              onClick={() => toggleItemComplete(item.id)}
-              className="planner-item__button flex w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-blue-200 hover:bg-blue-50/40"
+              aria-pressed={isFutureLocked ? undefined : isCompleted}
+              aria-label={completionButtonLabel(item)}
+              disabled={isFutureLocked}
+              onClick={() => {
+                if (!isFutureLocked) {
+                  toggleItemComplete(item.id);
+                }
+              }}
+              className={`planner-item__button flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left ${
+                isFutureLocked
+                  ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-75"
+                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
+              }`}
             >
               <span
                 className={`planner-item__checkbox mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
@@ -706,7 +722,7 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
                     : "border-slate-300 bg-white text-transparent"
                 }`}
               >
-                {isCompleted ? "?" : ""}
+                {isCompleted ? <CheckIcon /> : null}
               </span>
               <span className="planner-item__content min-w-0">
                 <span className="planner-item__header flex flex-wrap items-center gap-2">
@@ -737,6 +753,11 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
                 <span className="planner-item__date block text-xs text-slate-500">
                   {display.date}
                 </span>
+                {isFutureLocked ? (
+                  <span className="planner-item__helper mt-1 block text-xs text-slate-500">
+                    Available on the due date
+                  </span>
+                ) : null}
               </span>
             </button>
           </li>
@@ -757,7 +778,8 @@ function CompactWeekItemList({
   return (
     <ul className="planner-item-list planner-item-list--compact divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
       {items.map((item) => {
-        const isCompleted = item.status === "Completed";
+        const isCompleted = isItemCompleted(item);
+        const isFutureLocked = isItemFutureLocked(item);
         const display = buildPlannerItemDisplay(item);
 
         return (
@@ -765,15 +787,24 @@ function CompactWeekItemList({
             key={item.id}
             className={`planner-item ${
               isCompleted ? "planner-item--completed" : "planner-item--open"
-            }`}
+            } ${isFutureLocked ? "planner-item--future-locked" : ""}`}
             {...itemInspectAttributes(item)}
           >
             <button
               type="button"
-              aria-pressed={isCompleted}
-              aria-label={`${isCompleted ? "Mark incomplete" : "Mark complete"}: ${item.title}`}
-              onClick={() => toggleItemComplete(item.id)}
-              className="planner-item__button flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-blue-50/50"
+              aria-pressed={isFutureLocked ? undefined : isCompleted}
+              aria-label={completionButtonLabel(item)}
+              disabled={isFutureLocked}
+              onClick={() => {
+                if (!isFutureLocked) {
+                  toggleItemComplete(item.id);
+                }
+              }}
+              className={`planner-item__button flex w-full items-start gap-3 px-3 py-2 text-left ${
+                isFutureLocked
+                  ? "cursor-not-allowed bg-slate-50 opacity-75"
+                  : "hover:bg-blue-50/50"
+              }`}
             >
               <span
                 className={`planner-item__checkbox mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
@@ -782,7 +813,7 @@ function CompactWeekItemList({
                     : "border-slate-300 bg-white text-transparent"
                 }`}
               >
-                {isCompleted ? "?" : ""}
+                {isCompleted ? <CheckIcon /> : null}
               </span>
               <div className="planner-item__content min-w-0">
                 <div className="planner-item__header flex flex-wrap items-center gap-2">
@@ -813,6 +844,11 @@ function CompactWeekItemList({
                 {showDates ? (
                   <p className="planner-item__date text-xs text-slate-500">
                     {display.date}
+                  </p>
+                ) : null}
+                {isFutureLocked ? (
+                  <p className="planner-item__helper mt-1 text-xs text-slate-500">
+                    Available on the due date
                   </p>
                 ) : null}
               </div>

@@ -6,7 +6,7 @@ import {
   deleteCloudDocumentAndItems,
   upsertCloudDocument,
   withUpdatedAt,
-} from "@/features/import/services/cloud-sync";
+} from "@/features/sync/services/cloud-sync";
 
 type DocumentsSlice = Pick<
   AppState,

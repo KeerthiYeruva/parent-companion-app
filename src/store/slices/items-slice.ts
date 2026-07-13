@@ -14,7 +14,7 @@ import {
   syncAllLocalItemsToCloud,
   upsertCloudItem,
   withUpdatedAt,
-} from "@/features/import/services/cloud-sync";
+} from "@/features/sync/services/cloud-sync";
 
 type ItemsSlice = Pick<
   AppState,

@@ -2,25 +2,17 @@ import { type ReactNode } from "react";
 import Link, { usePathname } from "@/components/routing";
 import { useAppStore } from "@/store/use-app-store";
 
-const desktopLinks = [
+export const primaryNavLinks = [
   { href: "/", label: "Overview" },
   { href: "/tests", label: "Tests" },
-  { href: "/kids", label: "Kids" },
   { href: "/more", label: "More" },
 ];
 
-const mobileLinks = [
-  { href: "/", label: "Overview" },
-  { href: "/tests", label: "Tests" },
-  { href: "/kids", label: "Kids" },
-  { href: "/more", label: "More" },
-];
+const morePaths = ["/more", "/documents", "/scan", "/kids", "/backup"];
 
-const morePaths = ["/more", "/documents", "/scan"];
-
-const isActiveLink = (pathname: string, href: string) => {
+export const isActiveLink = (pathname: string, href: string) => {
   if (href === "/") {
-    return pathname === "/" || pathname === "/day";
+    return ["/", "/day", "/week", "/month"].includes(pathname);
   }
 
   if (href === "/more") {
@@ -78,7 +70,7 @@ export function NavShell({ children }: { children: ReactNode }) {
 
           <nav className="hidden md:block">
             <ul className="flex items-center gap-1">
-              {desktopLinks.map((link) => {
+              {primaryNavLinks.map((link) => {
                 const active = isActiveLink(pathname, link.href);
 
                 return (
@@ -144,8 +136,8 @@ export function NavShell({ children }: { children: ReactNode }) {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-2 py-2 shadow-[0_-6px_20px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
-        <ul className="mx-auto grid max-w-md grid-cols-4 gap-1">
-          {mobileLinks.map((link) => {
+        <ul className="mx-auto grid max-w-md grid-cols-3 gap-1">
+          {primaryNavLinks.map((link) => {
             const active = isActiveLink(pathname, link.href);
             return (
               <li key={link.href}>

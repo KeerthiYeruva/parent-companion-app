@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { ChildrenManagementView } from "@/features/children/components/children-management-view";
+import { BackupView } from "@/features/backup/components/backup-view";
 import {
   ChildCategoryView,
   ChildMonthView,
@@ -99,8 +100,10 @@ export function App() {
         element={<DocumentsRepositoryView />}
       />
 
+      <Route path="/backup" element={<BackupView />} />
+
       {/* Old Kids planner routes */}
-      <Route path="/kids" element={<Navigate to="/" replace />} />
+      <Route path="/kids" element={<Navigate to="/more/profiles" replace />} />
       <Route path="/kids/day" element={<Navigate to="/" replace />} />
       <Route
         path="/kids/week"

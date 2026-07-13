@@ -58,7 +58,7 @@ import {
   queueCloudDelete,
   queueCloudUpsert,
   withUpdatedAt,
-} from "@/features/import/services/cloud-sync";
+} from "@/features/sync/services/cloud-sync";
 
 const child = (id: string, updatedAt?: string): ChildProfile => ({
   id,
