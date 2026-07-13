@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import dayjs from "dayjs";
 import type { ChildProfile, SchoolItem } from "@/types/domain";
 import {
   bySelectedChildren,
@@ -6,12 +7,15 @@ import {
   completionProgress,
   itemsByTaskBucket,
   itemsByChild,
+  itemsForMonth,
   monthlyCounts,
   monthItemsByWeek,
   orderPlannerItems,
+  schoolWeekRange,
   splitOpenAndCompletedItems,
   thisMonthItems,
   thisWeekItems,
+  todayPlannerSections,
   todayItems,
 } from "./planning-selectors";
 
@@ -106,6 +110,42 @@ describe("planning selectors", () => {
     expect(result.map((item) => item.id)).toEqual(["i-1", "i-2", "i-3", "i-5"]);
   });
 
+  it("uses a strict Monday to Sunday school week", () => {
+    const range = schoolWeekRange(dayjs("2026-07-08"));
+    const items = [
+      { ...baseItems[0], id: "previous-sunday", dueDate: "2026-07-05" },
+      { ...baseItems[0], id: "monday", dueDate: "2026-07-06" },
+      { ...baseItems[0], id: "sunday", dueDate: "2026-07-12" },
+      { ...baseItems[0], id: "next-monday", dueDate: "2026-07-13" },
+    ];
+
+    expect(range.start.format("YYYY-MM-DD")).toBe("2026-07-06");
+    expect(range.end.format("YYYY-MM-DD")).toBe("2026-07-12");
+    expect(thisWeekItems(items).map((item) => item.id)).toEqual([
+      "monday",
+      "sunday",
+    ]);
+  });
+
+  it("builds today sections without counting future work in progress", () => {
+    const sections = todayPlannerSections([
+      { ...baseItems[0], id: "overdue", dueDate: "2026-07-07", status: "Pending" },
+      { ...baseItems[0], id: "today", dueDate: "2026-07-08", status: "Pending" },
+      { ...baseItems[0], id: "tomorrow", dueDate: "2026-07-09", status: "Pending" },
+      { ...baseItems[0], id: "completed", dueDate: "2026-07-08", status: "Completed" },
+    ], dayjs("2026-07-08"));
+
+    expect(sections.progressItems.map((item) => item.id)).toEqual([
+      "overdue",
+      "today",
+      "completed",
+    ]);
+    expect(sections.overdue.map((item) => item.id)).toEqual(["overdue"]);
+    expect(sections.dueToday.map((item) => item.id)).toEqual(["today"]);
+    expect(sections.upcoming.map((item) => item.id)).toEqual(["tomorrow"]);
+    expect(sections.completed.map((item) => item.id)).toEqual(["completed"]);
+  });
+
   it("computes monthly category counts", () => {
     const counts = monthlyCounts(baseItems);
     expect(counts).toEqual({
@@ -113,6 +153,21 @@ describe("planning selectors", () => {
       tests: 1,
       activities: 1,
       projects: 1,
+    });
+  });
+
+  it("counts the provided month items instead of the current calendar month", () => {
+    const augustItems = itemsForMonth([
+      ...baseItems,
+      { ...baseItems[0], id: "august-homework", dueDate: "2026-08-02" },
+      { ...baseItems[2], id: "august-test", dueDate: "2026-08-03" },
+    ], dayjs("2026-08-01"));
+
+    expect(monthlyCounts(augustItems)).toEqual({
+      homework: 1,
+      tests: 1,
+      activities: 0,
+      projects: 0,
     });
   });
 

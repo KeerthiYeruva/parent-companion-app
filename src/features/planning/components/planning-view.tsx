@@ -1,6 +1,18 @@
 import dayjs from "dayjs";
-import { useMemo } from "react";
-import { CalendarDays, CalendarRange, Lock, Sun } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  BookOpen,
+  CalendarDays,
+  CalendarRange,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
+  FolderKanban,
+  Lock,
+  Palette,
+  Sun,
+} from "lucide-react";
 import { ItemList } from "@/components/item-list";
 import { CheckIcon } from "@/components/ui/check-icon";
 import { SubjectIcon } from "@/components/ui/subject-icon";
@@ -12,10 +24,12 @@ import {
   monthlyCounts,
   monthItemsByWeek,
   orderPlannerItems,
+  schoolWeekRange,
   splitOpenAndCompletedItems,
   taskCategoryLabel,
-  thisMonthItems,
+  todayPlannerSections,
   thisWeekItems,
+  itemsForMonth,
 } from "@/features/planning/selectors/planning-selectors";
 import { buildPlannerItemDisplay } from "@/features/planning/services/planner-item-display";
 import {
@@ -33,17 +47,6 @@ import { ChildSwitcher } from "@/features/children/components/child-switcher";
 
 export type PlanningMode = "dashboard" | "day" | "week" | "month";
 
-const testCategories: SchoolItem["category"][] = [
-  "ClassTest",
-  "UnitTest",
-  "Exam",
-];
-const studyCategories: SchoolItem["category"][] = [
-  "Homework",
-  "HomeStudy",
-  "Project",
-];
-
 export function PlanningView({
   mode,
   showKidsTabs = false,
@@ -55,6 +58,7 @@ export function PlanningView({
   const children = useAppStore((state) => state.children);
   const items = useAppStore((state) => state.items);
   const selectedChildIds = useAppStore((state) => state.selectedChildIds);
+  const [selectedMonth, setSelectedMonth] = useState(() => dayjs().startOf("month"));
 
   const activeChildIds = useMemo(() => {
     if (
@@ -76,8 +80,8 @@ export function PlanningView({
     [selectedItems],
   );
   const monthItems = useMemo(
-    () => thisMonthItems(selectedItems),
-    [selectedItems],
+    () => itemsForMonth(selectedItems, selectedMonth),
+    [selectedItems, selectedMonth],
   );
   const weeklyProgress = useMemo(
     () => completionProgress(weekItems),
@@ -87,16 +91,24 @@ export function PlanningView({
     () => completionProgress(monthItems),
     [monthItems],
   );
-  const monthly = useMemo(() => monthlyCounts(selectedItems), [selectedItems]);
+  const monthly = useMemo(() => monthlyCounts(monthItems), [monthItems]);
+  const weekRange = schoolWeekRange();
+  const currentWeekRange = schoolWeekRange();
 
   const title =
     mode === "day"
-      ? "Overview"
+      ? "Today's Overview"
       : mode === "week"
         ? "Weekly Overview"
         : mode === "month"
           ? "Monthly Overview"
           : "Overview";
+  const periodLabel =
+    mode === "week"
+      ? `${weekRange.start.format("DD MMM")} - ${weekRange.end.format("DD MMM YYYY")}`
+      : mode === "month"
+        ? selectedMonth.format("MMMM YYYY")
+        : dayjs().format("dddd, DD MMMM YYYY");
 
   let content = null;
 
@@ -134,154 +146,52 @@ export function PlanningView({
   }
 
   if (mode === "day") {
-    const today = dayjs().format("YYYY-MM-DD");
-    const tomorrow = dayjs().add(1, "day").format("YYYY-MM-DD");
     const todayDate = dayjs();
-    const isWeekend = todayDate.day() === 0 || todayDate.day() === 6;
-
-    const previousMonday = todayDate.subtract(
-      todayDate.day() === 6 ? 5 : 6,
-      "day",
-    );
-
-    const previousFriday = previousMonday.add(4, "day");
-
-    const previousWeekCatchUpItems = isWeekend
-      ? selectedItems
-          .filter((item) => {
-            const dueDate = dayjs(item.dueDate);
-
-            const isPreviousSchoolWeek =
-              !dueDate.isBefore(previousMonday, "day") &&
-              !dueDate.isAfter(previousFriday, "day");
-
-            const isIncomplete = item.status !== "Completed";
-
-            const isSchoolWork =
-              !testCategories.includes(item.category) &&
-              item.category !== "Circular";
-
-            return isPreviousSchoolWeek && isIncomplete && isSchoolWork;
-          })
-          .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
-      : [];
-    const groups = children
-      .filter((child) => activeChildIds.includes(child.id))
-      .map((child) => {
-        const childItems = selectedItems.filter(
-          (item) => item.childId === child.id,
-        );
-        const priorityItems = childItems.filter((item) => {
-          const isTomorrowTest =
-            item.dueDate === tomorrow && testCategories.includes(item.category);
-          const isDueToday = item.dueDate === today;
-          return isTomorrowTest || isDueToday;
-        });
-        const urgentItems = childItems.filter((item) => {
-          return (
-            item.dueDate === today && testCategories.includes(item.category)
-          );
-        });
-        const dueTodayItems = childItems.filter(
-          (item) =>
-            item.dueDate === today &&
-            item.category !== "Activity" &&
-            !testCategories.includes(item.category),
-        );
-        const activityItems = childItems.filter(
-          (item) => item.dueDate === today && item.category === "Activity",
-        );
-        const tomorrowTests = selectedItems.filter(
-          (item) =>
-            item.childId === child.id &&
-            item.dueDate === tomorrow &&
-            testCategories.includes(item.category),
-        );
-
-        return {
-          child,
-          urgentItems,
-          dueTodayItems,
-          activityItems,
-          tomorrowTests,
-          progress: completionProgress(priorityItems),
-        };
-      });
-    const todayItems = uniqueItems(
-      groups.flatMap((group) => [
-        ...group.urgentItems,
-        ...group.dueTodayItems,
-        ...group.activityItems,
-      ]),
-    );
-
-    const todayPriorityProgress = completionProgress(todayItems);
-    const upcomingEndDate = todayDate.add(3, "day");
-
-    const upcomingItems = selectedItems
-      .filter((item) => {
-        const due = dayjs(item.dueDate);
-
-        return (
-          due.isAfter(todayDate, "day") && due.isBefore(upcomingEndDate, "day")
-        );
-      })
-      .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
-      .slice(0, 6);
-    const weekSummary = summarizeItems(weekItems);
-    const monthSummary = summarizeItems(monthItems);
+    const sections = todayPlannerSections(selectedItems, todayDate);
+    const todayProgress = completionProgress(sections.progressItems);
+    const hasAnyTodayContent =
+      sections.overdue.length > 0 ||
+      sections.dueToday.length > 0 ||
+      sections.upcoming.length > 0 ||
+      sections.completed.length > 0;
 
     content = (
       <section className="planner-today space-y-3">
-        {isWeekend ? (
-          <SummarySection
-            title="Previous Week Catch-up"
-            subtitle={`${previousMonday.format("DD MMM")} – ${previousFriday.format(
-              "DD MMM",
-            )}`}
-            items={previousWeekCatchUpItems}
-            emptyText="Great! No unfinished work from the previous week."
+        <ProgressCard label="Today Progress" progress={todayProgress} />
+        {sections.overdue.length > 0 ? (
+          <PlannerSection
+            title="Overdue"
+            tone="overdue"
+            items={sections.overdue}
+          />
+        ) : null}
+        {sections.dueToday.length > 0 ? (
+          <PlannerSection
+            title="Due Today"
+            tone="today"
+            items={sections.dueToday}
+          />
+        ) : null}
+        {sections.upcoming.length > 0 ? (
+          <PlannerSection
+            title="Upcoming Work"
+            subtitle="Next 2 days"
+            tone="upcoming"
+            items={sections.upcoming}
+            futureNote
             showDates
           />
         ) : null}
-        {todayItems.length > 0 ? (
-          <div className="planner-today__priority-summary planner-progress-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="planner-progress-card__header flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="planner-progress-card__label text-sm font-medium text-slate-500">
-                  Today
-                </p>
-              </div>
-
-              <span className="planner-progress-card__status rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
-                {todayPriorityProgress.label}
-              </span>
-            </div>
-
-            <div className="planner-progress-card__track mt-4 h-2 rounded-full bg-slate-100">
-              <div
-                className="planner-progress-card__bar h-2 rounded-full bg-emerald-500"
-                style={{ width: `${todayPriorityProgress.percent}%` }}
-              />
-            </div>
-          </div>
+        {sections.completed.length > 0 ? (
+          <PlannerSection
+            title="Completed"
+            tone="completed"
+            items={sections.completed}
+          />
         ) : null}
-        {groups.map((group) => (
-          <TodayChildCard key={group.child.id} {...group} />
-        ))}
-
-        <SummarySection
-          title="Upcoming Work"
-          subtitle="Next 2 days"
-          items={upcomingItems}
-          emptyText="No upcoming priorities in the next 2 days."
-          showDates
-        />
-
-        <section className="planner-today__summary-grid grid gap-3 sm:grid-cols-2">
-          <PlanSummaryCard title="This Week" summary={weekSummary} />
-          <PlanSummaryCard title="This Month" summary={monthSummary} />
-        </section>
+        {!hasAnyTodayContent ? (
+          <ItemList items={[]} emptyText="All clear for today." />
+        ) : null}
       </section>
     );
   }
@@ -300,11 +210,6 @@ export function PlanningView({
             className="planner-week__child-group rounded-xl border border-slate-200 bg-white p-4"
             data-child-id={group.child.id}
           >
-            <div className="mb-3 flex justify-end">
-              <span className="text-sm font-medium text-slate-600">
-                {group.progress.label}
-              </span>
-            </div>
             <WeekTaskBuckets items={group.items} />
           </div>
         ))}
@@ -316,15 +221,55 @@ export function PlanningView({
     const childGroups = itemsByChild(children, monthItems).filter((group) =>
       activeChildIds.includes(group.child.id),
     );
+    const previousMonth = () =>
+      setSelectedMonth((month) => month.subtract(1, "month").startOf("month"));
+    const nextMonth = () =>
+      setSelectedMonth((month) => month.add(1, "month").startOf("month"));
+    const thisMonth = () => setSelectedMonth(dayjs().startOf("month"));
 
     content = (
       <section className="planner-month space-y-3">
-        <div className="planner-month__metrics grid gap-3 md:grid-cols-4">
+        <div className="planner-month__nav flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3">
+          <div>
+            <p className="planner-month__nav-label text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Month
+            </p>
+            <p className="planner-month__nav-title text-base font-semibold text-slate-900">
+              {selectedMonth.format("MMMM YYYY")}
+            </p>
+          </div>
+          <div className="planner-month__nav-actions flex items-center gap-2">
+            <button
+              type="button"
+              onClick={previousMonth}
+              aria-label="Previous month"
+              className="planner-month__nav-button inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            >
+              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={thisMonth}
+              className="planner-month__today-button min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              This month
+            </button>
+            <button
+              type="button"
+              onClick={nextMonth}
+              aria-label="Next month"
+              className="planner-month__nav-button inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            >
+              <ChevronRight aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="planner-month__metrics grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <ProgressCard label="Monthly Progress" progress={monthlyProgress} />
-          <MetricCard label="Homework" value={monthly.homework} />
-          <MetricCard label="Tests" value={monthly.tests} />
-          <MetricCard label="Activities" value={monthly.activities} />
-          <MetricCard label="Projects" value={monthly.projects} />
+          <MonthMetricCard icon={BookOpen} label="Homework" value={monthly.homework} />
+          <MonthMetricCard icon={ClipboardCheck} label="Tests" value={monthly.tests} />
+          <MonthMetricCard icon={Palette} label="Activities" value={monthly.activities} />
+          <MonthMetricCard icon={FolderKanban} label="Projects" value={monthly.projects} />
         </div>
         {childGroups.map((group) => (
           <div
@@ -338,10 +283,13 @@ export function PlanningView({
               </span>
             </div>
             <div className="planner-month__week-list space-y-3">
-              {monthItemsByWeek(group.items).map((week) => (
+              {monthItemsByWeek(group.items, selectedMonth).map((week) => (
                 <MonthWeekGroup
                   key={`${group.child.id}-${week.key}`}
                   week={week}
+                  defaultOpen={week.key.startsWith(
+                    currentWeekRange.start.format("YYYY-MM-DD"),
+                  )}
                 />
               ))}
               {group.items.length === 0 ? (
@@ -362,7 +310,7 @@ export function PlanningView({
             {title}
           </h2>
           <p className="planner-view__date text-sm text-slate-600">
-            {dayjs().format("dddd, DD MMMM YYYY")}
+            {periodLabel}
           </p>
         </div>
 
@@ -461,6 +409,59 @@ function WeekTaskBuckets({ items }: { items: SchoolItem[] }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function PlannerSection({
+  title,
+  subtitle,
+  tone,
+  items,
+  futureNote = false,
+  showDates = false,
+}: {
+  title: string;
+  subtitle?: string;
+  tone: "overdue" | "today" | "upcoming" | "completed";
+  items: SchoolItem[];
+  futureNote?: boolean;
+  showDates?: boolean;
+}) {
+  const toneClass =
+    tone === "overdue"
+      ? "text-rose-700"
+      : tone === "completed"
+        ? "text-emerald-700"
+        : tone === "today"
+          ? "text-amber-700"
+          : "text-blue-700";
+
+  return (
+    <section className={`planner-task-section planner-task-section--${tone}`}>
+      <div className="planner-task-section__header mb-2 flex items-start justify-between gap-3">
+        <div>
+          <h3
+            className={`planner-task-section__title text-xs font-semibold uppercase tracking-wide ${toneClass}`}
+          >
+            {title}
+          </h3>
+          {subtitle ? (
+            <p className="planner-task-section__subtitle text-xs text-slate-500">
+              {subtitle}
+            </p>
+          ) : null}
+          {futureNote ? (
+            <p className="planner-task-section__note mt-1 text-xs text-slate-500">
+              Future work can be checked on its due date.
+            </p>
+          ) : null}
+        </div>
+        <span className={`planner-task-section__count text-xs font-medium ${toneClass}`}>
+          {items.length} {tone === "completed" ? "done" : "open"}
+        </span>
+      </div>
+      <CompactWeekItemList items={items} showDates={showDates} />
+    </section>
   );
 }
 
@@ -569,218 +570,6 @@ function itemInspectAttributes(item: SchoolItem) {
   };
 }
 
-function TodayChildCard({
-  urgentItems,
-  dueTodayItems,
-  activityItems,
-  tomorrowTests,
-  progress,
-}: {
-  child: ChildProfile;
-  urgentItems: SchoolItem[];
-  dueTodayItems: SchoolItem[];
-  activityItems: SchoolItem[];
-  tomorrowTests: SchoolItem[];
-  progress: ReturnType<typeof completionProgress>;
-}) {
-  const hasItems =
-    urgentItems.length > 0 ||
-    dueTodayItems.length > 0 ||
-    activityItems.length > 0;
-
-  return (
-    <article className="planner-today__child-card rounded-xl border border-slate-200 bg-white p-4">
-      <div className="planner-today__child-progress mb-4 flex justify-end">
-        <span className="planner-item__status text-sm font-medium text-slate-600">
-          {progress.label}
-        </span>
-      </div>
-
-      {tomorrowTests.length > 0 ? (
-        <div className="planner-today__tomorrow-tests mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-          <p className="planner-today__alert-title text-sm font-semibold text-amber-900">
-            {tomorrowTests.length} test{tomorrowTests.length === 1 ? "" : "s"}{" "}
-            tomorrow
-          </p>
-          <TodayTaskList items={tomorrowTests} />
-        </div>
-      ) : null}
-
-      {hasItems ? (
-        <div className="planner-today__priority-sections space-y-3">
-          <TodayPrioritySection
-            tone="urgent"
-            title="Urgent"
-            items={urgentItems}
-            emptyText="No urgent work."
-          />
-          <TodayPrioritySection
-            tone="today"
-            title="Study work"
-            items={dueTodayItems}
-            emptyText="No study work today."
-          />
-          <TodayPrioritySection
-            tone="activity"
-            title="Activities"
-            items={activityItems}
-            emptyText="No activities today."
-          />
-        </div>
-      ) : (
-        <p className="planner-empty-state rounded-lg border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-500">
-          Nothing due today.
-        </p>
-      )}
-    </article>
-  );
-}
-
-function TodayPrioritySection({
-  tone,
-  title,
-  items,
-  emptyText,
-}: {
-  tone: "urgent" | "today" | "activity";
-  title: string;
-  items: SchoolItem[];
-  emptyText: string;
-}) {
-  const toneClass =
-    tone === "urgent"
-      ? "text-rose-700"
-      : tone === "today"
-        ? "text-amber-700"
-        : "text-emerald-700";
-  const visibleItems = items.slice(0, 5);
-  const hiddenCount = items.length - visibleItems.length;
-
-  return (
-    <section
-      className={`planner-today__priority-section planner-today__priority-section--${tone}`}
-    >
-      <div className="planner-today__priority-header mb-2 flex items-center justify-between gap-2">
-        <h4
-          className={`planner-today__priority-title text-xs font-semibold uppercase tracking-wide ${toneClass}`}
-        >
-          {title}
-        </h4>
-        <span className="planner-today__priority-count text-xs font-medium text-slate-500">
-          {items.length}
-        </span>
-      </div>
-      {items.length > 0 ? (
-        <>
-          <TodayTaskList items={visibleItems} />
-          {hiddenCount > 0 ? (
-            <p className="planner-today__hidden-count mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">
-              {hiddenCount} more in Tasks
-            </p>
-          ) : null}
-        </>
-      ) : (
-        <p className="planner-empty-state rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">
-          {emptyText}
-        </p>
-      )}
-    </section>
-  );
-}
-
-function TodayTaskList({ items }: { items: SchoolItem[] }) {
-  const toggleItemComplete = useAppStore((state) => state.toggleItemComplete);
-
-  return (
-    <ul className="planner-item-list planner-item-list--today space-y-2">
-      {orderPlannerItems(items).map((item) => {
-        const isCompleted = isItemCompleted(item);
-        const isFutureLocked = isItemFutureLocked(item);
-        const timing = getItemTiming(item);
-        const display = buildPlannerItemDisplay(item);
-
-        return (
-          <li
-            key={item.id}
-            className={`planner-item ${
-              isCompleted ? "planner-item--completed" : "planner-item--open"
-            } ${isFutureLocked ? "planner-item--future-locked" : ""}`}
-            {...itemInspectAttributes(item)}
-          >
-            <button
-              type="button"
-              aria-pressed={isFutureLocked ? undefined : isCompleted}
-              aria-label={completionButtonLabel(item)}
-              disabled={isFutureLocked}
-              onClick={() => {
-                if (!isFutureLocked) {
-                  toggleItemComplete(item.id);
-                }
-              }}
-              className={`planner-item__button flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left ${
-                isFutureLocked
-                  ? "cursor-not-allowed border-slate-200 bg-slate-50"
-                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
-              }`}
-            >
-              <span
-                className={`planner-item__checkbox mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
-                  isCompleted
-                    ? "border-emerald-500 bg-emerald-500 text-white"
-                    : "border-slate-300 bg-white text-transparent"
-                }`}
-              >
-                {isCompleted ? <CheckIcon /> : null}
-              </span>
-              <span className="planner-item__content min-w-0">
-                <span className="planner-item__header flex flex-wrap items-center gap-2">
-                  {display.subject ? (
-                    <SubjectIcon subject={display.subject} className="h-4 w-4 text-slate-400" />
-                  ) : null}
-                  <span className="planner-item__category text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {display.category}
-                  </span>
-                  {display.subject ? (
-                    <span className="planner-item__subject text-xs font-medium text-slate-500">
-                      {display.subject}
-                    </span>
-                  ) : null}
-                  <span className={`planner-item__status-badge rounded-full border px-2 py-0.5 text-xs font-medium ${itemTimingClasses(timing)}`}>
-                    {itemTimingLabel(item)}
-                  </span>
-                </span>
-                <span
-                  className={`planner-item__title mt-1 block text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
-                >
-                  {display.heading}
-                </span>
-                {display.chapter ? (
-                  <span className="planner-item__chapter mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
-                    {display.chapter}
-                  </span>
-                ) : null}
-                {display.description ? (
-                  <span className="planner-item__description mt-1 block whitespace-pre-line text-sm leading-5 text-slate-700">
-                    {display.description}
-                  </span>
-                ) : null}
-                <span className="planner-item__date block text-xs text-slate-500">
-                  {display.date}
-                </span>
-                {isFutureLocked ? (
-                  <span className="planner-item__helper mt-1 flex items-center gap-1 text-xs text-slate-500">
-                    <Lock aria-hidden="true" className="h-3.5 w-3.5" />
-                    Available on the due date
-                  </span>
-                ) : null}
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
 function CompactWeekItemList({
   items,
   showDates = false,
@@ -806,31 +595,35 @@ function CompactWeekItemList({
             } ${isFutureLocked ? "planner-item--future-locked" : ""}`}
             {...itemInspectAttributes(item)}
           >
-            <button
-              type="button"
-              aria-pressed={isFutureLocked ? undefined : isCompleted}
-              aria-label={completionButtonLabel(item)}
-              disabled={isFutureLocked}
-              onClick={() => {
-                if (!isFutureLocked) {
-                  toggleItemComplete(item.id);
-                }
-              }}
+            <div
               className={`planner-item__button flex w-full items-start gap-3 px-3 py-2 text-left ${
                 isFutureLocked
                   ? "cursor-not-allowed bg-slate-50"
                   : "hover:bg-blue-50/50"
               }`}
             >
-              <span
-                className={`planner-item__checkbox mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
+              <button
+                type="button"
+                aria-pressed={isFutureLocked ? undefined : isCompleted}
+                aria-label={completionButtonLabel(item)}
+                disabled={isFutureLocked}
+                onClick={() => toggleItemComplete(item.id)}
+                className="planner-item__checkbox-target -m-2 flex min-h-11 min-w-11 shrink-0 items-start justify-center rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed"
+              >
+                <span
+                  className={`planner-item__checkbox mt-1 flex h-5 w-5 items-center justify-center rounded border text-xs font-bold ${
                   isCompleted
                     ? "border-emerald-500 bg-emerald-500 text-white"
                     : "border-slate-300 bg-white text-transparent"
                 }`}
-              >
-                {isCompleted ? <CheckIcon /> : null}
-              </span>
+                >
+                  {isCompleted ? (
+                    <CheckIcon />
+                  ) : isFutureLocked ? (
+                    <Lock aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />
+                  ) : null}
+                </span>
+              </button>
               <div className="planner-item__content min-w-0">
                 <div className="planner-item__header flex flex-wrap items-center gap-2">
                   {display.subject ? (
@@ -868,146 +661,87 @@ function CompactWeekItemList({
                     {display.date}
                   </p>
                 ) : null}
-                {isFutureLocked ? (
-                  <p className="planner-item__helper mt-1 flex items-center gap-1 text-xs text-slate-500">
-                    <Lock aria-hidden="true" className="h-3.5 w-3.5" />
-                    Available on the due date
-                  </p>
-                ) : null}
               </div>
-            </button>
+            </div>
           </li>
         );
       })}
     </ul>
   );
 }
-function summarizeItems(items: SchoolItem[]) {
-  return {
-    tasks: items.filter((item) => studyCategories.includes(item.category))
-      .length,
-    tests: items.filter((item) => testCategories.includes(item.category))
-      .length,
-    activities: items.filter((item) => item.category === "Activity").length,
-  };
-}
-
-function PlanSummaryCard({
-  title,
-  summary,
-}: {
-  title: string;
-  summary: ReturnType<typeof summarizeItems>;
-}) {
-  return (
-    <article className="planner-summary-card rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="planner-summary-card__title font-semibold text-slate-900">
-        {title}
-      </h3>
-      <div className="planner-summary-card__metrics mt-3 grid grid-cols-3 gap-2 text-center text-sm text-slate-600">
-        <p className="planner-summary-card__metric rounded-lg bg-slate-50 px-2 py-2">
-          <span className="planner-summary-card__value block text-lg font-bold text-slate-950">
-            {summary.tasks}
-          </span>
-          Tasks
-        </p>
-        <p className="planner-summary-card__metric rounded-lg bg-slate-50 px-2 py-2">
-          <span className="planner-summary-card__value block text-lg font-bold text-slate-950">
-            {summary.tests}
-          </span>
-          Tests
-        </p>
-        <p className="planner-summary-card__metric rounded-lg bg-slate-50 px-2 py-2">
-          <span className="planner-summary-card__value block text-lg font-bold text-slate-950">
-            {summary.activities}
-          </span>
-          Activities
-        </p>
-      </div>
-    </article>
-  );
-}
-
-function SummarySection({
-  title,
-  subtitle,
-  items,
-  emptyText,
-  showDates = false,
-}: {
-  title: string;
-  subtitle?: string;
-  items: SchoolItem[];
-  emptyText: string;
-  showDates?: boolean;
-}) {
-  return (
-    <section className="planner-summary-section rounded-xl border border-slate-200 bg-white p-4">
-      <div className="planner-summary-section__header mb-3 flex items-baseline justify-between gap-3">
-        <div>
-          <h3 className="planner-summary-section__title font-semibold text-slate-900">
-            {title}
-          </h3>
-          {subtitle ? (
-            <p className="planner-summary-section__subtitle text-sm text-slate-500">
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
-        <span className="planner-summary-section__count text-xs font-medium text-slate-500">
-          {items.length}
-        </span>
-      </div>
-      {items.length > 0 ? (
-        <CompactWeekItemList items={items} showDates={showDates} />
-      ) : (
-        <ItemList items={[]} emptyText={emptyText} />
-      )}
-    </section>
-  );
-}
-
 function MonthWeekGroup({
   week,
+  defaultOpen = false,
 }: {
   week: ReturnType<typeof monthItemsByWeek>[number];
+  defaultOpen?: boolean;
 }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [showCompleted, setShowCompleted] = useState(false);
   const split = splitOpenAndCompletedItems(week.items);
 
   return (
     <div className="planner-month-group rounded-lg border border-slate-100 bg-slate-50 p-3">
-      <div className="planner-month-group__header mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        className="planner-month-group__header flex w-full flex-wrap items-center justify-between gap-3 text-left"
+      >
+        <span>
           <h4 className="planner-month-group__title text-sm font-semibold text-slate-800">
             Week of {week.label}
           </h4>
           <p className="planner-month-group__summary text-xs text-slate-500">
-            {split.open.length} open • {split.completed.length} completed
+            {split.open.length} open - {split.completed.length} completed
           </p>
-        </div>
-        <span className="planner-month-group__progress rounded-full bg-white px-2 py-1 text-xs font-medium text-slate-600">
-          {week.progress.label}
         </span>
-      </div>
-      <div className="planner-month-group__sections space-y-3">
-        <div className="planner-task-section planner-task-section--open">
-          <h5 className="planner-task-section__title mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            To Do
-          </h5>
-          <ItemList items={split.open} emptyText="No open tasks this week." />
-        </div>
-        {split.completed.length > 0 ? (
-          <div className="planner-task-section planner-task-section--completed">
-            <h5 className="planner-task-section__title mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
-              Completed
+        <span className="planner-month-group__actions flex items-center gap-2">
+          <span className="planner-month-group__progress rounded-full bg-white px-2 py-1 text-xs font-medium text-slate-600">
+            {week.progress.label}
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className={`h-4 w-4 text-slate-500 transition ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </span>
+      </button>
+      {isOpen ? (
+        <div className="planner-month-group__sections mt-3 space-y-3">
+          <div className="planner-task-section planner-task-section--open">
+            <h5 className="planner-task-section__title mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              To Do
             </h5>
-            <ItemList
-              items={split.completed}
-              emptyText="No completed tasks this week."
-            />
+            <ItemList items={split.open} emptyText="No open tasks this week." />
           </div>
-        ) : null}
-      </div>
+          {split.completed.length > 0 ? (
+            <div className="planner-task-section planner-task-section--completed">
+              <button
+                type="button"
+                onClick={() => setShowCompleted((visible) => !visible)}
+                aria-expanded={showCompleted}
+                className="planner-task-section__toggle mb-2 inline-flex min-h-11 items-center gap-2 rounded-lg px-1 text-xs font-semibold uppercase tracking-wide text-emerald-700"
+              >
+                <ChevronDown
+                  aria-hidden="true"
+                  className={`h-4 w-4 transition ${
+                    showCompleted ? "rotate-180" : ""
+                  }`}
+                />
+                Completed ({split.completed.length})
+              </button>
+              {showCompleted ? (
+                <ItemList
+                  items={split.completed}
+                  emptyText="No completed tasks this week."
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1130,8 +864,8 @@ function DashboardTaskSection({
                   {item.title}
                 </p>
                 <p className="planner-item__metadata text-xs text-slate-500">
-                  {item.subject ? `${item.subject} • ` : ""}
-                  {taskCategoryLabel(item.category)} •{" "}
+                  {item.subject ? `${item.subject} - ` : ""}
+                  {taskCategoryLabel(item.category)} -{" "}
                   {dayjs(item.dueDate).format("ddd, DD MMM")}
                 </p>
               </div>
@@ -1157,6 +891,28 @@ function MetricCard({ label, value }: { label: string; value: number }) {
         {label}
       </p>
       <p className="planner-metric-card__value text-3xl font-bold text-slate-900">
+        {value}
+      </p>
+    </article>
+  );
+}
+
+function MonthMetricCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof BookOpen;
+  label: string;
+  value: number;
+}) {
+  return (
+    <article className="planner-month-metric rounded-xl border border-slate-200 bg-white p-4">
+      <div className="planner-month-metric__header flex items-center gap-2 text-sm text-slate-600">
+        <Icon aria-hidden="true" className="h-4 w-4" />
+        <span>{label}</span>
+      </div>
+      <p className="planner-month-metric__value mt-2 text-3xl font-bold text-slate-900">
         {value}
       </p>
     </article>
@@ -1192,3 +948,5 @@ function ProgressCard({
     </article>
   );
 }
+
+

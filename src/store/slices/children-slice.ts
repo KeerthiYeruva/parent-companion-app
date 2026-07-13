@@ -1,7 +1,11 @@
 import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
 import type { AppState, ChildProfile } from "@/types/domain";
-import { upsertCloudChild, withUpdatedAt } from "@/features/sync/services/cloud-sync";
+import {
+  deleteCloudChildAndLinkedData,
+  upsertCloudChild,
+  withUpdatedAt,
+} from "@/features/sync/services/cloud-sync";
 
 const childColors = [
   "bg-blue-500",
@@ -10,7 +14,10 @@ const childColors = [
   "bg-rose-500",
 ];
 
-type ChildrenSlice = Pick<AppState, "children" | "addChild" | "updateChild">;
+type ChildrenSlice = Pick<
+  AppState,
+  "children" | "addChild" | "updateChild" | "deleteChild"
+>;
 
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
@@ -60,5 +67,71 @@ export const createChildrenSlice: StateCreator<
         return nextChild;
       }),
     }));
+  },
+  deleteChild: (id: string) => {
+    const state = get();
+    const linkedItemIds = state.items
+      .filter((item) => item.childId === id)
+      .map((item) => item.id);
+    const documentsToDelete = state.documents.filter(
+      (document) =>
+        document.childIds.includes(id) && document.childIds.length === 1,
+    );
+    const documentsToUpdate = state.documents
+      .filter(
+        (document) =>
+          document.childIds.includes(id) && document.childIds.length > 1,
+      )
+      .map((document) =>
+        withUpdatedAt({
+          ...document,
+          childIds: document.childIds.filter((childId) => childId !== id),
+        }),
+      );
+
+    void appRepository
+      .deleteChildAndLinkedData(
+        id,
+        linkedItemIds,
+        documentsToDelete.map((document) => document.id),
+        documentsToUpdate,
+      )
+      .then(() =>
+        deleteCloudChildAndLinkedData({
+          childId: id,
+          linkedItemIds,
+          documentIdsToDelete: documentsToDelete.map((document) => document.id),
+          documentsToUpdate,
+        }),
+      )
+      .catch(() => {
+        get().pushPersistenceWarning("Child could not be fully deleted.");
+      });
+
+    set((current) => {
+      const children = current.children.filter((child) => child.id !== id);
+      const selectedChildIds = current.selectedChildIds.filter(
+        (childId) => childId !== id,
+      );
+
+      return {
+        children,
+        items: current.items.filter((item) => item.childId !== id),
+        documents: [
+          ...current.documents.filter(
+            (document) =>
+              !documentsToDelete.some((deleted) => deleted.id === document.id) &&
+              !documentsToUpdate.some((updated) => updated.id === document.id),
+          ),
+          ...documentsToUpdate,
+        ],
+        selectedChildIds:
+          selectedChildIds.length > 0
+            ? selectedChildIds
+            : children[0]
+              ? [children[0].id]
+              : [],
+      };
+    });
   },
 });

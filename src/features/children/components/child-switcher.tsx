@@ -1,7 +1,10 @@
 import { useEffect } from "react";
 import { useAppStore } from "@/store/use-app-store";
 
-const initialsFor = (name: string) =>
+export const plannerChildShortName = (name: string) =>
+  name.split(/\s+/).filter(Boolean)[0] ?? name;
+
+export const initialsFor = (name: string) =>
   name
     .split(/\s+/)
     .filter(Boolean)
@@ -69,7 +72,7 @@ export function ChildSwitcher() {
             </span>
             <span className="child-switcher__text min-w-0">
               <span className="child-switcher__name block truncate font-semibold">
-                {child.name}
+                {plannerChildShortName(child.name)}
               </span>
               <span className="child-switcher__grade block text-xs text-slate-500">
                 Grade {child.grade}

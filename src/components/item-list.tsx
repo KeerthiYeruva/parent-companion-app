@@ -58,16 +58,7 @@ export function ItemList({ items, emptyText }: ItemListProps) {
             data-due-date={item.dueDate}
             data-status={item.status}
           >
-            <button
-              type="button"
-              aria-pressed={isFutureLocked ? undefined : isCompleted}
-              aria-label={completionButtonLabel(item)}
-              disabled={isFutureLocked}
-              onClick={() => {
-                if (!isFutureLocked) {
-                  toggleItemComplete(item.id);
-                }
-              }}
+            <div
               className={`item-list__button planner-item__button flex w-full items-start gap-3 rounded-xl border p-3 text-left ${
                 isFutureLocked
                   ? "cursor-not-allowed border-slate-200 bg-slate-50"
@@ -76,15 +67,28 @@ export function ItemList({ items, emptyText }: ItemListProps) {
                     : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
               }`}
             >
-              <span
-                className={`item-list__checkbox planner-item__checkbox mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
+              <button
+                type="button"
+                aria-pressed={isFutureLocked ? undefined : isCompleted}
+                aria-label={completionButtonLabel(item)}
+                disabled={isFutureLocked}
+                onClick={() => toggleItemComplete(item.id)}
+                className="planner-item__checkbox-target -m-2 flex min-h-11 min-w-11 shrink-0 items-start justify-center rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed"
+              >
+                <span
+                  className={`item-list__checkbox planner-item__checkbox mt-0.5 flex h-5 w-5 items-center justify-center rounded border text-xs font-bold ${
                   isCompleted
                     ? "border-emerald-500 bg-emerald-500 text-white"
                     : "border-slate-300 bg-white text-transparent"
                 }`}
-              >
-                {isCompleted ? <CheckIcon /> : null}
-              </span>
+                >
+                  {isCompleted ? (
+                    <CheckIcon />
+                  ) : isFutureLocked ? (
+                    <Lock aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />
+                  ) : null}
+                </span>
+              </button>
 
               <span className="item-list__content planner-item__content min-w-0 flex-1">
                 <span className="planner-item__header flex flex-wrap items-center gap-2">
@@ -131,14 +135,8 @@ export function ItemList({ items, emptyText }: ItemListProps) {
                 <span className="item-list__metadata planner-item__metadata mt-2 block text-sm text-slate-500">
                   {metadata.join(" - ")}
                 </span>
-                {isFutureLocked ? (
-                  <span className="planner-item__helper mt-1 flex items-center gap-1 text-xs text-slate-500">
-                    <Lock aria-hidden="true" className="h-3.5 w-3.5" />
-                    Available on the due date
-                  </span>
-                ) : null}
               </span>
-            </button>
+            </div>
           </li>
         );
       })}

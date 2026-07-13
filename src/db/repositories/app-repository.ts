@@ -28,6 +28,12 @@ export interface AppRepository {
     documentId: string,
     sourceDocumentIds: string[],
   ) => Promise<void>;
+  deleteChildAndLinkedData: (
+    childId: string,
+    linkedItemIds: string[],
+    documentIdsToDelete: string[],
+    documentsToUpdate: UploadedDocument[],
+  ) => Promise<void>;
   replaceItemsForSourceDocuments: (
     sourceDocumentIds: string[],
     items: SchoolItem[],
@@ -102,6 +108,27 @@ export const appRepository: AppRepository = {
         db.documents.delete(documentId),
         linkedItems.length > 0
           ? db.items.bulkDelete(linkedItems.map((item) => item.id))
+          : Promise.resolve(),
+      ]);
+    });
+  },
+  deleteChildAndLinkedData: async (
+    childId,
+    linkedItemIds,
+    documentIdsToDelete,
+    documentsToUpdate,
+  ) => {
+    await db.transaction("rw", db.children, db.items, db.documents, async () => {
+      await Promise.all([
+        db.children.delete(childId),
+        linkedItemIds.length > 0
+          ? db.items.bulkDelete(linkedItemIds)
+          : Promise.resolve(),
+        documentIdsToDelete.length > 0
+          ? db.documents.bulkDelete(documentIdsToDelete)
+          : Promise.resolve(),
+        documentsToUpdate.length > 0
+          ? db.documents.bulkPut(documentsToUpdate)
           : Promise.resolve(),
       ]);
     });

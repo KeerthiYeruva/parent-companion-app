@@ -215,6 +215,7 @@ export interface AppState {
     id: string,
     updates: Omit<ChildProfile, "id" | "colorTag">,
   ) => void;
+  deleteChild: (id: string) => void;
   addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => void;
   replaceItemsForSourceDocuments: (
     sourceDocumentIds: string[],

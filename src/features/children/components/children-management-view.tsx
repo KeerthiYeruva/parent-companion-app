@@ -12,6 +12,7 @@ const isValidGrade = (grade: string) => /^(?:1[0-2]|[1-9])$/.test(grade.trim());
 export function ChildrenManagementView() {
   const children = useAppStore((state) => state.children);
   const updateChild = useAppStore((state) => state.updateChild);
+  const deleteChild = useAppStore((state) => state.deleteChild);
   const [editingChildId, setEditingChildId] = useState<string | undefined>();
 
   return (
@@ -51,13 +52,30 @@ export function ChildrenManagementView() {
                       />
                       <h3 className="font-semibold">{child.name}</h3>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setEditingChildId(child.id)}
-                      className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700"
-                    >
-                      Edit
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingChildId(child.id)}
+                        className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const confirmed = window.confirm(
+                            `Remove ${child.name}? This will also remove their planner items and child-specific documents.`,
+                          );
+
+                          if (confirmed) {
+                            deleteChild(child.id);
+                          }
+                        }}
+                        className="rounded-lg bg-rose-50 px-3 py-1 text-sm font-medium text-rose-700 hover:bg-rose-100"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                   <p className="text-sm text-slate-600">
                     Grade {child.grade} • Section {child.section}

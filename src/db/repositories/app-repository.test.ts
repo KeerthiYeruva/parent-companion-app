@@ -8,13 +8,18 @@ const mocks = vi.hoisted(() => ({
   itemsBulkPut: vi.fn(),
   documentsBulkPut: vi.fn(),
   childrenPut: vi.fn(),
+  childrenDelete: vi.fn(),
   itemsPut: vi.fn(),
   itemsBulkDelete: vi.fn(),
   itemsWhere: vi.fn(),
   itemsAnyOf: vi.fn(),
   itemsAnyOfToArray: vi.fn(),
   documentsPut: vi.fn(),
-  transaction: vi.fn(async (_mode: string, _table: unknown, callback: () => Promise<void>) => callback()),
+  documentsBulkDelete: vi.fn(),
+  transaction: vi.fn(async (_mode: string, ...args: unknown[]) => {
+    const callback = args.at(-1) as () => Promise<void>;
+    return callback();
+  }),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -23,6 +28,7 @@ vi.mock("@/lib/db", () => ({
       toArray: mocks.childrenToArray,
       bulkPut: mocks.childrenBulkPut,
       put: mocks.childrenPut,
+      delete: mocks.childrenDelete,
     },
     items: {
       toArray: mocks.itemsToArray,
@@ -35,6 +41,7 @@ vi.mock("@/lib/db", () => ({
       toArray: mocks.documentsToArray,
       bulkPut: mocks.documentsBulkPut,
       put: mocks.documentsPut,
+      bulkDelete: mocks.documentsBulkDelete,
     },
     transaction: mocks.transaction,
   },
@@ -120,5 +127,24 @@ describe("appRepository", () => {
 
     expect(mocks.itemsBulkDelete).not.toHaveBeenCalled();
     expect(mocks.itemsBulkPut).toHaveBeenCalledWith([replacementItem]);
+  });
+
+  it("deletes a child with linked items and updates shared documents", async () => {
+    const updatedDocument = {
+      id: "doc-shared",
+      childIds: ["child-2"],
+    };
+
+    await appRepository.deleteChildAndLinkedData(
+      "child-1",
+      ["item-1", "item-2"],
+      ["doc-child-only"],
+      [updatedDocument] as never,
+    );
+
+    expect(mocks.childrenDelete).toHaveBeenCalledWith("child-1");
+    expect(mocks.itemsBulkDelete).toHaveBeenCalledWith(["item-1", "item-2"]);
+    expect(mocks.documentsBulkDelete).toHaveBeenCalledWith(["doc-child-only"]);
+    expect(mocks.documentsBulkPut).toHaveBeenCalledWith([updatedDocument]);
   });
 });

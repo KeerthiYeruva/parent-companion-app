@@ -73,6 +73,54 @@ export const orderPlannerItems = (items: SchoolItem[]) =>
       first.id.localeCompare(second.id),
   );
 
+export const schoolWeekRange = (date = dayjs()) => {
+  const current = date.startOf("day");
+  const daysSinceMonday = (current.day() + 6) % 7;
+  const start = current.subtract(daysSinceMonday, "day");
+  const end = start.add(6, "day");
+
+  return { start, end };
+};
+
+const isWithinDateRange = (date: string, start: dayjs.Dayjs, end: dayjs.Dayjs) => {
+  const due = dayjs(date).startOf("day");
+  return !due.isBefore(start, "day") && !due.isAfter(end, "day");
+};
+
+export const todayPlannerSections = (items: SchoolItem[], today = dayjs()) => {
+  const current = today.startOf("day");
+  const upcomingEnd = current.add(2, "day");
+  const actionable = items.filter((item) => {
+    const due = dayjs(item.dueDate).startOf("day");
+    return !due.isAfter(current, "day");
+  });
+
+  return {
+    progressItems: orderPlannerItems(actionable),
+    overdue: orderPlannerItems(
+      items.filter(
+        (item) =>
+          !isItemCompleted(item) &&
+          dayjs(item.dueDate).startOf("day").isBefore(current, "day"),
+      ),
+    ),
+    dueToday: orderPlannerItems(
+      items.filter(
+        (item) =>
+          !isItemCompleted(item) &&
+          dayjs(item.dueDate).startOf("day").isSame(current, "day"),
+      ),
+    ),
+    upcoming: orderPlannerItems(
+      items.filter((item) => {
+        const due = dayjs(item.dueDate).startOf("day");
+        return due.isAfter(current, "day") && !due.isAfter(upcomingEnd, "day");
+      }),
+    ),
+    completed: orderPlannerItems(actionable.filter(isItemCompleted)),
+  };
+};
+
 export const bySelectedChildren = (items: SchoolItem[], selectedChildIds: string[]) => {
   if (selectedChildIds.length === 0) {
     return items;
@@ -87,28 +135,25 @@ export const todayItems = (items: SchoolItem[]) => {
 };
 
 export const thisWeekItems = (items: SchoolItem[]) => {
-  const today = dayjs().startOf("day");
-  const daysSinceMonday = (today.day() + 6) % 7;
-  const start = today.subtract(daysSinceMonday, "day");
-  const end = start.add(6, "day").endOf("day");
+  const { start, end } = schoolWeekRange();
 
   return orderPlannerItems(items.filter((item) => {
-    const due = dayjs(item.dueDate);
-    return due.isAfter(start.subtract(1, "day")) && due.isBefore(end.add(1, "day"));
+    return isWithinDateRange(item.dueDate, start, end);
   }));
 };
 
-export const thisMonthItems = (items: SchoolItem[]) => {
-  const start = dayjs().startOf("month");
-  const end = dayjs().endOf("month");
+export const itemsForMonth = (items: SchoolItem[], month = dayjs()) => {
+  const start = month.startOf("month");
+  const end = month.endOf("month");
 
   return orderPlannerItems(
     items.filter((item) => {
-      const due = dayjs(item.dueDate);
-      return due.isAfter(start.subtract(1, "day")) && due.isBefore(end.add(1, "day"));
+      return isWithinDateRange(item.dueDate, start, end);
     }),
   );
 };
+
+export const thisMonthItems = (items: SchoolItem[]) => itemsForMonth(items);
 
 export const itemsByChild = (children: ChildProfile[], items: SchoolItem[]) => {
   return children.map((child) => {
@@ -122,13 +167,16 @@ export const itemsByChild = (children: ChildProfile[], items: SchoolItem[]) => {
   });
 };
 
-export const monthItemsByWeek = (items: SchoolItem[]) => {
+export const monthItemsByWeek = (items: SchoolItem[], month = dayjs()) => {
   const groups = new Map<string, SchoolItem[]>();
+  const monthStart = month.startOf("month");
+  const monthEnd = month.endOf("month");
 
   items.forEach((item) => {
     const due = dayjs(item.dueDate);
-    const weekStart = due.startOf("week");
-    const weekEnd = due.endOf("week");
+    const { start, end } = schoolWeekRange(due);
+    const weekStart = start.isBefore(monthStart, "day") ? monthStart : start;
+    const weekEnd = end.isAfter(monthEnd, "day") ? monthEnd : end;
     const key = `${weekStart.format("YYYY-MM-DD")}__${weekEnd.format("YYYY-MM-DD")}`;
     const bucket = groups.get(key) ?? [];
     bucket.push(item);
@@ -149,7 +197,7 @@ export const monthItemsByWeek = (items: SchoolItem[]) => {
 };
 
 export const monthlyCounts = (items: SchoolItem[]) => {
-  const inMonth = thisMonthItems(items);
+  const inMonth = items;
 
   return {
     homework: inMonth.filter((item) => ["Homework", "HomeStudy"].includes(item.category)).length,

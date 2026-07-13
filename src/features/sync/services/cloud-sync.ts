@@ -338,6 +338,27 @@ export const deleteCloudDocumentAndItems = async (
   );
 };
 
+export const deleteCloudChildAndLinkedData = async ({
+  childId,
+  linkedItemIds,
+  documentIdsToDelete,
+  documentsToUpdate,
+}: {
+  childId: string;
+  linkedItemIds: string[];
+  documentIdsToDelete: string[];
+  documentsToUpdate: UploadedDocument[];
+}) => {
+  await queueCloudDelete("child", childId);
+  await Promise.all([
+    ...linkedItemIds.map((itemId) => queueCloudDelete("item", itemId)),
+    ...documentIdsToDelete.map((documentId) =>
+      queueCloudDelete("document", documentId, [documentId]),
+    ),
+    ...documentsToUpdate.map((document) => upsertCloudDocument(document)),
+  ]);
+};
+
 export const startCloudSnapshotListeners = (
   onMergedSnapshot: (snapshot: {
     children: ChildProfile[];
