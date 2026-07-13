@@ -1,3 +1,4 @@
+import { BookOpenCheck, ClipboardCheck, GraduationCap, NotebookTabs } from "lucide-react";
 import { NavShell } from "@/components/nav-shell";
 import { TestSection } from "@/features/planning/components/test-section";
 import { groupTestsByChild } from "@/features/tests/services/test-groups";
@@ -63,16 +64,25 @@ export function TestsView() {
                     <TestSection
                       title="Class Tests"
                       items={group.classTests}
+                      icon={NotebookTabs}
                       defaultOpen
                     />
                   ) : null}
 
                   {group.unitTests.length > 0 ? (
-                    <TestSection title="Unit Tests" items={group.unitTests} />
+                    <TestSection
+                      title="Unit Tests"
+                      items={group.unitTests}
+                      icon={BookOpenCheck}
+                    />
                   ) : null}
 
                   {group.exams.length > 0 ? (
-                    <TestSection title="Exams" items={group.exams} />
+                    <TestSection
+                      title="Exams"
+                      items={group.exams}
+                      icon={GraduationCap}
+                    />
                   ) : null}
                 </div>
               </article>
@@ -85,7 +95,8 @@ export function TestsView() {
               group.exams.length === 0,
           ) ? (
             <p className="tests-page__empty rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
-              No class tests, unit tests, or exams yet.
+              <ClipboardCheck aria-hidden="true" className="mb-2 h-5 w-5 text-slate-400" />
+              No tests scheduled yet.
             </p>
           ) : null}
         </div>

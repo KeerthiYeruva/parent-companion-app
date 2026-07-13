@@ -3,7 +3,13 @@ import { morePageLinks } from "@/features/planning/components/more-view";
 
 describe("More page links", () => {
   it("links to Manage Kids, School Files, and Data & Backup", () => {
-    expect(morePageLinks).toEqual([
+    expect(
+      morePageLinks.map(({ href, title, description }) => ({
+        href,
+        title,
+        description,
+      })),
+    ).toEqual([
       {
         href: "/more/profiles",
         title: "Manage Kids",
@@ -20,5 +26,6 @@ describe("More page links", () => {
         description: "Export, import, and manage planner data",
       },
     ]);
+    expect(morePageLinks.every((link) => link.icon)).toBe(true);
   });
 });

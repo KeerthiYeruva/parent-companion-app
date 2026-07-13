@@ -1,6 +1,14 @@
 import { useEffect } from "react";
 import { useAppStore } from "@/store/use-app-store";
 
+const initialsFor = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
 export function ChildSwitcher() {
   const children = useAppStore((state) => state.children);
 
@@ -33,7 +41,7 @@ export function ChildSwitcher() {
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="child-switcher flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
       {children.map((child) => {
         const active = child.id === selectedChildId;
 
@@ -45,13 +53,28 @@ export function ChildSwitcher() {
               setSelectedChildIds([child.id])
             }
             aria-pressed={active}
-            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+            className={`child-switcher__option flex min-h-14 min-w-[9rem] items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition ${
               active
-                ? "bg-blue-600 text-white"
-                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                ? "border-blue-500 bg-blue-50 text-blue-900 ring-2 ring-blue-100"
+                : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50/40"
             }`}
           >
-            {child.name}
+            <span
+              className={`child-switcher__avatar flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                active ? "bg-blue-600 text-white" : `${child.colorTag} text-white`
+              }`}
+              aria-hidden="true"
+            >
+              {initialsFor(child.name)}
+            </span>
+            <span className="child-switcher__text min-w-0">
+              <span className="child-switcher__name block truncate font-semibold">
+                {child.name}
+              </span>
+              <span className="child-switcher__grade block text-xs text-slate-500">
+                Grade {child.grade}
+              </span>
+            </span>
           </button>
         );
       })}

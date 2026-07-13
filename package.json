@@ -23,6 +23,7 @@
     "dexie": "^4.4.4",
     "dexie-react-hooks": "^4.4.0",
     "firebase": "^12.16.0",
+    "lucide-react": "^1.24.0",
     "pdfjs-dist": "^4.10.38",
     "postcss": "^8.5.16",
     "react": "^19.2.7",

@@ -1,11 +1,17 @@
 import dayjs from "dayjs";
+import { BookOpen, Lock } from "lucide-react";
 import { CheckIcon } from "@/components/ui/check-icon";
+import { SubjectIcon } from "@/components/ui/subject-icon";
 import {
   completionButtonLabel,
+  getItemTiming,
   isItemCompleted,
   isItemFutureLocked,
+  itemTimingClasses,
+  itemTimingLabel,
 } from "@/features/planning/services/item-completion";
 import { buildPlannerItemDisplay } from "@/features/planning/services/planner-item-display";
+import { orderPlannerItems } from "@/features/planning/selectors/planning-selectors";
 import type { SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
 
@@ -22,6 +28,7 @@ export function ItemList({ items, emptyText }: ItemListProps) {
   if (items.length === 0) {
     return (
       <p className="item-list__empty rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+        <BookOpen aria-hidden="true" className="mb-2 h-5 w-5 text-slate-400" />
         {emptyText}
       </p>
     );
@@ -29,9 +36,10 @@ export function ItemList({ items, emptyText }: ItemListProps) {
 
   return (
     <ul className="item-list space-y-2">
-      {items.map((item) => {
+      {orderPlannerItems(items).map((item) => {
         const isCompleted = isItemCompleted(item);
         const isFutureLocked = isItemFutureLocked(item);
+        const timing = getItemTiming(item);
         const display = buildPlannerItemDisplay(item);
         const metadata = [dayjs(item.dueDate).format("ddd, DD MMM")].filter(
           Boolean,
@@ -62,7 +70,7 @@ export function ItemList({ items, emptyText }: ItemListProps) {
               }}
               className={`item-list__button planner-item__button flex w-full items-start gap-3 rounded-xl border p-3 text-left ${
                 isFutureLocked
-                  ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-75"
+                  ? "cursor-not-allowed border-slate-200 bg-slate-50"
                   : isCompleted
                     ? "border-emerald-200 bg-emerald-50"
                     : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
@@ -79,14 +87,35 @@ export function ItemList({ items, emptyText }: ItemListProps) {
               </span>
 
               <span className="item-list__content planner-item__content min-w-0 flex-1">
+                <span className="planner-item__header flex flex-wrap items-center gap-2">
+                  {display.subject ? (
+                    <SubjectIcon
+                      subject={display.subject}
+                      className="h-4 w-4 text-slate-400"
+                    />
+                  ) : null}
+                  <span className="planner-item__category text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {display.category}
+                  </span>
+                  {display.subject ? (
+                    <span className="planner-item__subject text-sm font-medium text-slate-700">
+                      {display.subject}
+                    </span>
+                  ) : null}
+                  <span
+                    className={`planner-item__status-badge rounded-full border px-2 py-0.5 text-xs font-medium ${itemTimingClasses(timing)}`}
+                  >
+                    {itemTimingLabel(item)}
+                  </span>
+                </span>
                 <span
-                  className={`item-list__title planner-item__title block font-medium ${
+                  className={`item-list__title planner-item__title mt-1 block font-medium ${
                     isCompleted
                       ? "text-emerald-950 line-through decoration-emerald-500"
                       : "text-slate-900"
                   }`}
                 >
-                  {display.category} : {display.subject}
+                  {display.heading}
                 </span>
 
                 {display.chapter ? (
@@ -103,7 +132,8 @@ export function ItemList({ items, emptyText }: ItemListProps) {
                   {metadata.join(" - ")}
                 </span>
                 {isFutureLocked ? (
-                  <span className="planner-item__helper mt-1 block text-xs text-slate-500">
+                  <span className="planner-item__helper mt-1 flex items-center gap-1 text-xs text-slate-500">
+                    <Lock aria-hidden="true" className="h-3.5 w-3.5" />
                     Available on the due date
                   </span>
                 ) : null}

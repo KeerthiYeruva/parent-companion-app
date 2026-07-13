@@ -1,11 +1,19 @@
 import { type ReactNode } from "react";
+import {
+  ClipboardCheck,
+  CloudCheck,
+  CloudOff,
+  House,
+  MoreHorizontal,
+  RefreshCw,
+} from "lucide-react";
 import Link, { usePathname } from "@/components/routing";
 import { useAppStore } from "@/store/use-app-store";
 
 export const primaryNavLinks = [
-  { href: "/", label: "Overview" },
-  { href: "/tests", label: "Tests" },
-  { href: "/more", label: "More" },
+  { href: "/", label: "Overview", icon: House },
+  { href: "/tests", label: "Tests", icon: ClipboardCheck },
+  { href: "/more", label: "More", icon: MoreHorizontal },
 ];
 
 const morePaths = ["/more", "/documents", "/scan", "/kids", "/backup"];
@@ -84,7 +92,10 @@ export function NavShell({ children }: { children: ReactNode }) {
                           : "text-slate-700 hover:bg-slate-100"
                       }`}
                     >
-                      {link.label}
+                      <span className="flex items-center gap-2">
+                        <link.icon aria-hidden="true" className="h-4 w-4" />
+                        {link.label}
+                      </span>
                     </Link>
                   </li>
                 );
@@ -98,6 +109,13 @@ export function NavShell({ children }: { children: ReactNode }) {
         <div className="border-b border-amber-200 bg-amber-50">
           <div className="mx-auto flex max-w-7xl items-start justify-between gap-3 px-4 py-3">
             <p className="text-sm text-amber-900">
+              {syncStatus === "offline" ? (
+                <CloudOff aria-hidden="true" className="mr-2 inline h-4 w-4" />
+              ) : syncStatus === "syncing" ? (
+                <RefreshCw aria-hidden="true" className="mr-2 inline h-4 w-4" />
+              ) : (
+                <CloudCheck aria-hidden="true" className="mr-2 inline h-4 w-4" />
+              )}
               {syncMessage}
 
               {warnings.length > 1
@@ -113,8 +131,9 @@ export function NavShell({ children }: { children: ReactNode }) {
                   onClick={() => {
                     void retryPendingItemSync();
                   }}
-                  className="rounded-md bg-amber-900 px-2 py-1 text-xs font-medium text-white"
+                  className="inline-flex items-center gap-1 rounded-md bg-amber-900 px-2 py-1 text-xs font-medium text-white"
                 >
+                  <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
                   Retry Sync
                 </button>
               ) : null}
@@ -144,8 +163,9 @@ export function NavShell({ children }: { children: ReactNode }) {
                 <Link
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  className={`block rounded-lg px-1 py-2 text-center text-xs font-medium ${active ? "bg-blue-50 text-blue-700" : "text-slate-600"}`}
+                  className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-center text-xs font-medium ${active ? "bg-blue-50 text-blue-700" : "text-slate-600"}`}
                 >
+                  <link.icon aria-hidden="true" className="h-5 w-5" />
                   {link.label}
                 </Link>
               </li>

@@ -9,65 +9,42 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (
-              id.includes("react") ||
-              id.includes("react-dom") ||
-              id.includes("react-router-dom")
-            ) {
-              return "react";
-            }
-
-            if (id.includes("pdfjs-dist")) {
-              return "pdf";
-            }
-
-            if (
-              id.includes("firebase") ||
-              id.includes("dexie") ||
-              id.includes("zustand")
-            ) {
-              return "data";
-            }
-
-            if (
-              id.includes("@hookform/resolvers") ||
-              id.includes("react-hook-form") ||
-              id.includes("zod")
-            ) {
-              return "forms";
-            }
-
-            if (id.includes("dayjs")) {
-              return "dates";
-            }
-
-            return "vendor";
+          if (!id.includes("node_modules")) {
+            return undefined;
           }
 
-          if (id.includes("/src/features/documents/")) {
-            return "features";
+          const normalizedId = id.replaceAll("\\", "/");
+
+          if (
+            /node_modules\/(?:react|react-dom|scheduler)\//.test(
+              normalizedId,
+            ) ||
+            normalizedId.includes("node_modules/react-router-dom/")
+          ) {
+            return "react";
           }
 
-          if (id.includes("/src/features/import/")) {
-            return "features";
+          if (normalizedId.includes("node_modules/firebase/")) {
+            return "firebase";
           }
 
-          if (id.includes("/src/features/planning/")) {
-            return "features";
+          if (
+            normalizedId.includes("node_modules/@hookform/resolvers/") ||
+            normalizedId.includes("node_modules/react-hook-form/") ||
+            normalizedId.includes("node_modules/zod/")
+          ) {
+            return "forms";
           }
 
-          if (id.includes("/src/store/")) {
-            return "shared";
+          if (normalizedId.includes("node_modules/lucide-react/")) {
+            return "icons";
           }
 
-          if (id.includes("/src/db/")) {
-            return "shared";
+          if (normalizedId.includes("node_modules/dayjs/")) {
+            return "dates";
           }
 
-          if (id.includes("/src/components/")) {
-            return "shared";
-          }
+          return "vendor";
         },
       },
     },

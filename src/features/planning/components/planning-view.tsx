@@ -1,7 +1,9 @@
 import dayjs from "dayjs";
 import { useMemo } from "react";
+import { CalendarDays, CalendarRange, Lock, Sun } from "lucide-react";
 import { ItemList } from "@/components/item-list";
 import { CheckIcon } from "@/components/ui/check-icon";
+import { SubjectIcon } from "@/components/ui/subject-icon";
 import { NavShell } from "@/components/nav-shell";
 import {
   bySelectedChildren,
@@ -9,6 +11,7 @@ import {
   itemsByChild,
   monthlyCounts,
   monthItemsByWeek,
+  orderPlannerItems,
   splitOpenAndCompletedItems,
   taskCategoryLabel,
   thisMonthItems,
@@ -17,8 +20,11 @@ import {
 import { buildPlannerItemDisplay } from "@/features/planning/services/planner-item-display";
 import {
   completionButtonLabel,
+  getItemTiming,
   isItemCompleted,
   isItemFutureLocked,
+  itemTimingClasses,
+  itemTimingLabel,
 } from "@/features/planning/services/item-completion";
 import type { ChildProfile, SchoolItem } from "@/types/domain";
 import { useAppStore } from "@/store/use-app-store";
@@ -367,9 +373,9 @@ export function PlanningView({
           <nav className="rounded-xl border border-slate-200 bg-white p-3">
             <div className="flex flex-wrap gap-2">
               {[
-                { href: "/", label: "Today" },
-                { href: "/week", label: "Week" },
-                { href: "/month", label: "Month" },
+                { href: "/", label: "Today", icon: Sun },
+                { href: "/week", label: "Week", icon: CalendarDays },
+                { href: "/month", label: "Month", icon: CalendarRange },
               ].map((tab) => {
                 const active = pathname === tab.href;
 
@@ -378,12 +384,13 @@ export function PlanningView({
                     key={tab.href}
                     href={tab.href}
                     aria-current={active ? "page" : undefined}
-                    className={`rounded-lg px-4 py-2 text-sm font-medium ${
+                    className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium sm:flex-none ${
                       active
                         ? "bg-blue-600 text-white"
                         : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
+                    <tab.icon aria-hidden="true" className="h-4 w-4" />
                     {tab.label}
                   </Link>
                 );
@@ -686,9 +693,10 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
 
   return (
     <ul className="planner-item-list planner-item-list--today space-y-2">
-      {items.map((item) => {
+      {orderPlannerItems(items).map((item) => {
         const isCompleted = isItemCompleted(item);
         const isFutureLocked = isItemFutureLocked(item);
+        const timing = getItemTiming(item);
         const display = buildPlannerItemDisplay(item);
 
         return (
@@ -711,7 +719,7 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
               }}
               className={`planner-item__button flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left ${
                 isFutureLocked
-                  ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-75"
+                  ? "cursor-not-allowed border-slate-200 bg-slate-50"
                   : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
               }`}
             >
@@ -726,7 +734,10 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
               </span>
               <span className="planner-item__content min-w-0">
                 <span className="planner-item__header flex flex-wrap items-center gap-2">
-                  <span className="planner-item__category rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {display.subject ? (
+                    <SubjectIcon subject={display.subject} className="h-4 w-4 text-slate-400" />
+                  ) : null}
+                  <span className="planner-item__category text-xs font-semibold uppercase tracking-wide text-slate-500">
                     {display.category}
                   </span>
                   {display.subject ? (
@@ -734,6 +745,9 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
                       {display.subject}
                     </span>
                   ) : null}
+                  <span className={`planner-item__status-badge rounded-full border px-2 py-0.5 text-xs font-medium ${itemTimingClasses(timing)}`}>
+                    {itemTimingLabel(item)}
+                  </span>
                 </span>
                 <span
                   className={`planner-item__title mt-1 block text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
@@ -754,7 +768,8 @@ function TodayTaskList({ items }: { items: SchoolItem[] }) {
                   {display.date}
                 </span>
                 {isFutureLocked ? (
-                  <span className="planner-item__helper mt-1 block text-xs text-slate-500">
+                  <span className="planner-item__helper mt-1 flex items-center gap-1 text-xs text-slate-500">
+                    <Lock aria-hidden="true" className="h-3.5 w-3.5" />
                     Available on the due date
                   </span>
                 ) : null}
@@ -777,9 +792,10 @@ function CompactWeekItemList({
 
   return (
     <ul className="planner-item-list planner-item-list--compact divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
-      {items.map((item) => {
+      {orderPlannerItems(items).map((item) => {
         const isCompleted = isItemCompleted(item);
         const isFutureLocked = isItemFutureLocked(item);
+        const timing = getItemTiming(item);
         const display = buildPlannerItemDisplay(item);
 
         return (
@@ -802,7 +818,7 @@ function CompactWeekItemList({
               }}
               className={`planner-item__button flex w-full items-start gap-3 px-3 py-2 text-left ${
                 isFutureLocked
-                  ? "cursor-not-allowed bg-slate-50 opacity-75"
+                  ? "cursor-not-allowed bg-slate-50"
                   : "hover:bg-blue-50/50"
               }`}
             >
@@ -817,7 +833,10 @@ function CompactWeekItemList({
               </span>
               <div className="planner-item__content min-w-0">
                 <div className="planner-item__header flex flex-wrap items-center gap-2">
-                  <span className="planner-item__category rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {display.subject ? (
+                    <SubjectIcon subject={display.subject} className="h-4 w-4 text-slate-400" />
+                  ) : null}
+                  <span className="planner-item__category text-xs font-semibold uppercase tracking-wide text-slate-500">
                     {display.category}
                   </span>
                   {display.subject ? (
@@ -825,6 +844,9 @@ function CompactWeekItemList({
                       {display.subject}
                     </span>
                   ) : null}
+                  <span className={`planner-item__status-badge rounded-full border px-2 py-0.5 text-xs font-medium ${itemTimingClasses(timing)}`}>
+                    {itemTimingLabel(item)}
+                  </span>
                 </div>
                 <div
                   className={`planner-item__title mt-1 text-sm font-medium ${isCompleted ? "text-emerald-900 line-through decoration-emerald-500" : "text-slate-900"}`}
@@ -847,7 +869,8 @@ function CompactWeekItemList({
                   </p>
                 ) : null}
                 {isFutureLocked ? (
-                  <p className="planner-item__helper mt-1 text-xs text-slate-500">
+                  <p className="planner-item__helper mt-1 flex items-center gap-1 text-xs text-slate-500">
+                    <Lock aria-hidden="true" className="h-3.5 w-3.5" />
                     Available on the due date
                   </p>
                 ) : null}

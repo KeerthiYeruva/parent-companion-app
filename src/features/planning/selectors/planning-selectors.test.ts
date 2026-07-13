@@ -8,6 +8,7 @@ import {
   itemsByChild,
   monthlyCounts,
   monthItemsByWeek,
+  orderPlannerItems,
   splitOpenAndCompletedItems,
   thisMonthItems,
   thisWeekItems,
@@ -100,7 +101,7 @@ describe("planning selectors", () => {
     expect(result.map((item) => item.id)).toEqual(["i-1"]);
   });
 
-  it("returns items due in the next 7-day window", () => {
+  it("returns items due in the Monday to Sunday school week", () => {
     const result = thisWeekItems(baseItems);
     expect(result.map((item) => item.id)).toEqual(["i-1", "i-2", "i-3", "i-5"]);
   });
@@ -128,7 +129,7 @@ describe("planning selectors", () => {
     expect(completionProgress(baseItems)).toEqual({
       completed: 1,
       total: 5,
-      label: "1/5 completed",
+      label: "1 of 5 done",
       percent: 20,
     });
   });
@@ -145,9 +146,34 @@ describe("planning selectors", () => {
 
     expect(groups).toHaveLength(2);
     expect(groups[0].child.id).toBe(childA.id);
-    expect(groups[0].progress.label).toBe("1/3 completed");
+    expect(groups[0].progress.label).toBe("1 of 3 done");
     expect(groups[1].child.id).toBe(childB.id);
-    expect(groups[1].progress.label).toBe("0/2 completed");
+    expect(groups[1].progress.label).toBe("0 of 2 done");
+  });
+
+  it("orders overdue pending, today pending, upcoming pending, then completed", () => {
+    const ordered = orderPlannerItems([
+      { ...baseItems[4], id: "completed", title: "Completed" },
+      { ...baseItems[3], id: "upcoming", title: "Upcoming", dueDate: "2026-07-20" },
+      { ...baseItems[1], id: "today", title: "Today", dueDate: "2026-07-08", status: "Pending" },
+      { ...baseItems[0], id: "overdue", title: "Overdue", dueDate: "2026-07-07" },
+    ]);
+
+    expect(ordered.map((item) => item.id)).toEqual([
+      "overdue",
+      "today",
+      "upcoming",
+      "completed",
+    ]);
+  });
+
+  it("returns an uncompleted item to its due-date position", () => {
+    const ordered = orderPlannerItems([
+      { ...baseItems[4], id: "was-completed", status: "Pending", completedAt: undefined },
+      { ...baseItems[3], id: "future", dueDate: "2026-07-20" },
+    ]);
+
+    expect(ordered.map((item) => item.id)).toEqual(["was-completed", "future"]);
   });
 
   it("groups internal categories into parent-facing task buckets", () => {

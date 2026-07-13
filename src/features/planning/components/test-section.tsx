@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { ItemList } from "@/components/item-list";
 import { ChevronIcon } from "@/components/ui/chevron-icon";
 import type { SchoolItem } from "@/types/domain";
@@ -7,12 +8,14 @@ type TestSectionProps = {
   title: string;
   items: SchoolItem[];
   defaultOpen?: boolean;
+  icon?: LucideIcon;
 };
 
 export function TestSection({
   title,
   items,
   defaultOpen = false,
+  icon: Icon,
 }: TestSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -24,7 +27,13 @@ export function TestSection({
         className="test-section__toggle flex w-full items-center justify-between gap-3 p-4 text-left"
         aria-expanded={isOpen}
       >
-        <div>
+        <div className="flex items-center gap-3">
+          {Icon ? (
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+              <Icon aria-hidden="true" className="h-5 w-5" />
+            </span>
+          ) : null}
+          <div>
           <h3 className="test-section__title font-semibold text-slate-900">
             {title}
           </h3>
@@ -32,6 +41,7 @@ export function TestSection({
           <p className="test-section__count text-sm text-slate-500">
             {items.length} {items.length === 1 ? "test" : "tests"}
           </p>
+          </div>
         </div>
 
         <span className="test-section__chevron text-slate-500">

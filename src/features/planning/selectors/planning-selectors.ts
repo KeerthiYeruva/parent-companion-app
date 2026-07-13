@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import { getItemTiming, isItemCompleted } from "@/features/planning/services/item-completion";
 import type { ChildProfile, ScanSessionFileRecord, SchoolItem, UploadedDocument } from "@/types/domain";
 
 export const taskBuckets = ["Homework", "Tests", "Activities", "Projects", "Study tasks"] as const;
@@ -38,22 +39,39 @@ export const itemsByTaskBucket = (items: SchoolItem[]) => {
 
 export const completionProgress = (items: SchoolItem[]) => {
   const total = items.length;
-  const completed = items.filter((item) => item.status === "Completed").length;
+  const completed = items.filter(isItemCompleted).length;
 
   return {
     completed,
     total,
-    label: `${completed}/${total} completed`,
+    label: `${completed} of ${total} done`,
     percent: total > 0 ? Math.round((completed / total) * 100) : 0,
   };
 };
 
 export const splitOpenAndCompletedItems = (items: SchoolItem[]) => {
   return {
-    open: items.filter((item) => item.status !== "Completed"),
-    completed: items.filter((item) => item.status === "Completed"),
+    open: items.filter((item) => !isItemCompleted(item)),
+    completed: items.filter(isItemCompleted),
   };
 };
+
+const timingRank = (item: SchoolItem) => {
+  const timing = getItemTiming(item);
+  if (timing === "overdue") return 0;
+  if (timing === "today") return 1;
+  if (timing === "upcoming") return 2;
+  return 3;
+};
+
+export const orderPlannerItems = (items: SchoolItem[]) =>
+  [...items].sort(
+    (first, second) =>
+      timingRank(first) - timingRank(second) ||
+      first.dueDate.localeCompare(second.dueDate) ||
+      first.title.localeCompare(second.title) ||
+      first.id.localeCompare(second.id),
+  );
 
 export const bySelectedChildren = (items: SchoolItem[], selectedChildIds: string[]) => {
   if (selectedChildIds.length === 0) {
@@ -65,7 +83,7 @@ export const bySelectedChildren = (items: SchoolItem[], selectedChildIds: string
 
 export const todayItems = (items: SchoolItem[]) => {
   const today = dayjs().format("YYYY-MM-DD");
-  return items.filter((item) => item.dueDate === today && item.status !== "Completed");
+  return orderPlannerItems(items.filter((item) => item.dueDate === today && !isItemCompleted(item)));
 };
 
 export const thisWeekItems = (items: SchoolItem[]) => {
@@ -74,27 +92,27 @@ export const thisWeekItems = (items: SchoolItem[]) => {
   const start = today.subtract(daysSinceMonday, "day");
   const end = start.add(6, "day").endOf("day");
 
-  return items.filter((item) => {
+  return orderPlannerItems(items.filter((item) => {
     const due = dayjs(item.dueDate);
     return due.isAfter(start.subtract(1, "day")) && due.isBefore(end.add(1, "day"));
-  });
+  }));
 };
 
 export const thisMonthItems = (items: SchoolItem[]) => {
   const start = dayjs().startOf("month");
   const end = dayjs().endOf("month");
 
-  return items
-    .filter((item) => {
+  return orderPlannerItems(
+    items.filter((item) => {
       const due = dayjs(item.dueDate);
       return due.isAfter(start.subtract(1, "day")) && due.isBefore(end.add(1, "day"));
-    })
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    }),
+  );
 };
 
 export const itemsByChild = (children: ChildProfile[], items: SchoolItem[]) => {
   return children.map((child) => {
-    const childItems = items.filter((item) => item.childId === child.id).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    const childItems = orderPlannerItems(items.filter((item) => item.childId === child.id));
 
     return {
       child,
@@ -119,7 +137,7 @@ export const monthItemsByWeek = (items: SchoolItem[]) => {
 
   return Array.from(groups.entries()).map(([key, weekItems]) => {
     const [start, end] = key.split("__");
-    const sortedItems = weekItems.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    const sortedItems = orderPlannerItems(weekItems);
 
     return {
       key,
@@ -143,9 +161,9 @@ export const monthlyCounts = (items: SchoolItem[]) => {
 
 export const childSummary = (child: ChildProfile, items: SchoolItem[]) => {
   const childItems = items.filter((item) => item.childId === child.id);
-  const pendingTasks = childItems.filter((item) => item.status !== "Completed" && item.category !== "Activity").length;
+  const pendingTasks = childItems.filter((item) => !isItemCompleted(item) && item.category !== "Activity").length;
   const upcomingTests = childItems.filter(
-    (item) => ["ClassTest", "UnitTest", "Exam"].includes(item.category) && item.status !== "Completed",
+    (item) => ["ClassTest", "UnitTest", "Exam"].includes(item.category) && !isItemCompleted(item),
   ).length;
   const activityTomorrow = childItems.some(
     (item) => item.category === "Activity" && dayjs(item.dueDate).isSame(dayjs().add(1, "day"), "day"),
