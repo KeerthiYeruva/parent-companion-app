@@ -38,11 +38,29 @@ export function NavShell({ children }: { children: ReactNode }) {
   const warnings = useAppStore((state) => state.persistenceWarnings);
   const clearWarnings = useAppStore((state) => state.clearPersistenceWarnings);
   const pendingItemSyncIds = useAppStore((state) => state.pendingItemSyncIds);
+  const pendingSyncCount = useAppStore((state) => state.pendingSyncCount);
+  const syncStatus = useAppStore((state) => state.syncStatus);
 
   const retryPendingItemSync = useAppStore(
     (state) => state.retryPendingItemSync,
   );
-  const showWarnings = warnings.length > 0 || pendingItemSyncIds.length > 0;
+  const showWarnings =
+    warnings.length > 0 ||
+    pendingSyncCount > 0 ||
+    syncStatus === "offline" ||
+    syncStatus === "syncing" ||
+    syncStatus === "error";
+  const syncMessage =
+    warnings[0] ??
+    (pendingSyncCount > 0
+      ? `${pendingSyncCount} change${pendingSyncCount === 1 ? "" : "s"} waiting to sync.`
+      : syncStatus === "offline"
+        ? "Offline. Changes will sync when the network returns."
+        : syncStatus === "syncing"
+          ? "Syncing..."
+          : syncStatus === "error"
+            ? "Sync error. Local data is still available."
+            : undefined);
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -88,10 +106,7 @@ export function NavShell({ children }: { children: ReactNode }) {
         <div className="border-b border-amber-200 bg-amber-50">
           <div className="mx-auto flex max-w-7xl items-start justify-between gap-3 px-4 py-3">
             <p className="text-sm text-amber-900">
-              {warnings[0] ??
-                `${pendingItemSyncIds.length} item change${
-                  pendingItemSyncIds.length === 1 ? "" : "s"
-                } waiting to sync.`}
+              {syncMessage}
 
               {warnings.length > 1
                 ? ` (${warnings.length - 1} more warning${
@@ -100,7 +115,7 @@ export function NavShell({ children }: { children: ReactNode }) {
                 : ""}
             </p>
             <div className="flex shrink-0 gap-2">
-              {pendingItemSyncIds.length > 0 ? (
+              {pendingSyncCount > 0 || pendingItemSyncIds.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => {

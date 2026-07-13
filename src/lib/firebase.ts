@@ -11,6 +11,13 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const firebaseApp = getApps.length>0?getApp():initializeApp(firebaseConfig);
+const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
 
-export const firestore = getFirestore(firebaseApp);
+export const firebaseApp = hasFirebaseConfig
+  ? getApps().length > 0
+    ? getApp()
+    : initializeApp(firebaseConfig)
+  : undefined;
+
+export const firestore = firebaseApp ? getFirestore(firebaseApp) : undefined;
+export const isFirebaseConfigured = Boolean(firebaseApp);

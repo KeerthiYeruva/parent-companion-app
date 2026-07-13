@@ -5,6 +5,7 @@ import type { AppState, UploadedDocument } from "@/types/domain";
 import {
   deleteCloudDocumentAndItems,
   upsertCloudDocument,
+  withUpdatedAt,
 } from "@/features/import/services/cloud-sync";
 
 type DocumentsSlice = Pick<
@@ -33,11 +34,11 @@ export const createDocumentsSlice: StateCreator<
           entry.title === document.title),
     );
 
-    const newDoc: UploadedDocument = {
+    const newDoc: UploadedDocument = withUpdatedAt({
       ...document,
       id: existingDocument?.id ?? createId("doc"),
       uploadedAt: existingDocument?.uploadedAt ?? dayjs().toISOString(),
-    };
+    });
 
     appRepository.upsertDocument(newDoc).catch(() => {
       get().pushPersistenceWarning(
@@ -61,9 +62,25 @@ export const createDocumentsSlice: StateCreator<
     const sourceDocumentIds = [documentId, document?.fileHash].filter(
       (value): value is string => Boolean(value),
     );
+    const linkedItemIds = get()
+      .items.filter(
+        (item) =>
+          (item.sourceDocumentId &&
+            sourceDocumentIds.includes(item.sourceDocumentId)) ||
+          (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
+            sourceDocumentIds.includes(sourceDocumentId),
+          ),
+      )
+      .map((item) => item.id);
     void appRepository
       .deleteDocumentAndItems(documentId, sourceDocumentIds)
-      .then(() => deleteCloudDocumentAndItems(documentId, sourceDocumentIds))
+      .then(() =>
+        deleteCloudDocumentAndItems(
+          documentId,
+          sourceDocumentIds,
+          linkedItemIds,
+        ),
+      )
       .catch(() => {
         get().pushPersistenceWarning("Document could not be fully deleted.");
       });

@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
 import type { AppState, ChildProfile } from "@/types/domain";
-import { upsertCloudChild } from "@/features/import/services/cloud-sync";
+import { upsertCloudChild, withUpdatedAt } from "@/features/import/services/cloud-sync";
 
 const childColors = [
   "bg-blue-500",
@@ -23,7 +23,7 @@ export const createChildrenSlice: StateCreator<
   children: [],
   addChild: (child: Omit<ChildProfile, "id" | "colorTag">) => {
     const colorTag = childColors[get().children.length % childColors.length];
-    const newChild = { ...child, id: createId("child"), colorTag };
+    const newChild = withUpdatedAt({ ...child, id: createId("child"), colorTag });
 
     appRepository.upsertChild(newChild).catch(() => {
       get().pushPersistenceWarning(
@@ -45,7 +45,7 @@ export const createChildrenSlice: StateCreator<
           return child;
         }
 
-        const nextChild = { ...child, ...updates };
+        const nextChild = withUpdatedAt({ ...child, ...updates });
         appRepository.upsertChild(nextChild).catch(() => {
           get().pushPersistenceWarning(
             "Child profile could not be saved to local database.",

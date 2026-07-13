@@ -1,8 +1,10 @@
 import { db } from "@/lib/db";
 import type {
   ChildProfile,
+  DeletionRecord,
   ImportedItemReplacementScope,
   SchoolItem,
+  SyncQueueRecord,
   UploadedDocument,
 } from "@/types/domain";
 import type { HydrationInput } from "@/store/hydration";
@@ -11,12 +13,17 @@ export interface AppRepository {
   listChildren: () => Promise<ChildProfile[]>;
   listItems: () => Promise<SchoolItem[]>;
   listDocuments: () => Promise<UploadedDocument[]>;
+  listDeletions: () => Promise<DeletionRecord[]>;
+  listSyncQueue: () => Promise<SyncQueueRecord[]>;
   upsertChildren: (children: ChildProfile[]) => Promise<void>;
   upsertItems: (items: SchoolItem[]) => Promise<void>;
   upsertDocuments: (documents: UploadedDocument[]) => Promise<void>;
   upsertChild: (child: ChildProfile) => Promise<void>;
   upsertItem: (item: SchoolItem) => Promise<void>;
   upsertDocument: (document: UploadedDocument) => Promise<void>;
+  upsertDeletion: (deletion: DeletionRecord) => Promise<void>;
+  upsertSyncQueueRecord: (record: SyncQueueRecord) => Promise<void>;
+  deleteSyncQueueRecord: (id: string) => Promise<void>;
   deleteDocumentAndItems: (
     documentId: string,
     sourceDocumentIds: string[],
@@ -51,6 +58,8 @@ export const appRepository: AppRepository = {
     const docs = await db.documents.toArray();
     return docs;
   },
+  listDeletions: () => db.deletions.toArray(),
+  listSyncQueue: () => db.syncQueue.toArray(),
   upsertChildren: async (children) => {
     await db.children.bulkPut(children);
   },
@@ -69,12 +78,26 @@ export const appRepository: AppRepository = {
   upsertDocument: async (document) => {
     await db.documents.put(document);
   },
+  upsertDeletion: async (deletion) => {
+    await db.deletions.put(deletion);
+  },
+  upsertSyncQueueRecord: async (record) => {
+    await db.syncQueue.put(record);
+  },
+  deleteSyncQueueRecord: async (id) => {
+    await db.syncQueue.delete(id);
+  },
   deleteDocumentAndItems: async (documentId, sourceDocumentIds) => {
     await db.transaction("rw", db.documents, db.items, async () => {
-      const linkedItems = await db.items
-        .where("sourceDocumentId")
-        .anyOf(sourceDocumentIds)
-        .toArray();
+      const allItems = await db.items.toArray();
+      const linkedItems = allItems.filter(
+        (item) =>
+          (item.sourceDocumentId &&
+            sourceDocumentIds.includes(item.sourceDocumentId)) ||
+          (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
+            sourceDocumentIds.includes(sourceDocumentId),
+          ),
+      );
       await Promise.all([
         db.documents.delete(documentId),
         linkedItems.length > 0
@@ -91,11 +114,6 @@ export const appRepository: AppRepository = {
       db.documents,
       async () => {
         await Promise.all([
-          db.children.clear(),
-          db.items.clear(),
-          db.documents.clear(),
-        ]);
-        await Promise.all([
           children.length > 0
             ? db.children.bulkPut(children)
             : Promise.resolve(),
@@ -110,15 +128,20 @@ export const appRepository: AppRepository = {
   replaceItemsForSourceDocuments: async (sourceDocumentIds, items, scope) => {
     await db.transaction("rw", db.items, async () => {
       const idsToDelete = new Set<string>();
-      const bySourceDocument = await db.items
-        .where("sourceDocumentId")
-        .anyOf(sourceDocumentIds)
-        .toArray();
-      bySourceDocument.forEach((item) => idsToDelete.add(item.id));
+      const existingItems = await db.items.toArray();
+      existingItems
+        .filter(
+          (item) =>
+            (item.sourceDocumentId &&
+              sourceDocumentIds.includes(item.sourceDocumentId)) ||
+            (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
+              sourceDocumentIds.includes(sourceDocumentId),
+            ),
+        )
+        .forEach((item) => idsToDelete.add(item.id));
 
       if (scope) {
-        const scopedItems = await db.items.toArray();
-        scopedItems
+        existingItems
           .filter((item) => isInReplacementScope(item, scope))
           .forEach((item) => idsToDelete.add(item.id));
       }

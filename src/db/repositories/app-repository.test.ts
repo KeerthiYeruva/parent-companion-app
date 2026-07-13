@@ -80,15 +80,11 @@ describe("appRepository", () => {
   it("replaces items for matching source documents", async () => {
     const item = { id: "item-new", sourceDocumentId: "doc-1" };
     const oldItem = { id: "item-old", sourceDocumentId: "doc-1" };
-    mocks.itemsWhere.mockReturnValueOnce({ anyOf: mocks.itemsAnyOf });
-    mocks.itemsAnyOf.mockReturnValueOnce({ toArray: mocks.itemsAnyOfToArray });
-    mocks.itemsAnyOfToArray.mockResolvedValueOnce([oldItem]);
+    mocks.itemsToArray.mockResolvedValueOnce([oldItem]);
 
     await appRepository.replaceItemsForSourceDocuments(["doc-1", "doc-2"], [item] as never);
 
     expect(mocks.transaction).toHaveBeenCalledWith("rw", expect.anything(), expect.any(Function));
-    expect(mocks.itemsWhere).toHaveBeenCalledWith("sourceDocumentId");
-    expect(mocks.itemsAnyOf).toHaveBeenCalledWith(["doc-1", "doc-2"]);
     expect(mocks.itemsBulkDelete).toHaveBeenCalledWith(["item-old"]);
     expect(mocks.itemsBulkPut).toHaveBeenCalledWith([item]);
   });
@@ -97,9 +93,6 @@ describe("appRepository", () => {
     const item = { id: "item-new", childId: "child-1", category: "UnitTest", dueDate: "2026-07-17" };
     const scopedOldItem = { id: "item-old-scope", sourceDocumentId: "old-doc", childId: "child-1", category: "UnitTest", dueDate: "2026-07-17" };
     const manualItem = { id: "item-manual", childId: "child-1", category: "UnitTest", dueDate: "2026-07-17" };
-    mocks.itemsWhere.mockReturnValueOnce({ anyOf: mocks.itemsAnyOf });
-    mocks.itemsAnyOf.mockReturnValueOnce({ toArray: mocks.itemsAnyOfToArray });
-    mocks.itemsAnyOfToArray.mockResolvedValueOnce([]);
     mocks.itemsToArray.mockResolvedValueOnce([scopedOldItem, manualItem]);
 
     await appRepository.replaceItemsForSourceDocuments(["doc-1"], [item] as never, {
@@ -116,9 +109,6 @@ describe("appRepository", () => {
   it("does not delete items outside the replacement scope", async () => {
     const replacementItem = { id: "item-new", childId: "child-1", category: "UnitTest", dueDate: "2026-07-17" };
     const outOfScopeItem = { id: "item-outside", childId: "child-1", category: "UnitTest", dueDate: "2026-07-30" };
-    mocks.itemsWhere.mockReturnValueOnce({ anyOf: mocks.itemsAnyOf });
-    mocks.itemsAnyOf.mockReturnValueOnce({ toArray: mocks.itemsAnyOfToArray });
-    mocks.itemsAnyOfToArray.mockResolvedValueOnce([]);
     mocks.itemsToArray.mockResolvedValueOnce([outOfScopeItem]);
 
     await appRepository.replaceItemsForSourceDocuments(["doc-1"], [replacementItem] as never, {

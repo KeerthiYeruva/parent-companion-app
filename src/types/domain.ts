@@ -32,6 +32,7 @@ export interface ChildProfile {
   section: string;
   academicYear: string;
   colorTag: string;
+  updatedAt?: string;
 }
 
 export interface SchoolItem {
@@ -55,6 +56,7 @@ export interface SchoolItem {
   sourcePage?: number;
   sourceText?: string;
   completedAt?: string;
+  updatedAt?: string;
 }
 
 export interface UploadedDocument {
@@ -69,6 +71,30 @@ export interface UploadedDocument {
   relativePath?: string;
   modifiedAt?: string;
   extractedMonth?: string;
+  updatedAt?: string;
+}
+
+export type SyncEntityType = "child" | "item" | "document";
+export type SyncOperationType = "upsert" | "delete";
+
+export interface DeletionRecord {
+  id: string;
+  entityType: SyncEntityType;
+  entityId: string;
+  deletedAt: string;
+  sourceDocumentIds?: string[];
+}
+
+export interface SyncQueueRecord {
+  id: string;
+  entityType: SyncEntityType;
+  entityId: string;
+  operation: SyncOperationType;
+  payload?: ChildProfile | SchoolItem | UploadedDocument;
+  sourceDocumentIds?: string[];
+  updatedAt: string;
+  attempts: number;
+  lastError?: string;
 }
 
 export interface ImportIssue {
@@ -154,6 +180,8 @@ export interface AppState {
   importIssues: ImportIssue[];
   persistenceWarnings: string[];
   pendingItemSyncIds: string[];
+  syncStatus: "synced" | "syncing" | "offline" | "error";
+  pendingSyncCount: number;
   selectedChildIds: string[];
   connectedFolderName?: string;
   lastScanAt?: string;
@@ -166,6 +194,7 @@ export interface AppState {
   queueItemSync: (itemId: string) => void;
   clearItemSync: (itemId: string) => void;
   retryPendingItemSync: () => Promise<void>;
+  refreshSyncState: () => Promise<void>;
   importBackupData: (backup: PlannerBackup) => Promise<void>;
   setConnectedFolderName: (folderName: string) => void;
   setScanQueue: (files: ScanSessionFileRecord[], scannedAt: string) => void;

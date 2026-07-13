@@ -13,6 +13,7 @@ import type {
 import {
   syncAllLocalItemsToCloud,
   upsertCloudItem,
+  withUpdatedAt,
 } from "@/features/import/services/cloud-sync";
 
 type ItemsSlice = Pick<
@@ -84,6 +85,7 @@ const mergeItems = (
     ),
     completedAt,
     status: deriveStatus(incoming.dueDate ?? existing.dueDate, completedAt),
+    updatedAt: new Date().toISOString(),
   };
 };
 
@@ -103,19 +105,20 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           id: createId("item"),
           status: deriveStatus(item.dueDate),
         };
+    const stampedItem = withUpdatedAt(nextItem);
 
-    appRepository.upsertItem(nextItem).catch(() => {
+    appRepository.upsertItem(stampedItem).catch(() => {
       get().pushPersistenceWarning(
         "New item could not be saved to local database.",
       );
     });
 
-    void upsertCloudItem(nextItem)
+    void upsertCloudItem(stampedItem)
       .then(() => {
-        get().clearItemSync(nextItem.id);
+        get().clearItemSync(stampedItem.id);
       })
       .catch(() => {
-        get().queueItemSync(nextItem.id);
+        get().queueItemSync(stampedItem.id);
 
         get().pushPersistenceWarning("New item could not be synced to cloud.");
       });
@@ -123,9 +126,9 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
     set((state) => ({
       items: existing
         ? state.items.map((entry) =>
-            itemKey(entry) === itemKey(item) ? nextItem : entry,
+            itemKey(entry) === itemKey(item) ? stampedItem : entry,
           )
-        : [...state.items, nextItem],
+        : [...state.items, stampedItem],
     }));
   },
   replaceItemsForSourceDocuments: (
@@ -173,18 +176,18 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           (entry) => itemKey(entry) === itemKey(incoming),
         );
         if (existingIndex >= 0) {
-          mergedItems[existingIndex] = mergeItems(
+          mergedItems[existingIndex] = withUpdatedAt(mergeItems(
             mergedItems[existingIndex],
             incoming,
-          );
+          ));
           return;
         }
 
-        mergedItems.push({
+        mergedItems.push(withUpdatedAt({
           ...incoming,
           id: createId("item"),
           status: deriveStatus(incoming.dueDate),
-        });
+        }));
       });
 
       appRepository
@@ -215,6 +218,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           ...item,
           completedAt,
           status: deriveStatus(item.dueDate, completedAt),
+          updatedAt: new Date().toISOString(),
         };
 
         appRepository.upsertItem(nextItem).catch(() => {
@@ -257,6 +261,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           prepStatus,
           completedAt,
           status: deriveStatus(item.dueDate, completedAt),
+          updatedAt: new Date().toISOString(),
         };
 
         appRepository.upsertItem(nextItem).catch(() => {

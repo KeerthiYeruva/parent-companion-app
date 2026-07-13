@@ -1,6 +1,9 @@
 import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
-import { upsertCloudItem } from "@/features/import/services/cloud-sync";
+import {
+  retryQueuedCloudOperations,
+  uploadLocalDataToCloud,
+} from "@/features/import/services/cloud-sync";
 import { buildHydratedSnapshot } from "@/store/hydration";
 import type { AppState } from "@/types/domain";
 
@@ -8,11 +11,14 @@ type PersistenceSlice = Pick<
   AppState,
   | "persistenceWarnings"
   | "pendingItemSyncIds"
+  | "syncStatus"
+  | "pendingSyncCount"
   | "pushPersistenceWarning"
   | "clearPersistenceWarnings"
   | "queueItemSync"
   | "clearItemSync"
   | "retryPendingItemSync"
+  | "refreshSyncState"
   | "importBackupData"
 >;
 
@@ -24,6 +30,9 @@ export const createPersistenceSlice: StateCreator<
 > = (set, get) => ({
   persistenceWarnings: [],
   pendingItemSyncIds: [],
+  syncStatus:
+    typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "synced",
+  pendingSyncCount: 0,
 
   pushPersistenceWarning: (message: string) => {
     set((state) => {
@@ -49,6 +58,16 @@ export const createPersistenceSlice: StateCreator<
       pendingItemSyncIds: state.pendingItemSyncIds.includes(itemId)
         ? state.pendingItemSyncIds
         : [...state.pendingItemSyncIds, itemId],
+      pendingSyncCount: Math.max(
+        state.pendingSyncCount,
+        state.pendingItemSyncIds.includes(itemId)
+          ? state.pendingItemSyncIds.length
+          : state.pendingItemSyncIds.length + 1,
+      ),
+      syncStatus:
+        typeof navigator !== "undefined" && navigator.onLine
+          ? "error"
+          : "offline",
     }));
   },
 
@@ -61,48 +80,76 @@ export const createPersistenceSlice: StateCreator<
   },
 
   retryPendingItemSync: async () => {
-    const pendingIds = get().pendingItemSyncIds;
-
-    if (pendingIds.length === 0) {
+    const queued = await appRepository.listSyncQueue();
+    if (queued.length === 0) {
+      set({
+        pendingItemSyncIds: [],
+        pendingSyncCount: 0,
+        syncStatus:
+          typeof navigator !== "undefined" && navigator.onLine
+            ? "synced"
+            : "offline",
+      });
       return;
     }
 
-    const localItems = await appRepository.listItems();
+    set({
+      syncStatus:
+        typeof navigator !== "undefined" && navigator.onLine
+          ? "syncing"
+          : "offline",
+    });
+    const result = await retryQueuedCloudOperations();
+    const remaining = await appRepository.listSyncQueue();
+    set({
+      pendingItemSyncIds: remaining
+        .filter((record) => record.entityType === "item")
+        .map((record) => record.entityId),
+      pendingSyncCount: remaining.length,
+      syncStatus:
+        remaining.length === 0
+          ? typeof navigator !== "undefined" && navigator.onLine
+            ? "synced"
+            : "offline"
+          : "error",
+    });
 
-    const itemsToSync = localItems.filter((item) =>
-      pendingIds.includes(item.id),
-    );
-
-    const syncedIds: string[] = [];
-
-    for (const item of itemsToSync) {
-      try {
-        await upsertCloudItem(item);
-        syncedIds.push(item.id);
-      } catch {
-        // Keep failed item IDs in the queue.
-      }
-    }
-
-    set((state) => ({
-      pendingItemSyncIds: state.pendingItemSyncIds.filter(
-        (id) => !syncedIds.includes(id),
-      ),
-    }));
-
-    if (syncedIds.length === itemsToSync.length) {
+    if (remaining.length === 0) {
       get().clearPersistenceWarnings();
     } else {
       get().pushPersistenceWarning(
-        "Some item changes still could not be synced to cloud.",
+        `${remaining.length} change${remaining.length === 1 ? "" : "s"} still could not be synced to cloud.`,
       );
     }
+
+    void result;
+  },
+
+  refreshSyncState: async () => {
+    const queued = await appRepository.listSyncQueue();
+    set({
+      pendingItemSyncIds: queued
+        .filter((record) => record.entityType === "item")
+        .map((record) => record.entityId),
+      pendingSyncCount: queued.length,
+      syncStatus:
+        queued.length > 0
+          ? typeof navigator !== "undefined" && navigator.onLine
+            ? "error"
+            : "offline"
+          : typeof navigator !== "undefined" && navigator.onLine
+            ? "synced"
+            : "offline",
+    });
   },
 
   importBackupData: async (backup) => {
     const snapshot = buildHydratedSnapshot(backup);
 
     await appRepository.replaceSnapshot(snapshot);
+    await uploadLocalDataToCloud().catch(() => {
+      get().pushPersistenceWarning("Backup data could not be synced to cloud.");
+    });
 
     set(snapshot);
   },

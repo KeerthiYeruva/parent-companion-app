@@ -1,24 +1,20 @@
 import Dexie, { type Table } from "dexie";
-import type { ChildProfile, ScanRunRecord, ScanSessionFileRecord, SchoolItem, UploadedDocument } from "@/types/domain";
-
-export interface StoredDocument {
-  id: string;
-  title: string;
-  type: UploadedDocument["type"];
-  childIds: string[];
-  uploadedAt: string;
-  fileName?: string;
-  fileSize?: number;
-  fileHash?: string;
-  relativePath?: string;
-  modifiedAt?: string;
-  extractedMonth?: string;
-}
+import type {
+  ChildProfile,
+  DeletionRecord,
+  ScanRunRecord,
+  ScanSessionFileRecord,
+  SchoolItem,
+  SyncQueueRecord,
+  UploadedDocument,
+} from "@/types/domain";
 
 class ParentCompanionDB extends Dexie {
   children!: Table<ChildProfile, string>;
   items!: Table<SchoolItem, string>;
-  documents!: Table<StoredDocument, string>;
+  documents!: Table<UploadedDocument, string>;
+  deletions!: Table<DeletionRecord, string>;
+  syncQueue!: Table<SyncQueueRecord, string>;
   scanRuns!: Table<ScanRunRecord, string>;
   scanFiles!: Table<ScanSessionFileRecord, string>;
 
@@ -46,6 +42,16 @@ class ParentCompanionDB extends Dexie {
       children: "id, grade, academicYear",
       items: "id, childId, category, dueDate, status, sourceDocumentId, [childId+dueDate]",
       documents: "id, type, uploadedAt, fileHash, relativePath, extractedMonth",
+      scanRuns: "id, scannedAt",
+      scanFiles: "documentId, scanRunId, fileHash, status, scannedAt",
+    });
+
+    this.version(5).stores({
+      children: "id, grade, academicYear, updatedAt",
+      items: "id, childId, category, dueDate, status, sourceDocumentId, updatedAt, [childId+dueDate]",
+      documents: "id, type, uploadedAt, fileHash, relativePath, extractedMonth, updatedAt",
+      deletions: "id, entityType, entityId, deletedAt, [entityType+entityId]",
+      syncQueue: "id, entityType, entityId, operation, updatedAt, [entityType+entityId]",
       scanRuns: "id, scannedAt",
       scanFiles: "documentId, scanRunId, fileHash, status, scannedAt",
     });
