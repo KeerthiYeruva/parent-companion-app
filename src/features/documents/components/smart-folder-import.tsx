@@ -1,19 +1,19 @@
-import type { InputHTMLAttributes } from "react";
-import { useMemo, useRef, useState } from "react";
-import Link from "@/components/routing";
+import type { InputHTMLAttributes } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import Link from '@/components/routing';
 import {
   buildChildAliasMap,
   expandGradeHint,
   normalizeGrade,
-} from "@/features/documents/services/child-alias-map";
-import { detectPlannerDocument } from "@/features/documents/services/document-detector";
-import { formatSchoolDocumentTitle } from "@/features/documents/services/document-title";
-import { extractPdfText } from "@/features/documents/services/pdf-parser";
-import { extractPlannerRows } from "@/features/documents/services/planner-text-extractor";
-import { importPipeline } from "@/features/import";
-import type { RawImportRecord } from "@/features/import";
-import { appRepository } from "@/db/repositories/app-repository";
-import { useAppStore } from "@/store/use-app-store";
+} from '@/features/documents/services/child-alias-map';
+import { detectPlannerDocument } from '@/features/documents/services/document-detector';
+import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
+import { extractPdfText } from '@/features/documents/services/pdf-parser';
+import { extractPlannerRows } from '@/features/documents/services/planner-text-extractor';
+import { importPipeline } from '@/features/import';
+import type { RawImportRecord } from '@/features/import';
+import { appRepository } from '@/db/repositories/app-repository';
+import { useAppStore } from '@/store/use-app-store';
 import type {
   ChildProfile,
   ImportedItemReplacementScope,
@@ -21,29 +21,26 @@ import type {
   ItemCategory,
   ScanSessionFileRecord,
   SchoolItem,
-} from "@/types/domain";
+} from '@/types/domain';
 
 const itemCategories: ItemCategory[] = [
-  "Homework",
-  "HomeStudy",
-  "Activity",
-  "ClassTest",
-  "UnitTest",
-  "Exam",
-  "Project",
-  "Circular",
+  'Homework',
+  'HomeStudy',
+  'Activity',
+  'ClassTest',
+  'UnitTest',
+  'Exam',
+  'Project',
+  'Circular',
 ];
 
-const createConfidenceIssue = (
-  documentId: string,
-  issue: string,
-): ImportIssue => ({
+const createConfidenceIssue = (documentId: string, issue: string): ImportIssue => ({
   id: `scan-confidence-${crypto.randomUUID()}`,
   documentId,
-  fieldName: "parser",
+  fieldName: 'parser',
   issue,
   resolved: false,
-  severity: "warning",
+  severity: 'warning',
 });
 
 const countRowsByCategory = (rows: Array<{ category?: string }>) => {
@@ -66,43 +63,37 @@ const buildScanConfidenceIssues = ({
 }: {
   documentId: string;
   contentText: string;
-  extractionStatus: ScanSessionFileRecord["extractionStatus"];
+  extractionStatus: ScanSessionFileRecord['extractionStatus'];
   categoryCounts: Partial<Record<ItemCategory, number>>;
-  detectedType: ScanSessionFileRecord["detectedType"];
+  detectedType: ScanSessionFileRecord['detectedType'];
 }) => {
   const issues: ImportIssue[] = [];
-  const hasExtractedText =
-    extractionStatus === "success" && contentText.trim().length > 0;
-  const totalRows = Object.values(categoryCounts).reduce(
-    (sum, count) => sum + (count ?? 0),
-    0,
-  );
+  const hasExtractedText = extractionStatus === 'success' && contentText.trim().length > 0;
+  const totalRows = Object.values(categoryCounts).reduce((sum, count) => sum + (count ?? 0), 0);
 
   if (hasExtractedText && totalRows === 0) {
     issues.push(
       createConfidenceIssue(
         documentId,
-        "Text was extracted, but no actionable school tasks were found.",
-      ),
+        'Text was extracted, but no actionable school tasks were found.'
+      )
     );
   }
 
   if (
-    /co\s*scholastic|physical\s+education|art\s*&\s*craft|karate|yoga/i.test(
-      contentText,
-    ) &&
+    /co\s*scholastic|physical\s+education|art\s*&\s*craft|karate|yoga/i.test(contentText) &&
     !categoryCounts.Activity
   ) {
     issues.push(
       createConfidenceIssue(
         documentId,
-        "Co-scholastic activity content was detected, but no Activity items were extracted.",
-      ),
+        'Co-scholastic activity content was detected, but no Activity items were extracted.'
+      )
     );
   }
 
   if (
-    detectedType === "UnitTestPortion" &&
+    detectedType === 'UnitTestPortion' &&
     /unit\s*test/i.test(contentText) &&
     /chapter\s+name|portion/i.test(contentText) &&
     !categoryCounts.UnitTest
@@ -110,8 +101,8 @@ const buildScanConfidenceIssues = ({
     issues.push(
       createConfidenceIssue(
         documentId,
-        "Unit test portion content was detected, but no UnitTest items were extracted.",
-      ),
+        'Unit test portion content was detected, but no UnitTest items were extracted.'
+      )
     );
   }
 
@@ -119,64 +110,53 @@ const buildScanConfidenceIssues = ({
     issues.push(
       createConfidenceIssue(
         documentId,
-        "Graded project content was detected, but no Project item was extracted.",
-      ),
+        'Graded project content was detected, but no Project item was extracted.'
+      )
     );
   }
 
-  if (
-    /graded\s+lab\s+activity/i.test(contentText) &&
-    !categoryCounts.Activity
-  ) {
+  if (/graded\s+lab\s+activity/i.test(contentText) && !categoryCounts.Activity) {
     issues.push(
       createConfidenceIssue(
         documentId,
-        "Graded lab activity content was detected, but no Activity item was extracted.",
-      ),
+        'Graded lab activity content was detected, but no Activity item was extracted.'
+      )
     );
   }
 
   return issues;
 };
 
-const formatCategoryCounts = (
-  counts?: Partial<Record<ItemCategory, number>>,
-) => {
+const formatCategoryCounts = (counts?: Partial<Record<ItemCategory, number>>) => {
   if (!counts) {
-    return "No items found yet";
+    return 'No items found yet';
   }
 
   const entries = itemCategories
     .map((category) => [category, counts[category] ?? 0] as const)
     .filter(([, count]) => count > 0);
   return entries.length > 0
-    ? entries.map(([category, count]) => `${category}: ${count}`).join(" • ")
-    : "No weekly or monthly targets found";
+    ? entries.map(([category, count]) => `${category}: ${count}`).join(' • ')
+    : 'No weekly or monthly targets found';
 };
 
-const countExtractedItems = (
-  counts?: Partial<Record<ItemCategory, number>>,
-) => {
-  return Object.values(counts ?? {}).reduce(
-    (sum, count) => sum + (count ?? 0),
-    0,
-  );
+const countExtractedItems = (counts?: Partial<Record<ItemCategory, number>>) => {
+  return Object.values(counts ?? {}).reduce((sum, count) => sum + (count ?? 0), 0);
 };
 
 const countChildAssignmentIssues = (issues?: ImportIssue[]) => {
-  return (issues ?? []).filter((issue) => issue.fieldName === "childName")
-    .length;
+  return (issues ?? []).filter((issue) => issue.fieldName === 'childName').length;
 };
 
 const formatCounts = (counts: Record<string, number>) => {
   const entries = Object.entries(counts).filter(([, count]) => count > 0);
   return entries.length > 0
-    ? entries.map(([label, count]) => `${label}: ${count}`).join(" • ")
-    : "None yet";
+    ? entries.map(([label, count]) => `${label}: ${count}`).join(' • ')
+    : 'None yet';
 };
 
 const buildReplacementScope = (
-  items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>,
+  items: Array<Omit<SchoolItem, 'id' | 'status' | 'completedAt'>>
 ): ImportedItemReplacementScope | undefined => {
   if (items.length === 0) {
     return undefined;
@@ -191,10 +171,7 @@ const buildReplacementScope = (
   };
 };
 
-const isInReplacementScope = (
-  item: SchoolItem,
-  scope?: ImportedItemReplacementScope,
-) => {
+const isInReplacementScope = (item: SchoolItem, scope?: ImportedItemReplacementScope) => {
   if (!scope || (!item.sourceDocumentId && !item.sourceDocumentIds?.length)) {
     return false;
   }
@@ -208,54 +185,46 @@ const isInReplacementScope = (
 };
 
 const itemHasAnySourceDocument = (
-  item: Pick<SchoolItem, "sourceDocumentId" | "sourceDocumentIds">,
-  sourceDocumentIds: Set<string>,
+  item: Pick<SchoolItem, 'sourceDocumentId' | 'sourceDocumentIds'>,
+  sourceDocumentIds: Set<string>
 ) =>
   Boolean(
     (item.sourceDocumentId && sourceDocumentIds.has(item.sourceDocumentId)) ||
-      (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
-        sourceDocumentIds.has(sourceDocumentId),
-      ),
+    (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
+      sourceDocumentIds.has(sourceDocumentId)
+    )
   );
 
 const normalizeSubjectKey = (value?: string) =>
-  value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+  value?.trim().toLowerCase().replace(/\s+/g, ' ') ?? '';
 
-const isGradeOrClassHint = (value: string) =>
-  /^(grades?|classes?)\b/i.test(value.trim());
+const isGradeOrClassHint = (value: string) => /^(grades?|classes?)\b/i.test(value.trim());
 
 const normalizeRowChildNames = (
   rows: RawImportRecord[],
   children: ChildProfile[],
-  childNameToIdMap: Record<string, string>,
+  childNameToIdMap: Record<string, string>
 ) => {
-  const childNameById = new Map(
-    children.map((child) => [child.id, child.name]),
-  );
+  const childNameById = new Map(children.map((child) => [child.id, child.name]));
 
   return rows.map((row) => {
     const childId = row.childName
       ? childNameToIdMap[row.childName.trim().toLowerCase()]
       : undefined;
-    return childId
-      ? { ...row, childName: childNameById.get(childId) ?? row.childName }
-      : row;
+    return childId ? { ...row, childName: childNameById.get(childId) ?? row.childName } : row;
   });
 };
 
 const classifyRowsByChildProfile = (
   rows: RawImportRecord[],
   children: ChildProfile[],
-  childNameToIdMap: Record<string, string>,
+  childNameToIdMap: Record<string, string>
 ) => {
-  const childrenByGrade = children.reduce<Record<string, ChildProfile[]>>(
-    (acc, child) => {
-      const grade = normalizeGrade(child.grade);
-      acc[grade] = [...(acc[grade] ?? []), child];
-      return acc;
-    },
-    {},
-  );
+  const childrenByGrade = children.reduce<Record<string, ChildProfile[]>>((acc, child) => {
+    const grade = normalizeGrade(child.grade);
+    acc[grade] = [...(acc[grade] ?? []), child];
+    return acc;
+  }, {});
 
   return rows.reduce<{
     importRows: RawImportRecord[];
@@ -272,9 +241,9 @@ const classifyRowsByChildProfile = (
 
       const grade = normalizeGrade(rawChildName);
       const hintedGrades = expandGradeHint(rawChildName);
-      const gradeChildren = (
-        hintedGrades.length > 0 ? hintedGrades : [grade]
-      ).flatMap((hintedGrade) => childrenByGrade[hintedGrade] ?? []);
+      const gradeChildren = (hintedGrades.length > 0 ? hintedGrades : [grade]).flatMap(
+        (hintedGrade) => childrenByGrade[hintedGrade] ?? []
+      );
       if (gradeChildren.length === 0) {
         result.skippedRows.push(row);
         result.skippedReason = `${rawChildName}: no matching child profile found`;
@@ -286,17 +255,15 @@ const classifyRowsByChildProfile = (
       });
       return result;
     },
-    { importRows: [], skippedRows: [], ambiguousRows: [] },
+    { importRows: [], skippedRows: [], ambiguousRows: [] }
   );
 };
 
 export const attachUnitTestDatesFromSchedule = (
-  files: Array<{ rows: RawImportRecord[]; isGradeSpecificSchedule: boolean }>,
+  files: Array<{ rows: RawImportRecord[]; isGradeSpecificSchedule: boolean }>
 ) => {
   const keyFor = (row: RawImportRecord) =>
-    (row.childName?.trim().toLowerCase() ?? "") +
-    "::" +
-    normalizeSubjectKey(row.subject);
+    (row.childName?.trim().toLowerCase() ?? '') + '::' + normalizeSubjectKey(row.subject);
   const authoritativeChildren = new Set(
     files
       .filter((file) => file.isGradeSpecificSchedule)
@@ -304,46 +271,36 @@ export const attachUnitTestDatesFromSchedule = (
         file.rows
           .filter(
             (row) =>
-              row.category === "UnitTest" &&
-              Boolean(row.childName && row.subject && row.dueDate),
+              row.category === 'UnitTest' && Boolean(row.childName && row.subject && row.dueDate)
           )
-          .map((row) => row.childName!.trim().toLowerCase()),
-      ),
+          .map((row) => row.childName!.trim().toLowerCase())
+      )
   );
   const scheduleByKey = new Map<string, string>();
   const portionKeys = new Set<string>();
 
   files.forEach((file) =>
     file.rows.forEach((row) => {
-      if (row.category !== "UnitTest" || !row.subject || !row.childName) return;
+      if (row.category !== 'UnitTest' || !row.subject || !row.childName) return;
       const childKey = row.childName.trim().toLowerCase();
-      if (
-        row.dueDate &&
-        (!authoritativeChildren.has(childKey) || file.isGradeSpecificSchedule)
-      ) {
+      if (row.dueDate && (!authoritativeChildren.has(childKey) || file.isGradeSpecificSchedule)) {
         scheduleByKey.set(keyFor(row), row.dueDate);
       }
-      if (
-        /unit test portion found without an exam schedule date/i.test(
-          row.parserIssue ?? "",
-        )
-      ) {
+      if (/unit test portion found without an exam schedule date/i.test(row.parserIssue ?? '')) {
         portionKeys.add(keyFor(row));
       }
-    }),
+    })
   );
 
   const seenSchedules = new Set<string>();
   return files.map((file) =>
     file.rows.flatMap((row) => {
-      if (row.category !== "UnitTest" || !row.subject || !row.childName)
-        return [row];
+      if (row.category !== 'UnitTest' || !row.subject || !row.childName) return [row];
       const key = keyFor(row);
       const childKey = row.childName.trim().toLowerCase();
       if (row.dueDate) {
         if (
-          (authoritativeChildren.has(childKey) &&
-            !file.isGradeSpecificSchedule) ||
+          (authoritativeChildren.has(childKey) && !file.isGradeSpecificSchedule) ||
           portionKeys.has(key) ||
           seenSchedules.has(key)
         )
@@ -352,27 +309,25 @@ export const attachUnitTestDatesFromSchedule = (
         return [row];
       }
 
-      const isPortion =
-        /unit test portion found without an exam schedule date/i.test(
-          row.parserIssue ?? "",
-        );
+      const isPortion = /unit test portion found without an exam schedule date/i.test(
+        row.parserIssue ?? ''
+      );
       const scheduleDate = scheduleByKey.get(key);
       if (!isPortion || !scheduleDate) return [row];
 
       return [
         {
           ...row,
-          title: row.subject + " Unit Test",
-          description: (
-            row.title ??
-            row.description ??
-            row.subject + " portions"
-          ).replace(/^Unit Test Portion:\s*/i, "Portions: "),
+          title: row.subject + ' Unit Test',
+          description: (row.title ?? row.description ?? row.subject + ' portions').replace(
+            /^Unit Test Portion:\s*/i,
+            'Portions: '
+          ),
           dueDate: scheduleDate,
           parserIssue: undefined,
         },
       ];
-    }),
+    })
   );
 };
 const buildConfidence = ({
@@ -380,38 +335,35 @@ const buildConfidence = ({
   issueCount,
   categoryCounts,
 }: {
-  extractionStatus: ScanSessionFileRecord["extractionStatus"];
+  extractionStatus: ScanSessionFileRecord['extractionStatus'];
   issueCount: number;
   categoryCounts: Partial<Record<ItemCategory, number>>;
-}): ScanSessionFileRecord["confidence"] => {
-  const totalRows = Object.values(categoryCounts).reduce(
-    (sum, count) => sum + (count ?? 0),
-    0,
-  );
+}): ScanSessionFileRecord['confidence'] => {
+  const totalRows = Object.values(categoryCounts).reduce((sum, count) => sum + (count ?? 0), 0);
   if (issueCount > 0) {
-    return "review";
+    return 'review';
   }
 
-  if (extractionStatus === "success" && totalRows > 0) {
-    return "high";
+  if (extractionStatus === 'success' && totalRows > 0) {
+    return 'high';
   }
 
-  return "low";
+  return 'low';
 };
 
-const formatConfidence = (confidence?: ScanSessionFileRecord["confidence"]) => {
-  if (confidence === "high") {
-    return "High Confidence";
+const formatConfidence = (confidence?: ScanSessionFileRecord['confidence']) => {
+  if (confidence === 'high') {
+    return 'High Confidence';
   }
 
-  if (confidence === "review") {
-    return "Needs Review";
+  if (confidence === 'review') {
+    return 'Needs Review';
   }
 
-  return "Low Confidence";
+  return 'Low Confidence';
 };
 
-const statusModifierClass = (status: ScanSessionFileRecord["status"]) =>
+const statusModifierClass = (status: ScanSessionFileRecord['status']) =>
   `document-file--${status.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}`;
 
 export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
@@ -424,27 +376,21 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
   const addDocument = useAppStore((state) => state.addDocument);
   const addItem = useAppStore((state) => state.addItem);
   const replaceItemsForSourceDocuments = useAppStore(
-    (state) => state.replaceItemsForSourceDocuments,
+    (state) => state.replaceItemsForSourceDocuments
   );
   const scanQueue = useAppStore((state) => state.scanQueue);
-  const setConnectedFolderName = useAppStore(
-    (state) => state.setConnectedFolderName,
-  );
+  const setConnectedFolderName = useAppStore((state) => state.setConnectedFolderName);
   const setScanQueue = useAppStore((state) => state.setScanQueue);
-  const pushPersistenceWarning = useAppStore(
-    (state) => state.pushPersistenceWarning,
-  );
+  const pushPersistenceWarning = useAppStore((state) => state.pushPersistenceWarning);
   const [isScanning, setIsScanning] = useState(false);
-  const [, setLastRebuildSummary] = useState<
-    { cleared: number; imported: number } | undefined
-  >();
+  const [, setLastRebuildSummary] = useState<{ cleared: number; imported: number } | undefined>();
 
   const directoryPickerProps: InputHTMLAttributes<HTMLInputElement> & {
     webkitdirectory?: string;
     directory?: string;
   } = {
-    webkitdirectory: "",
-    directory: "",
+    webkitdirectory: '',
+    directory: '',
   };
 
   const existingByHash = useMemo(() => {
@@ -462,7 +408,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       return !documents.some(
         (doc) =>
           (result.fileHash && doc.fileHash === result.fileHash) ||
-          (result.relativePath && doc.relativePath === result.relativePath),
+          (result.relativePath && doc.relativePath === result.relativePath)
       );
     });
   }, [documents, scanQueue]);
@@ -473,13 +419,13 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         [
           item.childId,
           item.category,
-          item.subject ?? "",
+          item.subject ?? '',
           item.title.trim().toLowerCase(),
           item.dueDate,
-          item.sourceDocumentId ?? "",
+          item.sourceDocumentId ?? '',
           ...(item.sourceDocumentIds ?? []),
-        ].join("__"),
-      ),
+        ].join('__')
+      )
     );
   }, [items]);
 
@@ -489,11 +435,11 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
 
   const readyPreviewItems = useMemo(
     () => scanQueue.flatMap((result) => result.importPreviewItems ?? []),
-    [scanQueue],
+    [scanQueue]
   );
   const replacementScope = useMemo(
     () => buildReplacementScope(readyPreviewItems),
-    [readyPreviewItems],
+    [readyPreviewItems]
   );
 
   const replaceableImportedCount = useMemo(() => {
@@ -501,27 +447,21 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     return items.filter(
       (item) =>
         itemHasAnySourceDocument(item, scannedSourceDocumentIdSet) ||
-        isInReplacementScope(item, replacementScope),
+        isInReplacementScope(item, replacementScope)
     ).length;
   }, [items, replacementScope, scannedSourceDocumentIds]);
 
   const scanTotals = useMemo(() => {
     return scanQueue.reduce(
       (totals, result) => {
-        const extractedItems = countExtractedItems(
-          result.importPreviewCategoryCounts,
-        );
-        const childAssignmentIssues = countChildAssignmentIssues(
-          result.importPreviewIssues,
-        );
+        const extractedItems = countExtractedItems(result.importPreviewCategoryCounts);
+        const childAssignmentIssues = countChildAssignmentIssues(result.importPreviewIssues);
         const readyItems = result.importPreviewItems ?? [];
         readyItems.forEach((item) => {
           const childName =
-            children.find((child) => child.id === item.childId)?.name ??
-            "Matched child";
+            children.find((child) => child.id === item.childId)?.name ?? 'Matched child';
           totals.byChild[childName] = (totals.byChild[childName] ?? 0) + 1;
-          totals.byCategory[item.category] =
-            (totals.byCategory[item.category] ?? 0) + 1;
+          totals.byCategory[item.category] = (totals.byCategory[item.category] ?? 0) + 1;
         });
 
         return {
@@ -531,10 +471,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           assignmentIssues: totals.assignmentIssues + childAssignmentIssues,
           otherIssues:
             totals.otherIssues +
-            Math.max(
-              (result.importPreviewIssues?.length ?? 0) - childAssignmentIssues,
-              0,
-            ),
+            Math.max((result.importPreviewIssues?.length ?? 0) - childAssignmentIssues, 0),
           byChild: totals.byChild,
           byCategory: totals.byCategory,
         };
@@ -547,25 +484,20 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         otherIssues: 0,
         byChild: {} as Record<string, number>,
         byCategory: {} as Record<string, number>,
-      },
+      }
     );
   }, [children, scanQueue]);
 
   const saveScannedDocuments = (results: ScanSessionFileRecord[]) => {
     results
-      .filter((result) => result.status !== "duplicate")
+      .filter((result) => result.status !== 'duplicate')
       .forEach((result) => {
         const childIds = Array.from(
-          new Set(
-            (result.importPreviewItems ?? []).map((item) => item.childId),
-          ),
+          new Set((result.importPreviewItems ?? []).map((item) => item.childId))
         );
         addDocument({
           title: result.title,
-          type:
-            result.detectedType === "Unknown"
-              ? "Circular"
-              : result.detectedType,
+          type: result.detectedType === 'Unknown' ? 'Circular' : result.detectedType,
           childIds,
           fileName: result.fileName,
           fileSize: result.fileSize,
@@ -583,12 +515,12 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         const key = [
           item.childId,
           item.category,
-          item.subject ?? "",
+          item.subject ?? '',
           item.title.trim().toLowerCase(),
           item.dueDate,
-          item.sourceDocumentId ?? "",
+          item.sourceDocumentId ?? '',
           ...(item.sourceDocumentIds ?? []),
-        ].join("__");
+        ].join('__');
         if (!existingItemKeys.has(key)) {
           addItem(item);
         }
@@ -609,65 +541,52 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       const scanRunId = `scan-run-${crypto.randomUUID()}`;
       const allFiles = Array.from(files);
       const pdfFiles = allFiles.filter(
-        (file) =>
-          file.type === "application/pdf" ||
-          file.name.toLowerCase().endsWith(".pdf"),
+        (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
       );
 
       if (pdfFiles.length === 0) {
-        pushPersistenceWarning(
-          "No PDF files were found in the selected folder.",
-        );
+        pushPersistenceWarning('No PDF files were found in the selected folder.');
         return;
       }
 
       if (pdfFiles.length < allFiles.length) {
-        pushPersistenceWarning(
-          "Only PDF files are scanned. Non-PDF files were skipped.",
-        );
+        pushPersistenceWarning('Only PDF files are scanned. Non-PDF files were skipped.');
       }
 
-      const firstRelativePath = (
-        pdfFiles[0] as File & { webkitRelativePath?: string }
-      ).webkitRelativePath;
-      const rootFolderName =
-        firstRelativePath?.split("/")[0] || "Selected folder";
+      const firstRelativePath = (pdfFiles[0] as File & { webkitRelativePath?: string })
+        .webkitRelativePath;
+      const rootFolderName = firstRelativePath?.split('/')[0] || 'Selected folder';
       const scannedFiles: Array<{
         file: File;
         contentText: string;
-        extractionStatus: ScanSessionFileRecord["extractionStatus"];
+        extractionStatus: ScanSessionFileRecord['extractionStatus'];
         extractionError?: string;
         relativePath: string;
         detected: Awaited<ReturnType<typeof detectPlannerDocument>>;
         rawRows: RawImportRecord[];
       }> = [];
       const scanChildren =
-        children.length > 0
-          ? children
-          : await appRepository.listChildren().catch(() => []);
+        children.length > 0 ? children : await appRepository.listChildren().catch(() => []);
       const scanChildNameToIdMap = buildChildAliasMap(scanChildren);
 
       for (const file of pdfFiles) {
-        let contentText = "";
-        let extractionStatus: ScanSessionFileRecord["extractionStatus"] =
-          "empty";
+        let contentText = '';
+        let extractionStatus: ScanSessionFileRecord['extractionStatus'] = 'empty';
         let extractionError: string | undefined;
         try {
           contentText = await extractPdfText(file);
-          extractionStatus =
-            contentText.trim().length > 0 ? "success" : "empty";
+          extractionStatus = contentText.trim().length > 0 ? 'success' : 'empty';
         } catch (error) {
           console.error(error);
 
           extractionError =
             error instanceof Error
               ? `${error.name}: ${error.message}`
-              : "PDF text extraction failed.";
+              : 'PDF text extraction failed.';
         }
 
         const relativePath =
-          (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
-          file.name;
+          (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
         const detected = await detectPlannerDocument({
           name: file.name,
           relativePath,
@@ -702,27 +621,25 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         const normalizedRows = normalizeRowChildNames(
           entry.rawRows,
           scanChildren,
-          scanChildNameToIdMap,
+          scanChildNameToIdMap
         );
         const classifiedRows = classifyRowsByChildProfile(
           normalizedRows,
           scanChildren,
-          scanChildNameToIdMap,
+          scanChildNameToIdMap
         );
-        console.debug("[smart-folder-import] source trace", {
+        console.debug('[smart-folder-import] source trace', {
           fileName: entry.file.name,
           detectedType: entry.detected.detectedType,
           childHints: entry.detected.childHints,
-          inferredChildName: entry.rawRows.find((row) => row.childName)
-            ?.childName,
+          inferredChildName: entry.rawRows.find((row) => row.childName)?.childName,
           detectedGradeOrClass: entry.detected.childHints,
           scheduleRows: classifiedRows.importRows.filter(
-            (row) => row.category === "UnitTest" && Boolean(row.dueDate),
+            (row) => row.category === 'UnitTest' && Boolean(row.dueDate)
           ),
           portionRows: classifiedRows.importRows.filter(
             (row) =>
-              row.category === "UnitTest" &&
-              /portion/i.test(row.parserIssue ?? row.title ?? ""),
+              row.category === 'UnitTest' && /portion/i.test(row.parserIssue ?? row.title ?? '')
           ),
           rawRows: normalizedRows,
           importRows: classifiedRows.importRows,
@@ -730,15 +647,13 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         return {
           classifiedRows,
           isGradeSpecificSchedule:
-            entry.detected.detectedType === "ScholasticPlanner" &&
+            entry.detected.detectedType === 'ScholasticPlanner' &&
             classifiedRows.importRows.some(
-              (row) => row.category === "UnitTest" && Boolean(row.dueDate),
+              (row) => row.category === 'UnitTest' && Boolean(row.dueDate)
             ),
         };
       });
-      const currentBatchDocumentIds = new Set(
-        scannedFiles.map((entry) => entry.detected.fileHash),
-      );
+      const currentBatchDocumentIds = new Set(scannedFiles.map((entry) => entry.detected.fileHash));
       const historicalRows = scanQueue.flatMap((file) =>
         (file.rawRows ?? [])
           .filter(() => !currentBatchDocumentIds.has(file.documentId))
@@ -750,11 +665,9 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
             dueDate: row.dueDate,
             description: row.description,
             sourceDocumentId: row.sourceDocumentId ?? file.documentId,
-            sourceDocumentIds: row.sourceDocumentIds ?? [
-              row.sourceDocumentId ?? file.documentId,
-            ],
+            sourceDocumentIds: row.sourceDocumentIds ?? [row.sourceDocumentId ?? file.documentId],
             parserIssue: row.parserIssue,
-          })),
+          }))
       );
       const batchRows = [
         ...historicalRows,
@@ -763,13 +676,13 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
             ...row,
             sourceDocumentId: scannedFiles[index].detected.fileHash,
             sourceDocumentIds: [scannedFiles[index].detected.fileHash],
-          })),
+          }))
         ),
       ];
       const batchPreview =
         batchRows.length > 0
           ? importPipeline.run(batchRows, {
-              sourceType: "future-pdf",
+              sourceType: 'future-pdf',
               documentId: scanRunId,
               childNameToIdMap: scanChildNameToIdMap,
               existingItems: items,
@@ -778,21 +691,15 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       const nextResults = [];
 
       for (const [index, scannedFile] of scannedFiles.entries()) {
-        const {
-          file,
-          contentText,
-          extractionStatus,
-          extractionError,
-          relativePath,
-          detected,
-        } = scannedFile;
+        const { file, contentText, extractionStatus, extractionError, relativePath, detected } =
+          scannedFile;
         const classifiedRows = classifiedFiles[index].classifiedRows;
         const allRawRows = classifiedRows.importRows;
         const rawRows = allRawRows;
-        console.debug("[smart-folder-import] final merge", {
+        console.debug('[smart-folder-import] final merge', {
           fileName: file.name,
           subjects: rawRows
-            .filter((row) => row.category === "UnitTest")
+            .filter((row) => row.category === 'UnitTest')
             .map((row) => ({
               childName: row.childName,
               subject: normalizeSubjectKey(row.subject),
@@ -805,16 +712,14 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           ? {
               ...batchPreview,
               items: batchPreview.items.filter((item) =>
-                itemHasAnySourceDocument(item, fileSourceIds),
+                itemHasAnySourceDocument(item, fileSourceIds)
               ),
-              issues: batchPreview.issues.filter(
-                (issue) => issue.documentId === detected.fileHash,
-              ),
+              issues: batchPreview.issues.filter((issue) => issue.documentId === detected.fileHash),
               resolvedRecords: batchPreview.resolvedRecords.filter((record) =>
-                itemHasAnySourceDocument(record, fileSourceIds),
+                itemHasAnySourceDocument(record, fileSourceIds)
               ),
-              normalizedRecords: batchPreview.normalizedRecords.filter(
-                (record) => itemHasAnySourceDocument(record, fileSourceIds),
+              normalizedRecords: batchPreview.normalizedRecords.filter((record) =>
+                itemHasAnySourceDocument(record, fileSourceIds)
               ),
             }
           : undefined;
@@ -826,12 +731,9 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           categoryCounts,
           detectedType: detected.detectedType,
         });
-        const importPreviewIssues = [
-          ...(importPreview?.issues ?? []),
-          ...confidenceIssues,
-        ];
+        const importPreviewIssues = [...(importPreview?.issues ?? []), ...confidenceIssues];
         const blockingIssueCount = importPreviewIssues.filter(
-          (issue) => issue.severity !== "warning" && issue.severity !== "info",
+          (issue) => issue.severity !== 'warning' && issue.severity !== 'info'
         ).length;
         const validItemCount = importPreview?.items.length ?? 0;
         const importPreviewSummary = importPreview
@@ -840,23 +742,17 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
               normalizedRecords: importPreview.normalizedRecords.length,
               resolvedRecords: importPreview.resolvedRecords.length,
               validRecords: importPreview.items.length,
-              issuesCount:
-                importPreview.issues.length + confidenceIssues.length,
+              issuesCount: importPreview.issues.length + confidenceIssues.length,
               blockingIssues:
                 importPreview.issues.filter(
-                  (issue) =>
-                    issue.severity !== "warning" && issue.severity !== "info",
+                  (issue) => issue.severity !== 'warning' && issue.severity !== 'info'
                 ).length +
                 confidenceIssues.filter(
-                  (issue) =>
-                    issue.severity !== "warning" && issue.severity !== "info",
+                  (issue) => issue.severity !== 'warning' && issue.severity !== 'info'
                 ).length,
               warningIssues:
-                importPreview.issues.filter(
-                  (issue) => issue.severity === "warning",
-                ).length +
-                confidenceIssues.filter((issue) => issue.severity === "warning")
-                  .length,
+                importPreview.issues.filter((issue) => issue.severity === 'warning').length +
+                confidenceIssues.filter((issue) => issue.severity === 'warning').length,
             }
           : confidenceIssues.length > 0
             ? {
@@ -866,12 +762,10 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                 validRecords: 0,
                 issuesCount: confidenceIssues.length,
                 blockingIssues: confidenceIssues.filter(
-                  (issue) =>
-                    issue.severity !== "warning" && issue.severity !== "info",
+                  (issue) => issue.severity !== 'warning' && issue.severity !== 'info'
                 ).length,
-                warningIssues: confidenceIssues.filter(
-                  (issue) => issue.severity === "warning",
-                ).length,
+                warningIssues: confidenceIssues.filter((issue) => issue.severity === 'warning')
+                  .length,
               }
             : undefined;
         const confidence = buildConfidence({
@@ -881,21 +775,21 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         });
 
         const existing = existingByHash.get(detected.fileHash);
-        const derivedStatus: ScanSessionFileRecord["status"] = existing
+        const derivedStatus: ScanSessionFileRecord['status'] = existing
           ? existing.modifiedAt === new Date(file.lastModified).toISOString()
-            ? "duplicate"
-            : "changed"
-          : "ready";
-        const status: ScanSessionFileRecord["status"] =
-          derivedStatus === "duplicate" || derivedStatus === "changed"
+            ? 'duplicate'
+            : 'changed'
+          : 'ready';
+        const status: ScanSessionFileRecord['status'] =
+          derivedStatus === 'duplicate' || derivedStatus === 'changed'
             ? derivedStatus
             : blockingIssueCount > 0
               ? validItemCount > 0
-                ? "partiallyReady"
-                : "needsReview"
+                ? 'partiallyReady'
+                : 'needsReview'
               : validItemCount > 0
-                ? "ready"
-                : "needsReview";
+                ? 'ready'
+                : 'needsReview';
 
         nextResults.push({
           documentId: detected.fileHash,
@@ -951,11 +845,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       return;
     }
 
-    replaceItemsForSourceDocuments(
-      scannedSourceDocumentIds,
-      readyPreviewItems,
-      replacementScope,
-    );
+    replaceItemsForSourceDocuments(scannedSourceDocumentIds, readyPreviewItems, replacementScope);
     setLastRebuildSummary({
       cleared: replaceableImportedCount,
       imported: readyPreviewItems.length,
@@ -966,12 +856,12 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     <section className="document-import space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       <div className="document-import__header">
         <h3 className="document-import__title font-semibold text-slate-900">
-          {simple ? "Upload School Documents" : "Add School Files"}
+          {simple ? 'Upload School Documents' : 'Add School Files'}
         </h3>
         <p className="document-import__description text-sm text-slate-600">
           {simple
-            ? "Choose the folder or PDFs from school. The app saves them, extracts targets, and updates Today, This Week, This Month, and Kids automatically."
-            : "Choose a school folder and Parent Companion will save it and turn planner PDFs into tasks, tests, activities, and projects."}
+            ? 'Choose the folder or PDFs from school. The app saves them, extracts targets, and updates Today, This Week, This Month, and Kids automatically.'
+            : 'Choose a school folder and Parent Companion will save it and turn planner PDFs into tasks, tests, activities, and projects.'}
         </p>
       </div>
 
@@ -984,7 +874,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           onChange={(event) => {
             const input = event.currentTarget;
             void scanFiles(input.files).finally(() => {
-              input.value = "";
+              input.value = '';
             });
           }}
           className="document-import__pdf-input hidden"
@@ -997,7 +887,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           onChange={(event) => {
             const input = event.currentTarget;
             void scanFiles(input.files).finally(() => {
-              input.value = "";
+              input.value = '';
             });
           }}
           className="document-import__folder-input hidden"
@@ -1038,18 +928,17 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           <div className="document-import__summary rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
             <p className="document-import__final-count font-medium text-emerald-700">
               Imported for planning: {scanTotals.ready} item
-              {scanTotals.ready === 1 ? "" : "s"}
+              {scanTotals.ready === 1 ? '' : 's'}
             </p>
             <p className="document-import__summary-text mt-1 text-slate-600">
               Added matched school items from {scanQueue.length} document
-              {scanQueue.length === 1 ? "" : "s"} to Today, Week, Month, and
-              Kids.
+              {scanQueue.length === 1 ? '' : 's'} to Today, Week, Month, and Kids.
             </p>
             {scanTotals.skipped > 0 ? (
               <p className="document-import__skipped-rows mt-1 text-slate-500">
                 Ignored {scanTotals.skipped} row
-                {scanTotals.skipped === 1 ? "" : "s"} for grades or children
-                that are not set up in this app.
+                {scanTotals.skipped === 1 ? '' : 's'} for grades or children that are not set up in
+                this app.
               </p>
             ) : null}
             <div className="document-import__summary-breakdown mt-2 grid gap-2 md:grid-cols-2">
@@ -1073,13 +962,13 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
             {scanTotals.assignmentIssues > 0 ? (
               <p className="document-import__issues document-import__issues--assignment mt-2 text-amber-800">
                 Review exceptions: assign {scanTotals.assignmentIssues} item
-                {scanTotals.assignmentIssues === 1 ? "" : "s"} to a child.
+                {scanTotals.assignmentIssues === 1 ? '' : 's'} to a child.
               </p>
             ) : null}
             {scanTotals.otherIssues > 0 ? (
               <p className="document-import__issues document-import__issues--blocking mt-1 text-rose-700">
                 Review exceptions: {scanTotals.otherIssues} detail
-                {scanTotals.otherIssues === 1 ? "" : "s"} need cleanup.
+                {scanTotals.otherIssues === 1 ? '' : 's'} need cleanup.
               </p>
             ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
@@ -1108,8 +997,8 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         ) : (
           <p className="text-sm text-slate-600">
             {saveableResults.length > 0
-              ? `${saveableResults.length} school file${saveableResults.length > 1 ? "s are" : " is"} ready to save.`
-              : "All selected school files are saved."}
+              ? `${saveableResults.length} school file${saveableResults.length > 1 ? 's are' : ' is'} ready to save.`
+              : 'All selected school files are saved.'}
           </p>
         )
       ) : null}
@@ -1124,59 +1013,45 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
               data-file-name={result.fileName}
               data-document-type={result.detectedType}
               data-status={result.status}
-              data-extracted-row-count={countExtractedItems(
-                result.importPreviewCategoryCounts,
-              )}
-              data-resolved-row-count={
-                result.importPreviewSummary?.normalizedRecords ?? ""
-              }
-              data-final-item-count={
-                result.importPreviewSummary?.validRecords ?? ""
-              }
-              data-issue-count={result.importPreviewSummary?.issuesCount ?? ""}
+              data-extracted-row-count={countExtractedItems(result.importPreviewCategoryCounts)}
+              data-resolved-row-count={result.importPreviewSummary?.normalizedRecords ?? ''}
+              data-final-item-count={result.importPreviewSummary?.validRecords ?? ''}
+              data-issue-count={result.importPreviewSummary?.issuesCount ?? ''}
               data-skipped-row-count={result.skippedImportCount ?? 0}
             >
               {(() => {
-                const extractedItems = countExtractedItems(
-                  result.importPreviewCategoryCounts,
-                );
+                const extractedItems = countExtractedItems(result.importPreviewCategoryCounts);
                 const childAssignmentIssues = countChildAssignmentIssues(
-                  result.importPreviewIssues,
+                  result.importPreviewIssues
                 );
                 return (
                   <>
                     <div className="document-file__header flex items-start justify-between gap-2">
                       <div className="document-file__identity">
                         <p className="document-file__name font-medium text-slate-900">
-                          {formatSchoolDocumentTitle(
-                            result.fileName,
-                            result.detectedType,
-                          )}
+                          {formatSchoolDocumentTitle(result.fileName, result.detectedType)}
                         </p>
                         <p className="document-file__metadata text-sm text-slate-600">
-                          {result.detectedType} •{" "}
-                          {result.monthLabel ?? "Month unknown"} •{" "}
+                          {result.detectedType} • {result.monthLabel ?? 'Month unknown'} •{' '}
                           {result.relativePath}
                         </p>
                         {result.skippedImportCount ? (
                           <p className="document-file__skipped-rows mt-1 text-sm text-amber-800">
                             Skipped {result.skippedImportCount} item
-                            {result.skippedImportCount === 1 ? "" : "s"}:{" "}
-                            {result.skippedImportReason ??
-                              "no matching child profile found"}
-                            .
+                            {result.skippedImportCount === 1 ? '' : 's'}:{' '}
+                            {result.skippedImportReason ?? 'no matching child profile found'}.
                           </p>
                         ) : null}
                       </div>
                       <span
                         className={`document-file__status ${statusModifierClass(result.status)} rounded-full px-2 py-1 text-xs font-medium ${
-                          result.status === "ready"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : result.status === "changed"
-                              ? "bg-amber-100 text-amber-700"
-                              : result.status === "duplicate"
-                                ? "bg-slate-200 text-slate-700"
-                                : "bg-slate-200 text-slate-700"
+                          result.status === 'ready'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : result.status === 'changed'
+                              ? 'bg-amber-100 text-amber-700'
+                              : result.status === 'duplicate'
+                                ? 'bg-slate-200 text-slate-700'
+                                : 'bg-slate-200 text-slate-700'
                         }`}
                       >
                         {result.status}
@@ -1184,7 +1059,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                     </div>
                     {result.childHints.length > 0 ? (
                       <p className="document-file__child-hints mt-2 text-sm text-slate-600">
-                        Hints: {result.childHints.join(", ")}
+                        Hints: {result.childHints.join(', ')}
                       </p>
                     ) : null}
                     {result.importPreviewSummary ? (
@@ -1193,42 +1068,34 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                           Items found: {extractedItems}
                         </p>
                         <p
-                          className={`document-file__confidence mt-1 text-xs font-semibold ${result.confidence === "high" ? "text-emerald-700" : result.confidence === "review" ? "text-amber-700" : "text-rose-700"}`}
+                          className={`document-file__confidence mt-1 text-xs font-semibold ${result.confidence === 'high' ? 'text-emerald-700' : result.confidence === 'review' ? 'text-amber-700' : 'text-rose-700'}`}
                         >
                           {formatConfidence(result.confidence)}
                         </p>
                         <p className="document-file__category-counts mt-1 text-xs text-slate-600">
-                          {formatCategoryCounts(
-                            result.importPreviewCategoryCounts,
-                          )}
+                          {formatCategoryCounts(result.importPreviewCategoryCounts)}
                         </p>
                         {childAssignmentIssues > 0 ? (
                           <p className="document-file__issues document-file__issues--assignment mt-2 rounded-md bg-amber-50 px-2 py-1 text-amber-800">
-                            Child assignment needed for {childAssignmentIssues}{" "}
-                            item{childAssignmentIssues > 1 ? "s" : ""}.
+                            Child assignment needed for {childAssignmentIssues} item
+                            {childAssignmentIssues > 1 ? 's' : ''}.
                           </p>
                         ) : null}
-                        {(result.importPreviewIssues?.length ?? 0) >
-                        childAssignmentIssues ? (
+                        {(result.importPreviewIssues?.length ?? 0) > childAssignmentIssues ? (
                           <p className="document-file__issues document-file__issues--blocking mt-2 rounded-md bg-rose-50 px-2 py-1 text-rose-700">
-                            {(result.importPreviewIssues?.length ?? 0) -
-                              childAssignmentIssues}{" "}
+                            {(result.importPreviewIssues?.length ?? 0) - childAssignmentIssues}{' '}
                             detail
-                            {(result.importPreviewIssues?.length ?? 0) -
-                              childAssignmentIssues >
-                            1
-                              ? "s"
-                              : ""}{" "}
+                            {(result.importPreviewIssues?.length ?? 0) - childAssignmentIssues > 1
+                              ? 's'
+                              : ''}{' '}
                             need cleanup before import.
                           </p>
                         ) : null}
                       </div>
                     ) : null}
                     <p className="document-file__extraction-status mt-2 text-xs text-slate-500">
-                      Extraction: {result.extractionStatus ?? "unknown"}
-                      {result.extractionError
-                        ? ` • ${result.extractionError}`
-                        : ""}
+                      Extraction: {result.extractionStatus ?? 'unknown'}
+                      {result.extractionError ? ` • ${result.extractionError}` : ''}
                     </p>
                   </>
                 );
@@ -1247,7 +1114,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
               key={document.id}
               className="document-file document-file--imported flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
               data-document-id={document.id}
-              data-file-name={document.fileName ?? ""}
+              data-file-name={document.fileName ?? ''}
               data-document-type={document.type}
             >
               <div className="document-file__identity min-w-0">
@@ -1262,7 +1129,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                 type="button"
                 onClick={() => {
                   const confirmed = window.confirm(
-                    "Delete this file? This will also remove all homework, tests and activities created from it.",
+                    'Delete this file? This will also remove all homework, tests and activities created from it.'
                   );
                   if (confirmed) {
                     deleteDocument(document.id);

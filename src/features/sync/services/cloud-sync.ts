@@ -9,9 +9,9 @@ import {
   writeBatch,
   type Firestore,
   type Unsubscribe,
-} from "firebase/firestore";
-import { appRepository } from "@/db/repositories/app-repository";
-import { firestore } from "@/lib/firebase";
+} from 'firebase/firestore';
+import { appRepository } from '@/db/repositories/app-repository';
+import { firebaseAuth, firestore } from '@/lib/firebase';
 import type {
   ChildProfile,
   DeletionRecord,
@@ -20,7 +20,7 @@ import type {
   SyncQueueRecord,
   SyncReason,
   UploadedDocument,
-} from "@/types/domain";
+} from '@/types/domain';
 
 const familyId = import.meta.env.VITE_FIREBASE_FAMILY_ID;
 
@@ -31,12 +31,12 @@ const removeUndefined = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as
 const logSync = (
   entityType: SyncEntityType,
   entityId: string,
-  operation: SyncQueueRecord["operation"],
+  operation: SyncQueueRecord['operation'],
   reason: SyncReason,
-  skippedUnchanged = false,
+  skippedUnchanged = false
 ) => {
   if (import.meta.env.DEV) {
-    console.debug("[cloud-sync]", {
+    console.debug('[cloud-sync]', {
       entityType,
       entityId,
       operation,
@@ -48,12 +48,12 @@ const logSync = (
 
 const canonicalize = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(canonicalize);
-  if (value && typeof value === "object") {
+  if (value && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
         .filter(([, entry]) => entry !== undefined)
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, entry]) => [key, canonicalize(entry)]),
+        .map(([key, entry]) => [key, canonicalize(entry)])
     );
   }
   return value;
@@ -78,12 +78,16 @@ const documentMetadata = (document: UploadedDocument): UploadedDocument => ({
 
 const cloudPayload = (
   entityType: SyncEntityType,
-  payload: ChildProfile | SchoolItem | UploadedDocument,
-) => entityType === "document" ? documentMetadata(payload as UploadedDocument) : payload;
+  payload: ChildProfile | SchoolItem | UploadedDocument
+) => (entityType === 'document' ? documentMetadata(payload as UploadedDocument) : payload);
 
 const assertCloudReady = (): { db: Firestore; familyId: string } => {
   if (!firestore || !familyId) {
-    throw new Error("Firebase cloud sync is not configured.");
+    throw new Error('Firebase cloud sync is not configured.');
+  }
+
+  if (!firebaseAuth?.currentUser) {
+    throw new Error('Firebase Authentication is required for cloud sync.');
   }
 
   return { db: firestore, familyId };
@@ -91,18 +95,18 @@ const assertCloudReady = (): { db: Firestore; familyId: string } => {
 
 export const withUpdatedAt = <T extends { updatedAt?: string }>(
   entity: T,
-  timestamp = nowIso(),
+  timestamp = nowIso()
 ): T & { updatedAt: string } => ({
   ...entity,
   updatedAt: timestamp,
 });
 
 export const getEntityUpdatedAt = (entity: { updatedAt?: string; uploadedAt?: string }) =>
-  entity.updatedAt ?? entity.uploadedAt ?? "1970-01-01T00:00:00.000Z";
+  entity.updatedAt ?? entity.uploadedAt ?? '1970-01-01T00:00:00.000Z';
 
 export const isCloudNewer = <T extends { updatedAt?: string; uploadedAt?: string }>(
   local: T | undefined,
-  cloud: T,
+  cloud: T
 ) => {
   if (!local) {
     return true;
@@ -112,27 +116,25 @@ export const isCloudNewer = <T extends { updatedAt?: string; uploadedAt?: string
 };
 
 const entityCollectionName = (entityType: SyncEntityType) => {
-  if (entityType === "child") return "children";
-  if (entityType === "item") return "items";
-  return "documents";
+  if (entityType === 'child') return 'children';
+  if (entityType === 'item') return 'items';
+  return 'documents';
 };
 
-const deletionId = (entityType: SyncEntityType, entityId: string) =>
-  `${entityType}:${entityId}`;
+const deletionId = (entityType: SyncEntityType, entityId: string) => `${entityType}:${entityId}`;
 
-const buildQueueId = (entityType: SyncEntityType, entityId: string) =>
-  `${entityType}:${entityId}`;
+const buildQueueId = (entityType: SyncEntityType, entityId: string) => `${entityType}:${entityId}`;
 
 export const queueCloudUpsert = async (
   entityType: SyncEntityType,
   payload: ChildProfile | SchoolItem | UploadedDocument,
-  reason: SyncReason = "user-change",
+  reason: SyncReason = 'user-change'
 ) => {
   const record: SyncQueueRecord = {
     id: buildQueueId(entityType, payload.id),
     entityType,
     entityId: payload.id,
-    operation: "upsert",
+    operation: 'upsert',
     payload: cloudPayload(entityType, payload),
     updatedAt: getEntityUpdatedAt(payload),
     attempts: 0,
@@ -148,7 +150,7 @@ export const queueCloudUpsert = async (
     await appRepository.upsertSyncQueueRecord({
       ...record,
       attempts: record.attempts + 1,
-      lastError: error instanceof Error ? error.message : "Cloud write failed",
+      lastError: error instanceof Error ? error.message : 'Cloud write failed',
     });
     throw error;
   }
@@ -158,7 +160,7 @@ export const queueCloudDelete = async (
   entityType: SyncEntityType,
   entityId: string,
   sourceDocumentIds?: string[],
-  reason: SyncReason = "user-change",
+  reason: SyncReason = 'user-change'
 ) => {
   const deletedAt = nowIso();
   const deletion: DeletionRecord = {
@@ -172,7 +174,7 @@ export const queueCloudDelete = async (
     id: buildQueueId(entityType, entityId),
     entityType,
     entityId,
-    operation: "delete",
+    operation: 'delete',
     sourceDocumentIds,
     updatedAt: deletedAt,
     attempts: 0,
@@ -189,7 +191,7 @@ export const queueCloudDelete = async (
     await appRepository.upsertSyncQueueRecord({
       ...record,
       attempts: record.attempts + 1,
-      lastError: error instanceof Error ? error.message : "Cloud delete failed",
+      lastError: error instanceof Error ? error.message : 'Cloud delete failed',
     });
     throw error;
   }
@@ -197,13 +199,13 @@ export const queueCloudDelete = async (
 
 const writeQueuedOperation = async (
   record: SyncQueueRecord,
-  executionReason: SyncReason = record.reason ?? "user-change",
+  executionReason: SyncReason = record.reason ?? 'user-change'
 ) => {
   const { db, familyId: scopedFamilyId } = assertCloudReady();
   const collectionName = entityCollectionName(record.entityType);
-  const reference = doc(db, "families", scopedFamilyId, collectionName, record.entityId);
+  const reference = doc(db, 'families', scopedFamilyId, collectionName, record.entityId);
 
-  if (record.operation === "delete") {
+  if (record.operation === 'delete') {
     const deletion: DeletionRecord = {
       id: deletionId(record.entityType, record.entityId),
       entityType: record.entityType,
@@ -212,8 +214,8 @@ const writeQueuedOperation = async (
       sourceDocumentIds: record.sourceDocumentIds,
     };
     await setDoc(
-      doc(db, "families", scopedFamilyId, "deletions", deletion.id),
-      removeUndefined(deletion),
+      doc(db, 'families', scopedFamilyId, 'deletions', deletion.id),
+      removeUndefined(deletion)
     );
     await deleteDoc(reference);
     logSync(record.entityType, record.entityId, record.operation, executionReason);
@@ -221,7 +223,7 @@ const writeQueuedOperation = async (
   }
 
   if (!record.payload) {
-    throw new Error("Queued upsert is missing its payload.");
+    throw new Error('Queued upsert is missing its payload.');
   }
 
   const payload = removeUndefined(cloudPayload(record.entityType, record.payload));
@@ -247,13 +249,13 @@ export const retryQueuedCloudOperations = async () => {
 
   for (const record of queued.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))) {
     try {
-      await writeQueuedOperation(record, "retry");
+      await writeQueuedOperation(record, 'retry');
       syncedIds.push(record.id);
     } catch (error) {
       await appRepository.upsertSyncQueueRecord({
         ...record,
         attempts: record.attempts + 1,
-        lastError: error instanceof Error ? error.message : "Cloud sync failed",
+        lastError: error instanceof Error ? error.message : 'Cloud sync failed',
       });
     }
   }
@@ -266,13 +268,15 @@ const tombstoneBlocksEntity = (
   deletions: DeletionRecord[],
   entityType: SyncEntityType,
   entityId: string,
-  entityUpdatedAt?: string,
+  entityUpdatedAt?: string
 ) => {
   const tombstone = deletions.find(
-    (entry) => entry.entityType === entityType && entry.entityId === entityId,
+    (entry) => entry.entityType === entityType && entry.entityId === entityId
   );
 
-  return Boolean(tombstone && tombstone.deletedAt >= (entityUpdatedAt ?? "1970-01-01T00:00:00.000Z"));
+  return Boolean(
+    tombstone && tombstone.deletedAt >= (entityUpdatedAt ?? '1970-01-01T00:00:00.000Z')
+  );
 };
 
 export const mergeCloudSnapshot = async ({
@@ -286,13 +290,12 @@ export const mergeCloudSnapshot = async ({
   documents: UploadedDocument[];
   deletions: DeletionRecord[];
 }) => {
-  const [localChildren, localItems, localDocuments, localDeletions] =
-    await Promise.all([
-      appRepository.listChildren(),
-      appRepository.listItems(),
-      appRepository.listDocuments(),
-      appRepository.listDeletions(),
-    ]);
+  const [localChildren, localItems, localDocuments, localDeletions] = await Promise.all([
+    appRepository.listChildren(),
+    appRepository.listItems(),
+    appRepository.listDocuments(),
+    appRepository.listDeletions(),
+  ]);
   const allDeletions = [...localDeletions];
   deletions.forEach((deletion) => {
     const local = allDeletions.find((entry) => entry.id === deletion.id);
@@ -304,7 +307,7 @@ export const mergeCloudSnapshot = async ({
   const mergeEntities = <T extends { id: string; updatedAt?: string; uploadedAt?: string }>(
     local: T[],
     cloud: T[],
-    entityType: SyncEntityType,
+    entityType: SyncEntityType
   ) => {
     const byId = new Map(local.map((entity) => [entity.id, entity]));
     cloud.forEach((entity) => {
@@ -327,9 +330,9 @@ export const mergeCloudSnapshot = async ({
     return Array.from(byId.values());
   };
 
-  const mergedChildren = mergeEntities(localChildren, children, "child");
-  const mergedItems = mergeEntities(localItems, items, "item");
-  const mergedDocuments = mergeEntities(localDocuments, documents, "document");
+  const mergedChildren = mergeEntities(localChildren, children, 'child');
+  const mergedItems = mergeEntities(localItems, items, 'item');
+  const mergedDocuments = mergeEntities(localDocuments, documents, 'document');
 
   await Promise.all([
     appRepository.upsertChildren(mergedChildren),
@@ -347,13 +350,14 @@ export const mergeCloudSnapshot = async ({
 
 export const downloadCloudDataToLocal = async () => {
   const { db, familyId: scopedFamilyId } = assertCloudReady();
-  const [childrenSnapshot, itemsSnapshot, documentsSnapshot, deletionsSnapshot] =
-    await Promise.all([
-      getDocs(collection(db, "families", scopedFamilyId, "children")),
-      getDocs(collection(db, "families", scopedFamilyId, "items")),
-      getDocs(collection(db, "families", scopedFamilyId, "documents")),
-      getDocs(collection(db, "families", scopedFamilyId, "deletions")),
-    ]);
+  const [childrenSnapshot, itemsSnapshot, documentsSnapshot, deletionsSnapshot] = await Promise.all(
+    [
+      getDocs(collection(db, 'families', scopedFamilyId, 'children')),
+      getDocs(collection(db, 'families', scopedFamilyId, 'items')),
+      getDocs(collection(db, 'families', scopedFamilyId, 'documents')),
+      getDocs(collection(db, 'families', scopedFamilyId, 'deletions')),
+    ]
+  );
 
   return mergeCloudSnapshot({
     children: childrenSnapshot.docs.map((entry) => entry.data() as ChildProfile),
@@ -373,16 +377,22 @@ export const uploadLocalDataToCloud = async () => {
   ]);
   const batch = writeBatch(db);
   children.forEach((child) => {
-    batch.set(doc(db, "families", scopedFamilyId, "children", child.id), removeUndefined(child));
+    batch.set(doc(db, 'families', scopedFamilyId, 'children', child.id), removeUndefined(child));
   });
   items.forEach((item) => {
-    batch.set(doc(db, "families", scopedFamilyId, "items", item.id), removeUndefined(item));
+    batch.set(doc(db, 'families', scopedFamilyId, 'items', item.id), removeUndefined(item));
   });
   documents.forEach((document) => {
-    batch.set(doc(db, "families", scopedFamilyId, "documents", document.id), removeUndefined(document));
+    batch.set(
+      doc(db, 'families', scopedFamilyId, 'documents', document.id),
+      removeUndefined(document)
+    );
   });
   deletions.forEach((deletion) => {
-    batch.set(doc(db, "families", scopedFamilyId, "deletions", deletion.id), removeUndefined(deletion));
+    batch.set(
+      doc(db, 'families', scopedFamilyId, 'deletions', deletion.id),
+      removeUndefined(deletion)
+    );
   });
   await batch.commit();
   return {
@@ -393,21 +403,19 @@ export const uploadLocalDataToCloud = async () => {
 };
 
 export const upsertCloudItem = (item: SchoolItem, reason?: SyncReason) =>
-  queueCloudUpsert("item", item, reason);
-export const upsertCloudChild = (child: ChildProfile) => queueCloudUpsert("child", child);
+  queueCloudUpsert('item', item, reason);
+export const upsertCloudChild = (child: ChildProfile) => queueCloudUpsert('child', child);
 export const upsertCloudDocument = (document: UploadedDocument, reason?: SyncReason) =>
-  queueCloudUpsert("document", document, reason);
+  queueCloudUpsert('document', document, reason);
 
 export const deleteCloudDocumentAndItems = async (
   documentId: string,
   sourceDocumentIds: string[],
-  linkedItemIds: string[] = [],
+  linkedItemIds: string[] = []
 ) => {
-  await queueCloudDelete("document", documentId, sourceDocumentIds);
+  await queueCloudDelete('document', documentId, sourceDocumentIds);
   await Promise.all(
-    linkedItemIds.map((itemId) =>
-      queueCloudDelete("item", itemId, sourceDocumentIds),
-    ),
+    linkedItemIds.map((itemId) => queueCloudDelete('item', itemId, sourceDocumentIds))
   );
 };
 
@@ -422,11 +430,11 @@ export const deleteCloudChildAndLinkedData = async ({
   documentIdsToDelete: string[];
   documentsToUpdate: UploadedDocument[];
 }) => {
-  await queueCloudDelete("child", childId);
+  await queueCloudDelete('child', childId);
   await Promise.all([
-    ...linkedItemIds.map((itemId) => queueCloudDelete("item", itemId)),
+    ...linkedItemIds.map((itemId) => queueCloudDelete('item', itemId)),
     ...documentIdsToDelete.map((documentId) =>
-      queueCloudDelete("document", documentId, [documentId]),
+      queueCloudDelete('document', documentId, [documentId])
     ),
     ...documentsToUpdate.map((document) => upsertCloudDocument(document)),
   ]);
@@ -438,9 +446,9 @@ export const startCloudSnapshotListeners = (
     items: SchoolItem[];
     documents: UploadedDocument[];
   }) => void,
-  onError?: (error: Error) => void,
+  onError?: (error: Error) => void
 ): Unsubscribe | undefined => {
-  if (!firestore || !familyId) {
+  if (!firestore || !familyId || !firebaseAuth?.currentUser) {
     return undefined;
   }
 
@@ -455,45 +463,45 @@ export const startCloudSnapshotListeners = (
     void mergeCloudSnapshot({ children, items, documents, deletions })
       .then(onMergedSnapshot)
       .catch((error: unknown) => {
-        if (onError) onError(error instanceof Error ? error : new Error("Cloud merge failed"));
+        if (onError) onError(error instanceof Error ? error : new Error('Cloud merge failed'));
       });
   };
 
   const unsubscribeChildren = onSnapshot(
-    collection(firestore, "families", familyId, "children"),
+    collection(firestore, 'families', familyId, 'children'),
     (snapshot) => {
       children = snapshot.docs.map((entry) => entry.data() as ChildProfile);
       started = true;
       merge();
     },
-    onError,
+    onError
   );
   const unsubscribeItems = onSnapshot(
-    collection(firestore, "families", familyId, "items"),
+    collection(firestore, 'families', familyId, 'items'),
     (snapshot) => {
       items = snapshot.docs.map((entry) => entry.data() as SchoolItem);
       started = true;
       merge();
     },
-    onError,
+    onError
   );
   const unsubscribeDocuments = onSnapshot(
-    collection(firestore, "families", familyId, "documents"),
+    collection(firestore, 'families', familyId, 'documents'),
     (snapshot) => {
       documents = snapshot.docs.map((entry) => entry.data() as UploadedDocument);
       started = true;
       merge();
     },
-    onError,
+    onError
   );
   const unsubscribeDeletions = onSnapshot(
-    collection(firestore, "families", familyId, "deletions"),
+    collection(firestore, 'families', familyId, 'deletions'),
     (snapshot) => {
       deletions = snapshot.docs.map((entry) => entry.data() as DeletionRecord);
       started = true;
       merge();
     },
-    onError,
+    onError
   );
 
   return () => {

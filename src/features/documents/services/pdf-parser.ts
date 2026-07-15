@@ -60,7 +60,7 @@ const ensurePromiseWithResolvers = () => {
 const loadPdfJs = async (): Promise<PdfJsModule> => {
   ensurePromiseWithResolvers();
 
-  const module = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const module = await import('pdfjs-dist/legacy/build/pdf.mjs');
 
   return module as PdfJsModule;
 };
@@ -84,7 +84,7 @@ const toPositionedText = (item: PdfTextItem): PositionedText | undefined => {
 
 const findDateColumnStarts = (rows: PositionedText[][]) => {
   const headerRow = rows.find(
-    (row) => row.filter((item) => dateCellPattern.test(item.text)).length >= 2,
+    (row) => row.filter((item) => dateCellPattern.test(item.text)).length >= 2
   );
   return headerRow
     ?.filter((item) => dateCellPattern.test(item.text))
@@ -100,21 +100,13 @@ const nearestDateColumnIndex = (x: number, dateColumnStarts: number[]) => {
   }, 0);
 };
 
-const formatTableRow = (
-  items: PositionedText[],
-  dateColumnStarts: number[],
-) => {
+const formatTableRow = (items: PositionedText[], dateColumnStarts: number[]) => {
   const firstDateColumn = dateColumnStarts[0];
-  const columns = Array.from(
-    { length: dateColumnStarts.length + 1 },
-    () => [] as PositionedText[],
-  );
+  const columns = Array.from({ length: dateColumnStarts.length + 1 }, () => [] as PositionedText[]);
 
   items.forEach((item) => {
     const columnIndex =
-      item.x < firstDateColumn - 40
-        ? 0
-        : nearestDateColumnIndex(item.x, dateColumnStarts) + 1;
+      item.x < firstDateColumn - 40 ? 0 : nearestDateColumnIndex(item.x, dateColumnStarts) + 1;
     columns[columnIndex]?.push(item);
   });
 
@@ -127,11 +119,11 @@ const formatTableRow = (
       column
         .sort((left, right) => left.x - right.x)
         .map((item) => item.text)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim(),
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim()
     )
-    .join("\t")
+    .join('\t')
     .trimEnd();
 };
 
@@ -145,23 +137,20 @@ const formatTextRow = (items: PositionedText[]) => {
         }
 
         const gap = item.x - (state.previousRight ?? item.x);
-        const separator = gap > tableGapThreshold ? "\t" : " ";
+        const separator = gap > tableGapThreshold ? '\t' : ' ';
 
         return {
           text: `${state.text}${separator}${item.text}`,
           previousRight: item.x + item.width,
         };
       },
-      { text: "" },
+      { text: '' }
     )
-    .text.replace(/[ \t]+/g, (match) => (match.includes("\t") ? "\t" : " "))
+    .text.replace(/[ \t]+/g, (match) => (match.includes('\t') ? '\t' : ' '))
     .trim();
 };
 
-const groupTextIntoLines = (
-  items: PdfTextItem[],
-  fallbackDateColumnStarts?: number[],
-) => {
+const groupTextIntoLines = (items: PdfTextItem[], fallbackDateColumnStarts?: number[]) => {
   const lines = new Map<number, PositionedText[]>();
 
   items.forEach((item) => {
@@ -179,8 +168,7 @@ const groupTextIntoLines = (
   const sortedRows = Array.from(lines.entries())
     .sort((left, right) => right[0] - left[0])
     .map(([, bucket]) => bucket);
-  const dateColumnStarts =
-    findDateColumnStarts(sortedRows) ?? fallbackDateColumnStarts;
+  const dateColumnStarts = findDateColumnStarts(sortedRows) ?? fallbackDateColumnStarts;
 
   return {
     dateColumnStarts,
@@ -188,7 +176,7 @@ const groupTextIntoLines = (
       .map((bucket) =>
         dateColumnStarts && dateColumnStarts.length >= 2
           ? formatTableRow(bucket, dateColumnStarts)
-          : formatTextRow(bucket),
+          : formatTextRow(bucket)
       )
       .filter(Boolean),
   };
@@ -196,16 +184,14 @@ const groupTextIntoLines = (
 
 export const extractPdfTextFromData = async (
   data: Uint8Array,
-  assetBaseUrl?: string,
+  assetBaseUrl?: string
 ): Promise<string> => {
   const pdfjs = await loadPdfJs();
   const { getDocument } = pdfjs;
-  const standardFontDataUrl = assetBaseUrl
-    ? assetBaseUrl + "/standard_fonts/"
-    : undefined;
+  const standardFontDataUrl = assetBaseUrl ? assetBaseUrl + '/standard_fonts/' : undefined;
 
   if (pdfjs.GlobalWorkerOptions && assetBaseUrl) {
-    pdfjs.GlobalWorkerOptions.workerSrc = assetBaseUrl + "/pdf.worker.mjs";
+    pdfjs.GlobalWorkerOptions.workerSrc = assetBaseUrl + '/pdf.worker.mjs';
   }
   const pdf = await getDocument({
     data,
@@ -220,13 +206,13 @@ export const extractPdfTextFromData = async (
     const content = await page.getTextContent();
     const pageText = groupTextIntoLines(content.items, activeDateColumnStarts);
     activeDateColumnStarts = pageText.dateColumnStarts;
-    pages.push(pageText.lines.join("\n"));
+    pages.push(pageText.lines.join('\n'));
   }
 
-  return pages.join("\n");
+  return pages.join('\n');
 };
 
 export const extractPdfText = async (file: File): Promise<string> => {
   const data = new Uint8Array(await file.arrayBuffer());
-  return extractPdfTextFromData(data, window.location.origin + "/pdfjs");
+  return extractPdfTextFromData(data, window.location.origin + '/pdfjs');
 };

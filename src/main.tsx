@@ -1,31 +1,34 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
-import { App } from "@/App";
-import { appRepository } from "@/db/repositories/app-repository";
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { App } from '@/App';
+import { appRepository } from '@/db/repositories/app-repository';
 import {
   retryQueuedCloudOperations,
   startCloudSnapshotListeners,
-} from "@/features/sync/services/cloud-sync";
-import { buildHydratedSnapshot } from "@/store/hydration";
-import { useAppStore } from "@/store/use-app-store";
-import "@/styles/globals.css";
+} from '@/features/sync/services/cloud-sync';
+import { createCloudSyncController } from '@/features/sync/services/cloud-sync-controller';
+import { buildHydratedSnapshot } from '@/store/hydration';
+import { useAppStore } from '@/store/use-app-store';
+import '@/styles/globals.css';
 
-const rootElement = document.getElementById("root");
+const rootElement = document.getElementById('root');
 
 if (!rootElement) {
-  throw new Error("Root element not found.");
+  throw new Error('Root element not found.');
 }
 
 const root = createRoot(rootElement);
+
+let cloudSyncController: ReturnType<typeof createCloudSyncController> | undefined;
 
 const renderApp = () => {
   root.render(
     <StrictMode>
       <BrowserRouter>
-        <App />
+        <App onAuthUserChange={(user) => cloudSyncController?.handleAuthUserChange(user)} />
       </BrowserRouter>
-    </StrictMode>,
+    </StrictMode>
   );
 };
 
@@ -36,10 +39,7 @@ const hydrateLocalData = async () => {
     appRepository.listDocuments(),
   ]);
 
-  const hasLocalData =
-    children.length > 0 ||
-    items.length > 0 ||
-    documents.length > 0;
+  const hasLocalData = children.length > 0 || items.length > 0 || documents.length > 0;
 
   if (hasLocalData) {
     useAppStore.setState(
@@ -47,9 +47,8 @@ const hydrateLocalData = async () => {
         children,
         items,
         documents,
-        selectedChildIds:
-          useAppStore.getState().selectedChildIds,
-      }),
+        selectedChildIds: useAppStore.getState().selectedChildIds,
+      })
     );
   }
 
@@ -57,63 +56,21 @@ const hydrateLocalData = async () => {
 };
 
 const applySnapshot = (snapshot: {
-  children: ReturnType<typeof useAppStore.getState>["children"];
-  items: ReturnType<typeof useAppStore.getState>["items"];
-  documents: ReturnType<typeof useAppStore.getState>["documents"];
+  children: ReturnType<typeof useAppStore.getState>['children'];
+  items: ReturnType<typeof useAppStore.getState>['items'];
+  documents: ReturnType<typeof useAppStore.getState>['documents'];
 }) => {
   const hasData =
-    snapshot.children.length > 0 ||
-    snapshot.items.length > 0 ||
-    snapshot.documents.length > 0;
+    snapshot.children.length > 0 || snapshot.items.length > 0 || snapshot.documents.length > 0;
 
   if (hasData) {
     useAppStore.setState(
       buildHydratedSnapshot({
         ...snapshot,
         selectedChildIds: useAppStore.getState().selectedChildIds,
-      }),
+      })
     );
   }
-};
-
-const retryPendingCloudData = async () => {
-  try {
-    useAppStore.setState({ syncStatus: "syncing" });
-    await retryQueuedCloudOperations();
-    await useAppStore.getState().refreshSyncState();
-  } catch (error: unknown) {
-    console.error("Pending cloud sync retry failed", error);
-    useAppStore.setState({ syncStatus: "error" });
-  }
-};
-
-const startBackgroundSync = () => {
-  void retryPendingCloudData();
-
-  const unsubscribe = startCloudSnapshotListeners(
-    (snapshot) => {
-      applySnapshot(snapshot);
-      void useAppStore.getState().refreshSyncState();
-    },
-    (error) => {
-      console.error("Cloud listener failed", error);
-      useAppStore.setState({ syncStatus: "error" });
-    },
-  );
-
-  const retry = () => {
-    void retryPendingCloudData();
-  };
-
-  window.addEventListener("online", retry);
-  window.addEventListener("focus", retry);
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-      retry();
-    }
-  });
-
-  return unsubscribe;
 };
 
 const startApp = async () => {
@@ -122,20 +79,33 @@ const startApp = async () => {
   try {
     hasLocalData = await hydrateLocalData();
   } catch (error: unknown) {
-    console.error("Local data hydration failed", error);
+    console.error('Local data hydration failed', error);
   }
+
+  cloudSyncController = createCloudSyncController({
+    startListeners: startCloudSnapshotListeners,
+    retryQueued: retryQueuedCloudOperations,
+    refreshSyncState: () => useAppStore.getState().refreshSyncState(),
+    applySnapshot,
+    setSyncStatus: (syncStatus) => useAppStore.setState({ syncStatus }),
+    addEventListener: window.addEventListener.bind(window),
+    removeEventListener: window.removeEventListener.bind(window),
+    addDocumentEventListener: document.addEventListener.bind(document),
+    removeDocumentEventListener: document.removeEventListener.bind(document),
+    isDocumentHidden: () => document.hidden,
+    isOnline: () => navigator.onLine,
+  });
 
   renderApp();
 
   void hasLocalData;
   void useAppStore.getState().refreshSyncState();
-  startBackgroundSync();
 };
 
 void startApp();
 
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => {
-    void navigator.serviceWorker.register("/sw.js");
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js');
   });
 }

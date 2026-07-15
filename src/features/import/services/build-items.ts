@@ -1,11 +1,11 @@
-import type { SchoolItem } from "@/types/domain";
-import type { ImportItemBuilder } from "@/features/import/contracts/import-contracts";
-import type { NormalizedImportRecord } from "@/features/import/types/import-types";
+import type { SchoolItem } from '@/types/domain';
+import type { ImportItemBuilder } from '@/features/import/contracts/import-contracts';
+import type { NormalizedImportRecord } from '@/features/import/types/import-types';
 
 export const importItemBuilder: ImportItemBuilder = {
   buildItems: (
-    records: NormalizedImportRecord[],
-  ): Array<Omit<SchoolItem, "id" | "status" | "completedAt">> => {
+    records: NormalizedImportRecord[]
+  ): Array<Omit<SchoolItem, 'id' | 'status' | 'completedAt'>> => {
     return records.map((record) => ({
       childId: record.childId!,
       category: record.category!,

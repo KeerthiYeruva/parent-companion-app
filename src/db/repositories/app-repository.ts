@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db } from '@/lib/db';
 import type {
   ChildProfile,
   DeletionRecord,
@@ -6,8 +6,8 @@ import type {
   SchoolItem,
   SyncQueueRecord,
   UploadedDocument,
-} from "@/types/domain";
-import type { HydrationInput } from "@/store/hydration";
+} from '@/types/domain';
+import type { HydrationInput } from '@/store/hydration';
 
 export interface AppRepository {
   listChildren: () => Promise<ChildProfile[]>;
@@ -24,34 +24,25 @@ export interface AppRepository {
   upsertDeletion: (deletion: DeletionRecord) => Promise<void>;
   upsertSyncQueueRecord: (record: SyncQueueRecord) => Promise<void>;
   deleteSyncQueueRecord: (id: string) => Promise<void>;
-  deleteDocumentAndItems: (
-    documentId: string,
-    sourceDocumentIds: string[],
-  ) => Promise<void>;
+  deleteDocumentAndItems: (documentId: string, sourceDocumentIds: string[]) => Promise<void>;
   deleteChildAndLinkedData: (
     childId: string,
     linkedItemIds: string[],
     documentIdsToDelete: string[],
-    documentsToUpdate: UploadedDocument[],
+    documentsToUpdate: UploadedDocument[]
   ) => Promise<void>;
   replaceItemsForSourceDocuments: (
     sourceDocumentIds: string[],
     items: SchoolItem[],
-    scope?: ImportedItemReplacementScope,
+    scope?: ImportedItemReplacementScope
   ) => Promise<void>;
-  applyItemImportChanges: (
-    upserts: SchoolItem[],
-    deletedItemIds: string[],
-  ) => Promise<void>;
+  applyItemImportChanges: (upserts: SchoolItem[], deletedItemIds: string[]) => Promise<void>;
   replaceSnapshot: (
-    snapshot: Pick<HydrationInput, "children" | "items" | "documents">,
+    snapshot: Pick<HydrationInput, 'children' | 'items' | 'documents'>
   ) => Promise<void>;
 }
 
-const isInReplacementScope = (
-  item: SchoolItem,
-  scope: ImportedItemReplacementScope,
-) => {
+const isInReplacementScope = (item: SchoolItem, scope: ImportedItemReplacementScope) => {
   return (
     Boolean(item.sourceDocumentId) &&
     scope.childIds.includes(item.childId) &&
@@ -98,15 +89,14 @@ export const appRepository: AppRepository = {
     await db.syncQueue.delete(id);
   },
   deleteDocumentAndItems: async (documentId, sourceDocumentIds) => {
-    await db.transaction("rw", db.documents, db.items, async () => {
+    await db.transaction('rw', db.documents, db.items, async () => {
       const allItems = await db.items.toArray();
       const linkedItems = allItems.filter(
         (item) =>
-          (item.sourceDocumentId &&
-            sourceDocumentIds.includes(item.sourceDocumentId)) ||
+          (item.sourceDocumentId && sourceDocumentIds.includes(item.sourceDocumentId)) ||
           (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
-            sourceDocumentIds.includes(sourceDocumentId),
-          ),
+            sourceDocumentIds.includes(sourceDocumentId)
+          )
       );
       await Promise.all([
         db.documents.delete(documentId),
@@ -120,54 +110,39 @@ export const appRepository: AppRepository = {
     childId,
     linkedItemIds,
     documentIdsToDelete,
-    documentsToUpdate,
+    documentsToUpdate
   ) => {
-    await db.transaction("rw", db.children, db.items, db.documents, async () => {
+    await db.transaction('rw', db.children, db.items, db.documents, async () => {
       await Promise.all([
         db.children.delete(childId),
-        linkedItemIds.length > 0
-          ? db.items.bulkDelete(linkedItemIds)
-          : Promise.resolve(),
+        linkedItemIds.length > 0 ? db.items.bulkDelete(linkedItemIds) : Promise.resolve(),
         documentIdsToDelete.length > 0
           ? db.documents.bulkDelete(documentIdsToDelete)
           : Promise.resolve(),
-        documentsToUpdate.length > 0
-          ? db.documents.bulkPut(documentsToUpdate)
-          : Promise.resolve(),
+        documentsToUpdate.length > 0 ? db.documents.bulkPut(documentsToUpdate) : Promise.resolve(),
       ]);
     });
   },
   replaceSnapshot: async ({ children, items, documents }) => {
-    await db.transaction(
-      "rw",
-      db.children,
-      db.items,
-      db.documents,
-      async () => {
-        await Promise.all([
-          children.length > 0
-            ? db.children.bulkPut(children)
-            : Promise.resolve(),
-          items.length > 0 ? db.items.bulkPut(items) : Promise.resolve(),
-          documents.length > 0
-            ? db.documents.bulkPut(documents)
-            : Promise.resolve(),
-        ]);
-      },
-    );
+    await db.transaction('rw', db.children, db.items, db.documents, async () => {
+      await Promise.all([
+        children.length > 0 ? db.children.bulkPut(children) : Promise.resolve(),
+        items.length > 0 ? db.items.bulkPut(items) : Promise.resolve(),
+        documents.length > 0 ? db.documents.bulkPut(documents) : Promise.resolve(),
+      ]);
+    });
   },
   replaceItemsForSourceDocuments: async (sourceDocumentIds, items, scope) => {
-    await db.transaction("rw", db.items, async () => {
+    await db.transaction('rw', db.items, async () => {
       const idsToDelete = new Set<string>();
       const existingItems = await db.items.toArray();
       existingItems
         .filter(
           (item) =>
-            (item.sourceDocumentId &&
-              sourceDocumentIds.includes(item.sourceDocumentId)) ||
+            (item.sourceDocumentId && sourceDocumentIds.includes(item.sourceDocumentId)) ||
             (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
-              sourceDocumentIds.includes(sourceDocumentId),
-            ),
+              sourceDocumentIds.includes(sourceDocumentId)
+            )
         )
         .forEach((item) => idsToDelete.add(item.id));
 
@@ -187,7 +162,7 @@ export const appRepository: AppRepository = {
     });
   },
   applyItemImportChanges: async (upserts, deletedItemIds) => {
-    await db.transaction("rw", db.items, async () => {
+    await db.transaction('rw', db.items, async () => {
       if (deletedItemIds.length > 0) {
         await db.items.bulkDelete(deletedItemIds);
       }

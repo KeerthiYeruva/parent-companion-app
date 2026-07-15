@@ -1,29 +1,29 @@
-import type { ImportIssue, SchoolItem } from "@/types/domain";
+import type { ImportIssue, SchoolItem } from '@/types/domain';
 import type {
   ImportPipelineOptions,
   ImportPipelineResult,
   NormalizedImportRecord,
   RawImportRecord,
-} from "@/features/import/types/import-types";
+} from '@/features/import/types/import-types';
 
 export interface ImportNormalizer {
   normalize: (
     records: RawImportRecord[],
-    options: ImportPipelineOptions,
+    options: ImportPipelineOptions
   ) => NormalizedImportRecord[];
 }
 
 export interface ImportResolver {
   resolve: (
     records: NormalizedImportRecord[],
-    options: ImportPipelineOptions,
+    options: ImportPipelineOptions
   ) => NormalizedImportRecord[];
 }
 
 export interface ImportValidator {
   validate: (
     records: NormalizedImportRecord[],
-    options: ImportPipelineOptions,
+    options: ImportPipelineOptions
   ) => {
     validRecords: NormalizedImportRecord[];
     issues: ImportIssue[];
@@ -32,13 +32,10 @@ export interface ImportValidator {
 
 export interface ImportItemBuilder {
   buildItems: (
-    records: NormalizedImportRecord[],
-  ) => Array<Omit<SchoolItem, "id" | "status" | "completedAt">>;
+    records: NormalizedImportRecord[]
+  ) => Array<Omit<SchoolItem, 'id' | 'status' | 'completedAt'>>;
 }
 
 export interface ImportPipeline {
-  run: (
-    records: RawImportRecord[],
-    options: ImportPipelineOptions,
-  ) => ImportPipelineResult;
+  run: (records: RawImportRecord[], options: ImportPipelineOptions) => ImportPipelineResult;
 }

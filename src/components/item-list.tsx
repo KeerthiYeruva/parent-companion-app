@@ -1,7 +1,7 @@
-import dayjs from "dayjs";
-import { BookOpen, Lock } from "lucide-react";
-import { CheckIcon } from "@/components/ui/check-icon";
-import { SubjectIcon } from "@/components/ui/subject-icon";
+import dayjs from 'dayjs';
+import { BookOpen, Lock } from 'lucide-react';
+import { CheckIcon } from '@/components/ui/check-icon';
+import { SubjectIcon } from '@/components/ui/subject-icon';
 import {
   completionButtonLabel,
   getItemTiming,
@@ -9,11 +9,11 @@ import {
   isItemFutureLocked,
   itemTimingClasses,
   itemTimingLabel,
-} from "@/features/planning/services/item-completion";
-import { buildPlannerItemDisplay } from "@/features/planning/services/planner-item-display";
-import { orderPlannerItems } from "@/features/planning/selectors/planning-selectors";
-import type { SchoolItem } from "@/types/domain";
-import { useAppStore } from "@/store/use-app-store";
+} from '@/features/planning/services/item-completion';
+import { buildPlannerItemDisplay } from '@/features/planning/services/planner-item-display';
+import { orderPlannerItems } from '@/features/planning/selectors/planning-selectors';
+import type { SchoolItem } from '@/types/domain';
+import { useAppStore } from '@/store/use-app-store';
 
 type ItemListProps = {
   items: SchoolItem[];
@@ -41,30 +41,28 @@ export function ItemList({ items, emptyText }: ItemListProps) {
         const isFutureLocked = isItemFutureLocked(item);
         const timing = getItemTiming(item);
         const display = buildPlannerItemDisplay(item);
-        const metadata = [dayjs(item.dueDate).format("ddd, DD MMM")].filter(
-          Boolean,
-        );
+        const metadata = [dayjs(item.dueDate).format('ddd, DD MMM')].filter(Boolean);
 
         return (
           <li
             key={item.id}
             className={`item-list__item planner-item ${
-              isCompleted ? "planner-item--completed" : "planner-item--open"
-            } ${isFutureLocked ? "planner-item--future-locked" : ""}`}
+              isCompleted ? 'planner-item--completed' : 'planner-item--open'
+            } ${isFutureLocked ? 'planner-item--future-locked' : ''}`}
             data-item-id={item.id}
             data-child-id={item.childId}
             data-category={item.category}
-            data-subject={item.subject ?? ""}
+            data-subject={item.subject ?? ''}
             data-due-date={item.dueDate}
             data-status={item.status}
           >
             <div
               className={`item-list__button planner-item__button flex w-full items-start gap-3 rounded-xl border p-3 text-left ${
                 isFutureLocked
-                  ? "cursor-not-allowed border-slate-200 bg-slate-50"
+                  ? 'cursor-not-allowed border-slate-200 bg-slate-50'
                   : isCompleted
-                    ? "border-emerald-200 bg-emerald-50"
-                    : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
+                    ? 'border-emerald-200 bg-emerald-50'
+                    : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40'
               }`}
             >
               <button
@@ -77,10 +75,10 @@ export function ItemList({ items, emptyText }: ItemListProps) {
               >
                 <span
                   className={`item-list__checkbox planner-item__checkbox mt-0.5 flex h-5 w-5 items-center justify-center rounded border text-xs font-bold ${
-                  isCompleted
-                    ? "border-emerald-500 bg-emerald-500 text-white"
-                    : "border-slate-300 bg-white text-transparent"
-                }`}
+                    isCompleted
+                      ? 'border-emerald-500 bg-emerald-500 text-white'
+                      : 'border-slate-300 bg-white text-transparent'
+                  }`}
                 >
                   {isCompleted ? (
                     <CheckIcon />
@@ -93,10 +91,7 @@ export function ItemList({ items, emptyText }: ItemListProps) {
               <span className="item-list__content planner-item__content min-w-0 flex-1">
                 <span className="planner-item__header flex flex-wrap items-center gap-2">
                   {display.subject ? (
-                    <SubjectIcon
-                      subject={display.subject}
-                      className="h-4 w-4 text-slate-400"
-                    />
+                    <SubjectIcon subject={display.subject} className="h-4 w-4 text-slate-400" />
                   ) : null}
                   <span className="planner-item__category text-xs font-semibold uppercase tracking-wide text-slate-500">
                     {display.category}
@@ -115,8 +110,8 @@ export function ItemList({ items, emptyText }: ItemListProps) {
                 <span
                   className={`item-list__title planner-item__title mt-1 block font-medium ${
                     isCompleted
-                      ? "text-emerald-950 line-through decoration-emerald-500"
-                      : "text-slate-900"
+                      ? 'text-emerald-950 line-through decoration-emerald-500'
+                      : 'text-slate-900'
                   }`}
                 >
                   {display.heading}
@@ -135,7 +130,7 @@ export function ItemList({ items, emptyText }: ItemListProps) {
                 ) : null}
 
                 <span className="item-list__metadata planner-item__metadata mt-2 block text-sm text-slate-500">
-                  {metadata.join(" - ")}
+                  {metadata.join(' - ')}
                 </span>
               </span>
             </div>

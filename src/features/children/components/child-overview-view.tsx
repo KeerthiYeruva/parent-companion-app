@@ -1,26 +1,25 @@
-import { useMemo } from "react";
-import { ItemList } from "@/components/item-list";
-import { ChildDetailLayout } from "@/features/children/components/child-detail-layout";
+import { useMemo } from 'react';
+import { ItemList } from '@/components/item-list';
+import { ChildDetailLayout } from '@/features/children/components/child-detail-layout';
 import {
   completionProgress,
   thisMonthItems,
   thisWeekItems,
-} from "@/features/planning/selectors/planning-selectors";
-import { useAppStore } from "@/store/use-app-store";
+} from '@/features/planning/selectors/planning-selectors';
+import { useAppStore } from '@/store/use-app-store';
 
 export function ChildOverviewView({ childId }: { childId: string }) {
   const allItems = useAppStore((state) => state.items);
   const items = useMemo(
     () => allItems.filter((item) => item.childId === childId),
-    [allItems, childId],
+    [allItems, childId]
   );
   const weekItems = thisWeekItems(items);
   const monthItems = thisMonthItems(items);
-  const openWeekItems = weekItems.filter((item) => item.status !== "Completed");
+  const openWeekItems = weekItems.filter((item) => item.status !== 'Completed');
   const upcomingTests = weekItems.filter(
     (item) =>
-      ["ClassTest", "UnitTest", "Exam"].includes(item.category) &&
-      item.status !== "Completed",
+      ['ClassTest', 'UnitTest', 'Exam'].includes(item.category) && item.status !== 'Completed'
   );
   const weekProgress = completionProgress(weekItems);
   const monthProgress = completionProgress(monthItems);
@@ -77,10 +76,7 @@ function ChildProgressCard({
       <p className="text-sm text-slate-600">{label}</p>
       <p className="text-2xl font-bold text-slate-900">{value}</p>
       <div className="mt-3 h-2 rounded-full bg-slate-100">
-        <div
-          className="h-2 rounded-full bg-emerald-500"
-          style={{ width: `${percent}%` }}
-        />
+        <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${percent}%` }} />
       </div>
     </article>
   );

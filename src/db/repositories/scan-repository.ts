@@ -1,5 +1,5 @@
-import { db } from "@/lib/db";
-import type { ScanRunRecord, ScanSessionFileRecord } from "@/types/domain";
+import { db } from '@/lib/db';
+import type { ScanRunRecord, ScanSessionFileRecord } from '@/types/domain';
 
 export interface ScanRepository {
   saveScanRun: (run: ScanRunRecord, files: ScanSessionFileRecord[]) => Promise<void>;
@@ -10,7 +10,7 @@ export interface ScanRepository {
 
 export const scanRepository: ScanRepository = {
   saveScanRun: async (run, files) => {
-    await db.transaction("rw", db.scanRuns, db.scanFiles, async () => {
+    await db.transaction('rw', db.scanRuns, db.scanFiles, async () => {
       await db.scanRuns.put(run);
       await db.scanFiles.bulkPut(files);
     });
@@ -20,7 +20,7 @@ export const scanRepository: ScanRepository = {
     return runs.sort((left, right) => right.scannedAt.localeCompare(left.scannedAt));
   },
   listScanFilesByRun: async (scanRunId) => {
-    return db.scanFiles.where("scanRunId").equals(scanRunId).toArray();
+    return db.scanFiles.where('scanRunId').equals(scanRunId).toArray();
   },
   getScanFileByDocumentId: async (documentId) => {
     return db.scanFiles.get(documentId);
