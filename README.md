@@ -33,7 +33,6 @@ Everything else exists to make that answer accurate, trusted, and easy to act on
 
 Schools send monthly planners, co-scholastic planners, class test portions, unit test portions, and exam circular PDFs. Parents should not need to open every PDF, create tasks manually, assign categories, assign children, or remember each child's weekly plan.
 
-
 ## Product Hierarchy
 
 The product is organized around parent action, not document management:
@@ -55,12 +54,6 @@ The product is organized around parent action, not document management:
 - Dexie (IndexedDB for document metadata)
 - pdfjs-dist (client-side PDF text and coordinate extraction)
 - Static web manifest + service worker registration for local-first PWA support
-
-
-
-
-
-
 
 ## Run
 
