@@ -129,6 +129,15 @@ describe("appRepository", () => {
     expect(mocks.itemsBulkPut).toHaveBeenCalledWith([replacementItem]);
   });
 
+  it("persists only changed import items and deletes only stale IDs", async () => {
+    const changedItem = { id: "item-changed" };
+
+    await appRepository.applyItemImportChanges([changedItem] as never, ["item-stale"]);
+
+    expect(mocks.itemsBulkPut).toHaveBeenCalledWith([changedItem]);
+    expect(mocks.itemsBulkDelete).toHaveBeenCalledWith(["item-stale"]);
+  });
+
   it("deletes a child with linked items and updates shared documents", async () => {
     const updatedDocument = {
       id: "doc-shared",

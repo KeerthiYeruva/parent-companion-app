@@ -76,6 +76,7 @@ export interface UploadedDocument {
 
 export type SyncEntityType = "child" | "item" | "document";
 export type SyncOperationType = "upsert" | "delete";
+export type SyncReason = "user-change" | "import" | "backup" | "retry";
 
 export interface DeletionRecord {
   id: string;
@@ -95,6 +96,7 @@ export interface SyncQueueRecord {
   updatedAt: string;
   attempts: number;
   lastError?: string;
+  reason?: SyncReason;
 }
 
 export interface ImportIssue {

@@ -32,14 +32,11 @@ export const createChildrenSlice: StateCreator<
     const colorTag = childColors[get().children.length % childColors.length];
     const newChild = withUpdatedAt({ ...child, id: createId("child"), colorTag });
 
-    appRepository.upsertChild(newChild).catch(() => {
-      get().pushPersistenceWarning(
-        "New child could not be saved to local database.",
-      );
-    });
-    void upsertCloudChild(newChild).catch(() => {
-      get().pushPersistenceWarning("New child could not be synced to cloud.");
-    });
+    void appRepository.upsertChild(newChild)
+      .then(() => upsertCloudChild(newChild))
+      .catch(() => {
+        get().pushPersistenceWarning("New child could not be saved or synced.");
+      });
 
     set((state) => ({
       children: [...state.children, newChild],
@@ -52,17 +49,22 @@ export const createChildrenSlice: StateCreator<
           return child;
         }
 
-        const nextChild = withUpdatedAt({ ...child, ...updates });
-        appRepository.upsertChild(nextChild).catch(() => {
-          get().pushPersistenceWarning(
-            "Child profile could not be saved to local database.",
-          );
-        });
-        void upsertCloudChild(nextChild).catch(() => {
-          get().pushPersistenceWarning(
-            "Child profile could not be synced to cloud.",
-          );
-        });
+        const candidate = { ...child, ...updates };
+        const oldContent = { ...child };
+        const newContent = { ...candidate };
+        delete oldContent.updatedAt;
+        delete newContent.updatedAt;
+        if (JSON.stringify(oldContent) === JSON.stringify(newContent)) {
+          return child;
+        }
+        const nextChild = withUpdatedAt(candidate);
+        void appRepository.upsertChild(nextChild)
+          .then(() => upsertCloudChild(nextChild))
+          .catch(() => {
+            get().pushPersistenceWarning(
+              "Child profile could not be saved or synced.",
+            );
+          });
 
         return nextChild;
       }),

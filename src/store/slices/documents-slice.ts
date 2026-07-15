@@ -40,15 +40,21 @@ export const createDocumentsSlice: StateCreator<
       uploadedAt: existingDocument?.uploadedAt ?? dayjs().toISOString(),
     });
 
-    appRepository.upsertDocument(newDoc).catch(() => {
-      get().pushPersistenceWarning(
-        "Document could not be saved to local database.",
-      );
-    });
+    if (existingDocument) {
+      const oldContent = { ...existingDocument };
+      const newContent = { ...newDoc };
+      delete oldContent.updatedAt;
+      delete newContent.updatedAt;
+      if (JSON.stringify(oldContent) === JSON.stringify(newContent)) {
+        return;
+      }
+    }
 
-    void upsertCloudDocument(newDoc).catch(() => {
-      get().pushPersistenceWarning("Document could not be synced to cloud.");
-    });
+    void appRepository.upsertDocument(newDoc)
+      .then(() => upsertCloudDocument(newDoc, "import"))
+      .catch(() => {
+        get().pushPersistenceWarning("Document could not be saved or synced.");
+      });
 
     set((state) => ({
       documents: [

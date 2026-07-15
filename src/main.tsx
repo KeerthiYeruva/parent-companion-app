@@ -4,10 +4,8 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "@/App";
 import { appRepository } from "@/db/repositories/app-repository";
 import {
-  downloadCloudDataToLocal,
   retryQueuedCloudOperations,
   startCloudSnapshotListeners,
-  uploadLocalDataToCloud,
 } from "@/features/sync/services/cloud-sync";
 import { buildHydratedSnapshot } from "@/store/hydration";
 import { useAppStore } from "@/store/use-app-store";
@@ -58,7 +56,11 @@ const hydrateLocalData = async () => {
   return hasLocalData;
 };
 
-const applySnapshot = (snapshot: Awaited<ReturnType<typeof downloadCloudDataToLocal>>) => {
+const applySnapshot = (snapshot: {
+  children: ReturnType<typeof useAppStore.getState>["children"];
+  items: ReturnType<typeof useAppStore.getState>["items"];
+  documents: ReturnType<typeof useAppStore.getState>["documents"];
+}) => {
   const hasData =
     snapshot.children.length > 0 ||
     snapshot.items.length > 0 ||
@@ -74,21 +76,19 @@ const applySnapshot = (snapshot: Awaited<ReturnType<typeof downloadCloudDataToLo
   }
 };
 
-const loadCloudData = async () => {
+const retryPendingCloudData = async () => {
   try {
     useAppStore.setState({ syncStatus: "syncing" });
     await retryQueuedCloudOperations();
-    applySnapshot(await downloadCloudDataToLocal());
-    await uploadLocalDataToCloud();
     await useAppStore.getState().refreshSyncState();
   } catch (error: unknown) {
-    console.error("Cloud download failed", error);
+    console.error("Pending cloud sync retry failed", error);
     useAppStore.setState({ syncStatus: "error" });
   }
 };
 
 const startBackgroundSync = () => {
-  void loadCloudData();
+  void retryPendingCloudData();
 
   const unsubscribe = startCloudSnapshotListeners(
     (snapshot) => {
@@ -102,7 +102,7 @@ const startBackgroundSync = () => {
   );
 
   const retry = () => {
-    void loadCloudData();
+    void retryPendingCloudData();
   };
 
   window.addEventListener("online", retry);

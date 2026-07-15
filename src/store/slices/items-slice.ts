@@ -2,6 +2,7 @@ import type { StateCreator } from "zustand";
 import { appRepository } from "@/db/repositories/app-repository";
 import { deriveStatus } from "@/lib/status";
 import {
+  buildImportKey,
   buildLogicalItemKey,
   mergeResolvedItemFields,
 } from "@/features/import/services/import-content";
@@ -11,7 +12,7 @@ import type {
   SchoolItem,
 } from "@/types/domain";
 import {
-  syncAllLocalItemsToCloud,
+  queueCloudDelete,
   upsertCloudItem,
   withUpdatedAt,
 } from "@/features/sync/services/cloud-sync";
@@ -85,9 +86,17 @@ const mergeItems = (
     ),
     completedAt,
     status: deriveStatus(incoming.dueDate ?? existing.dueDate, completedAt),
-    updatedAt: new Date().toISOString(),
   };
 };
+
+const itemContent = (item: SchoolItem) => {
+  const content = { ...item };
+  delete content.updatedAt;
+  return content;
+};
+
+const itemChanged = (left: SchoolItem, right: SchoolItem) =>
+  JSON.stringify(itemContent(left)) !== JSON.stringify(itemContent(right));
 
 export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
   set,
@@ -105,22 +114,27 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           id: createId("item"),
           status: deriveStatus(item.dueDate),
         };
-    const stampedItem = withUpdatedAt(nextItem);
+    const stampedItem = existing && !itemChanged(existing, nextItem)
+      ? existing
+      : withUpdatedAt(nextItem);
 
-    appRepository.upsertItem(stampedItem).catch(() => {
-      get().pushPersistenceWarning(
-        "New item could not be saved to local database.",
-      );
-    });
+    if (existing && stampedItem === existing) {
+      return;
+    }
 
-    void upsertCloudItem(stampedItem)
+    void appRepository.upsertItem(stampedItem)
       .then(() => {
-        get().clearItemSync(stampedItem.id);
+        void upsertCloudItem(stampedItem)
+          .then(() => {
+            get().clearItemSync(stampedItem.id);
+          })
+          .catch(() => {
+            get().queueItemSync(stampedItem.id);
+            get().pushPersistenceWarning("New item could not be synced to cloud.");
+          });
       })
       .catch(() => {
-        get().queueItemSync(stampedItem.id);
-
-        get().pushPersistenceWarning("New item could not be synced to cloud.");
+        get().pushPersistenceWarning("New item could not be saved to local database.");
       });
 
     set((state) => ({
@@ -140,12 +154,12 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
     const nextItems = dedupeByItemKey(items);
 
     set((state) => {
-      const retainedItems = state.items.filter((item) => {
+      const isReplaceable = (item: SchoolItem) => {
         if (
           item.sourceDocumentId &&
           sourceDocumentIdSet.has(item.sourceDocumentId)
         ) {
-          return false;
+          return true;
         }
 
         if (
@@ -153,7 +167,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
             sourceDocumentIdSet.has(sourceDocumentId),
           )
         ) {
-          return false;
+          return true;
         }
 
         if (
@@ -164,35 +178,67 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           item.dueDate >= scope.fromDate &&
           item.dueDate <= scope.toDate
         ) {
-          return false;
+          return true;
         }
 
-        return true;
-      });
+        return false;
+      };
+
+      const replaceableItems = state.items.filter(isReplaceable);
+      const retainedItems = state.items.filter((item) => !isReplaceable(item));
 
       const mergedItems = [...retainedItems];
+      const changedItems: SchoolItem[] = [];
+      const reusedIds = new Set<string>();
       nextItems.forEach((incoming) => {
-        const existingIndex = mergedItems.findIndex(
-          (entry) => itemKey(entry) === itemKey(incoming),
+        const exactExisting = state.items.find(
+          (entry) => !reusedIds.has(entry.id) && itemKey(entry) === itemKey(incoming),
         );
+        const stableCandidates = exactExisting
+          ? []
+          : state.items.filter(
+              (entry) =>
+                !reusedIds.has(entry.id) &&
+                buildImportKey(entry) === buildImportKey(incoming),
+            );
+        const existing = exactExisting ??
+          (stableCandidates.length === 1 ? stableCandidates[0] : undefined);
+        const existingIndex = existing
+          ? mergedItems.findIndex((entry) => entry.id === existing.id)
+          : -1;
+        if (existing) reusedIds.add(existing.id);
+
+        const nextItem = existing
+          ? mergeItems(existing, incoming)
+          : {
+              ...incoming,
+              id: createId("item"),
+              status: deriveStatus(incoming.dueDate),
+            };
+        const reconciled = existing && !itemChanged(existing, nextItem)
+          ? existing
+          : withUpdatedAt(nextItem);
+
         if (existingIndex >= 0) {
-          mergedItems[existingIndex] = withUpdatedAt(mergeItems(
-            mergedItems[existingIndex],
-            incoming,
-          ));
+          mergedItems[existingIndex] = reconciled;
+          if (reconciled !== existing) changedItems.push(reconciled);
           return;
         }
 
-        mergedItems.push(withUpdatedAt({
-          ...incoming,
-          id: createId("item"),
-          status: deriveStatus(incoming.dueDate),
-        }));
+        mergedItems.push(reconciled);
+        if (reconciled !== existing) changedItems.push(reconciled);
       });
 
+      const deletedItemIds = replaceableItems
+        .filter((item) => !reusedIds.has(item.id))
+        .map((item) => item.id);
+
       appRepository
-        .replaceItemsForSourceDocuments(sourceDocumentIds, mergedItems, scope)
-        .then(() => syncAllLocalItemsToCloud())
+        .applyItemImportChanges(changedItems, deletedItemIds)
+        .then(() => Promise.all([
+          ...changedItems.map((item) => upsertCloudItem(item, "import")),
+          ...deletedItemIds.map((id) => queueCloudDelete("item", id, undefined, "import")),
+        ]))
         .catch(() => {
           get().pushPersistenceWarning(
             "Imported items could not be fully synced.",
@@ -221,20 +267,22 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           updatedAt: new Date().toISOString(),
         };
 
-        appRepository.upsertItem(nextItem).catch(() => {
-          get().pushPersistenceWarning(
-            "Item update could not be saved to local database.",
-          );
-        });
-        void upsertCloudItem(nextItem)
+        void appRepository.upsertItem(nextItem)
           .then(() => {
-            get().clearItemSync(nextItem.id);
+            void upsertCloudItem(nextItem)
+              .then(() => {
+                get().clearItemSync(nextItem.id);
+              })
+              .catch(() => {
+                get().queueItemSync(nextItem.id);
+                get().pushPersistenceWarning(
+                  "Item update could not be synced to cloud.",
+                );
+              });
           })
           .catch(() => {
-            get().queueItemSync(nextItem.id);
-
             get().pushPersistenceWarning(
-              "Item update could not be synced to cloud.",
+              "Item update could not be saved to local database.",
             );
           });
 
@@ -264,20 +312,22 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           updatedAt: new Date().toISOString(),
         };
 
-        appRepository.upsertItem(nextItem).catch(() => {
-          get().pushPersistenceWarning(
-            "Item update could not be saved to local database.",
-          );
-        });
-        void upsertCloudItem(nextItem)
+        void appRepository.upsertItem(nextItem)
           .then(() => {
-            get().clearItemSync(nextItem.id);
+            void upsertCloudItem(nextItem)
+              .then(() => {
+                get().clearItemSync(nextItem.id);
+              })
+              .catch(() => {
+                get().queueItemSync(nextItem.id);
+                get().pushPersistenceWarning(
+                  "Item update could not be synced to cloud.",
+                );
+              });
           })
           .catch(() => {
-            get().queueItemSync(nextItem.id);
-
             get().pushPersistenceWarning(
-              "Item update could not be synced to cloud.",
+              "Item update could not be saved to local database.",
             );
           });
 

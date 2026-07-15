@@ -39,6 +39,10 @@ export interface AppRepository {
     items: SchoolItem[],
     scope?: ImportedItemReplacementScope,
   ) => Promise<void>;
+  applyItemImportChanges: (
+    upserts: SchoolItem[],
+    deletedItemIds: string[],
+  ) => Promise<void>;
   replaceSnapshot: (
     snapshot: Pick<HydrationInput, "children" | "items" | "documents">,
   ) => Promise<void>;
@@ -179,6 +183,16 @@ export const appRepository: AppRepository = {
 
       if (items.length > 0) {
         await db.items.bulkPut(items);
+      }
+    });
+  },
+  applyItemImportChanges: async (upserts, deletedItemIds) => {
+    await db.transaction("rw", db.items, async () => {
+      if (deletedItemIds.length > 0) {
+        await db.items.bulkDelete(deletedItemIds);
+      }
+      if (upserts.length > 0) {
+        await db.items.bulkPut(upserts);
       }
     });
   },

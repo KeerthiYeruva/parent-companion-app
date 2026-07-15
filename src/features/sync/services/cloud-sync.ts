@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   setDoc,
@@ -17,6 +18,7 @@ import type {
   SchoolItem,
   SyncEntityType,
   SyncQueueRecord,
+  SyncReason,
   UploadedDocument,
 } from "@/types/domain";
 
@@ -25,6 +27,59 @@ const familyId = import.meta.env.VITE_FIREBASE_FAMILY_ID;
 const nowIso = () => new Date().toISOString();
 
 const removeUndefined = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+const logSync = (
+  entityType: SyncEntityType,
+  entityId: string,
+  operation: SyncQueueRecord["operation"],
+  reason: SyncReason,
+  skippedUnchanged = false,
+) => {
+  if (import.meta.env.DEV) {
+    console.debug("[cloud-sync]", {
+      entityType,
+      entityId,
+      operation,
+      reason,
+      skippedUnchanged,
+    });
+  }
+};
+
+const canonicalize = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, entry]) => entry !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, canonicalize(entry)]),
+    );
+  }
+  return value;
+};
+
+const comparableEntity = (value: unknown) => JSON.stringify(canonicalize(value));
+
+const documentMetadata = (document: UploadedDocument): UploadedDocument => ({
+  id: document.id,
+  title: document.title,
+  type: document.type,
+  childIds: document.childIds,
+  uploadedAt: document.uploadedAt,
+  fileName: document.fileName,
+  fileSize: document.fileSize,
+  fileHash: document.fileHash,
+  relativePath: document.relativePath,
+  modifiedAt: document.modifiedAt,
+  extractedMonth: document.extractedMonth,
+  updatedAt: document.updatedAt,
+});
+
+const cloudPayload = (
+  entityType: SyncEntityType,
+  payload: ChildProfile | SchoolItem | UploadedDocument,
+) => entityType === "document" ? documentMetadata(payload as UploadedDocument) : payload;
 
 const assertCloudReady = (): { db: Firestore; familyId: string } => {
   if (!firestore || !familyId) {
@@ -71,15 +126,17 @@ const buildQueueId = (entityType: SyncEntityType, entityId: string) =>
 export const queueCloudUpsert = async (
   entityType: SyncEntityType,
   payload: ChildProfile | SchoolItem | UploadedDocument,
+  reason: SyncReason = "user-change",
 ) => {
   const record: SyncQueueRecord = {
     id: buildQueueId(entityType, payload.id),
     entityType,
     entityId: payload.id,
     operation: "upsert",
-    payload,
+    payload: cloudPayload(entityType, payload),
     updatedAt: getEntityUpdatedAt(payload),
     attempts: 0,
+    reason,
   };
 
   await appRepository.upsertSyncQueueRecord(record);
@@ -101,6 +158,7 @@ export const queueCloudDelete = async (
   entityType: SyncEntityType,
   entityId: string,
   sourceDocumentIds?: string[],
+  reason: SyncReason = "user-change",
 ) => {
   const deletedAt = nowIso();
   const deletion: DeletionRecord = {
@@ -118,6 +176,7 @@ export const queueCloudDelete = async (
     sourceDocumentIds,
     updatedAt: deletedAt,
     attempts: 0,
+    reason,
   };
 
   await appRepository.upsertDeletion(deletion);
@@ -136,7 +195,10 @@ export const queueCloudDelete = async (
   }
 };
 
-const writeQueuedOperation = async (record: SyncQueueRecord) => {
+const writeQueuedOperation = async (
+  record: SyncQueueRecord,
+  executionReason: SyncReason = record.reason ?? "user-change",
+) => {
   const { db, familyId: scopedFamilyId } = assertCloudReady();
   const collectionName = entityCollectionName(record.entityType);
   const reference = doc(db, "families", scopedFamilyId, collectionName, record.entityId);
@@ -154,6 +216,7 @@ const writeQueuedOperation = async (record: SyncQueueRecord) => {
       removeUndefined(deletion),
     );
     await deleteDoc(reference);
+    logSync(record.entityType, record.entityId, record.operation, executionReason);
     return;
   }
 
@@ -161,7 +224,21 @@ const writeQueuedOperation = async (record: SyncQueueRecord) => {
     throw new Error("Queued upsert is missing its payload.");
   }
 
-  await setDoc(reference, removeUndefined(record.payload));
+  const payload = removeUndefined(cloudPayload(record.entityType, record.payload));
+  const existingSnapshot = await getDoc(reference);
+  if (existingSnapshot.exists()) {
+    const existing = existingSnapshot.data() as typeof payload;
+    if (
+      getEntityUpdatedAt(existing) > record.updatedAt ||
+      comparableEntity(existing) === comparableEntity(payload)
+    ) {
+      logSync(record.entityType, record.entityId, record.operation, executionReason, true);
+      return;
+    }
+  }
+
+  await setDoc(reference, payload);
+  logSync(record.entityType, record.entityId, record.operation, executionReason);
 };
 
 export const retryQueuedCloudOperations = async () => {
@@ -170,7 +247,7 @@ export const retryQueuedCloudOperations = async () => {
 
   for (const record of queued.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))) {
     try {
-      await writeQueuedOperation(record);
+      await writeQueuedOperation(record, "retry");
       syncedIds.push(record.id);
     } catch (error) {
       await appRepository.upsertSyncQueueRecord({
@@ -315,15 +392,11 @@ export const uploadLocalDataToCloud = async () => {
   };
 };
 
-export const upsertCloudItem = (item: SchoolItem) => queueCloudUpsert("item", item);
+export const upsertCloudItem = (item: SchoolItem, reason?: SyncReason) =>
+  queueCloudUpsert("item", item, reason);
 export const upsertCloudChild = (child: ChildProfile) => queueCloudUpsert("child", child);
-export const upsertCloudDocument = (document: UploadedDocument) =>
-  queueCloudUpsert("document", document);
-
-export const syncAllLocalItemsToCloud = async () => {
-  const localItems = await appRepository.listItems();
-  await Promise.all(localItems.map((item) => queueCloudUpsert("item", item)));
-};
+export const upsertCloudDocument = (document: UploadedDocument, reason?: SyncReason) =>
+  queueCloudUpsert("document", document, reason);
 
 export const deleteCloudDocumentAndItems = async (
   documentId: string,
