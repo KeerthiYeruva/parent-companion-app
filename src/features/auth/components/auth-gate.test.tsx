@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthGate } from '@/features/auth/components/auth-gate';
@@ -13,22 +13,32 @@ const authMocks = vi.hoisted(() => ({
   subscribeToAuthState: vi.fn(),
 }));
 
-vi.mock('@/features/auth/services/firebase-auth', () => ({
-  createAccount: authMocks.createAccount,
-  getFriendlyAuthError: (error: { code?: string }) => {
-    if (error.code === 'auth/email-already-in-use') {
-      return 'An account already exists for this email. Please sign in.';
-    }
-    return 'The email or password is incorrect.';
-  },
-  signIn: authMocks.signIn,
-  signOutUser: authMocks.signOutUser,
-  subscribeToAuthState: authMocks.subscribeToAuthState,
-}));
+vi.mock('@/features/auth/services/firebase-auth', async () => {
+  const actual = await vi.importActual<typeof import('@/features/auth/services/firebase-auth')>(
+    '@/features/auth/services/firebase-auth'
+  );
 
-const renderGate = () =>
+  return {
+    ...actual,
+    createAccount: authMocks.createAccount,
+    getFriendlyAuthError: (error: { code?: string }) => {
+      if (error.code === 'auth/email-already-in-use') {
+        return 'The family account already exists. Please sign in.';
+      }
+      if (error.code === 'auth/weak-password') {
+        return 'Choose a password with at least 6 characters.';
+      }
+      return 'The username or password is incorrect.';
+    },
+    signIn: authMocks.signIn,
+    signOutUser: authMocks.signOutUser,
+    subscribeToAuthState: authMocks.subscribeToAuthState,
+  };
+});
+
+const renderGate = (onAuthUserChange?: Parameters<typeof AuthProvider>[0]['onAuthUserChange']) =>
   render(
-    <AuthProvider>
+    <AuthProvider onAuthUserChange={onAuthUserChange}>
       <AuthGate>
         <div>Planner loaded</div>
       </AuthGate>
@@ -48,7 +58,7 @@ describe('auth gate', () => {
     useAppStore.setState({ syncStatus: 'signedOut' });
   });
 
-  it('shows the login screen for signed-out users', async () => {
+  it('shows Username and Password, not Email, for signed-out users', async () => {
     authMocks.subscribeToAuthState.mockImplementation((callback) => {
       callback(null);
       return vi.fn();
@@ -57,6 +67,9 @@ describe('auth gate', () => {
     renderGate();
 
     expect(await screen.findByRole('heading', { name: 'Parent Companion' })).toBeTruthy();
+    expect(screen.getByLabelText('Username')).toBeTruthy();
+    expect(screen.getByLabelText('Password')).toBeTruthy();
+    expect(screen.queryByLabelText('Email')).toBeNull();
     expect(screen.queryByText('Planner loaded')).toBeNull();
   });
 
@@ -83,20 +96,50 @@ describe('auth gate', () => {
     expect(screen.queryByText('Planner loaded')).toBeNull();
   });
 
-  it('calls sign in with the entered Email/Password', async () => {
+  it('maps School to the internal Firebase email for sign in', async () => {
     authMocks.subscribeToAuthState.mockImplementation((callback) => {
       callback(null);
       return vi.fn();
     });
-    authMocks.signIn.mockResolvedValue({ uid: 'uid-1', email: 'parent@example.com' });
 
     renderGate();
 
-    await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'secret');
+    await userEvent.type(screen.getByLabelText('Username'), 'School');
+    await userEvent.type(screen.getByLabelText('Password'), 'family-pass-1');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(authMocks.signIn).toHaveBeenCalledWith('parent@example.com', 'secret');
+    expect(authMocks.signIn).toHaveBeenCalledWith('school@parentcompanion.app', 'family-pass-1');
+  });
+
+  it('accepts the family username case-insensitively', async () => {
+    authMocks.subscribeToAuthState.mockImplementation((callback) => {
+      callback(null);
+      return vi.fn();
+    });
+
+    renderGate();
+
+    await userEvent.type(screen.getByLabelText('Username'), '  sChOoL  ');
+    await userEvent.type(screen.getByLabelText('Password'), 'family-pass-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(authMocks.signIn).toHaveBeenCalledWith('school@parentcompanion.app', 'family-pass-1');
+  });
+
+  it('rejects invalid usernames before calling Firebase', async () => {
+    authMocks.subscribeToAuthState.mockImplementation((callback) => {
+      callback(null);
+      return vi.fn();
+    });
+
+    renderGate();
+
+    await userEvent.type(screen.getByLabelText('Username'), 'Home');
+    await userEvent.type(screen.getByLabelText('Password'), 'family-pass-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(screen.getByRole('alert').textContent).toBe('Use the family username: School.');
+    expect(authMocks.signIn).not.toHaveBeenCalled();
   });
 
   it('shows a friendly error for invalid login', async () => {
@@ -108,25 +151,30 @@ describe('auth gate', () => {
 
     renderGate();
 
-    await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'bad-password');
+    await userEvent.type(screen.getByLabelText('Username'), 'School');
+    await userEvent.type(screen.getByLabelText('Password'), 'bad-family-pass');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect((await screen.findByRole('alert')).textContent).toBe(
-      'The email or password is incorrect.'
+      'The username or password is incorrect.'
     );
     expect(screen.getByRole('alert').textContent).not.toContain('auth/');
   });
 
-  it('switches between sign-in and create-account modes', async () => {
+  it('switches between sign-in and create-family-account modes', async () => {
     authMocks.subscribeToAuthState.mockImplementation((callback) => {
       callback(null);
       return vi.fn();
     });
 
     renderGate();
-    await userEvent.click(screen.getByRole('button', { name: 'New parent? Create account' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'First time here? Create Family Account' })
+    );
 
+    expect(screen.getByRole('heading', { name: 'Create Family Account' })).toBeTruthy();
+    expect(screen.getByLabelText('Username')).toBeTruthy();
+    expect(screen.getByLabelText('Password')).toBeTruthy();
     expect(screen.getByLabelText('Confirm password')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create account' })).toBeTruthy();
 
@@ -134,24 +182,26 @@ describe('auth gate', () => {
     expect(screen.queryByLabelText('Confirm password')).toBeNull();
   });
 
-  it('creates an account with the entered email and unaltered password', async () => {
+  it('maps School to the internal Firebase email for signup', async () => {
     authMocks.subscribeToAuthState.mockImplementation((callback) => {
       callback(null);
       return vi.fn();
     });
-    authMocks.createAccount.mockResolvedValue({
-      uid: 'generated-uid',
-      email: 'new-parent@example.com',
-    });
 
     renderGate();
-    await userEvent.click(screen.getByRole('button', { name: 'New parent? Create account' }));
-    await userEvent.type(screen.getByLabelText('Email'), '  new-parent@example.com  ');
-    await userEvent.type(screen.getByLabelText('Password'), ' secret1 ');
-    await userEvent.type(screen.getByLabelText('Confirm password'), ' secret1 ');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'First time here? Create Family Account' })
+    );
+    await userEvent.type(screen.getByLabelText('Username'), 'School');
+    await userEvent.type(screen.getByLabelText('Password'), ' family-pass-1 ');
+    await userEvent.type(screen.getByLabelText('Confirm password'), ' family-pass-1 ');
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
-    expect(authMocks.createAccount).toHaveBeenCalledWith('new-parent@example.com', ' secret1 ');
+    expect(authMocks.createAccount).toHaveBeenCalledWith(
+      'school@parentcompanion.app',
+      ' family-pass-1 '
+    );
   });
 
   it('blocks account creation when passwords do not match', async () => {
@@ -161,10 +211,12 @@ describe('auth gate', () => {
     });
 
     renderGate();
-    await userEvent.click(screen.getByRole('button', { name: 'New parent? Create account' }));
-    await userEvent.type(screen.getByLabelText('Email'), 'new-parent@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'secret1');
-    await userEvent.type(screen.getByLabelText('Confirm password'), 'different');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'First time here? Create Family Account' })
+    );
+    await userEvent.type(screen.getByLabelText('Username'), 'School');
+    await userEvent.type(screen.getByLabelText('Password'), 'family-pass-1');
+    await userEvent.type(screen.getByLabelText('Confirm password'), 'different-pass');
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(screen.getByRole('alert').textContent).toBe('Passwords do not match.');
@@ -178,77 +230,98 @@ describe('auth gate', () => {
     });
 
     renderGate();
-    await userEvent.click(screen.getByRole('button', { name: 'New parent? Create account' }));
-    await userEvent.type(screen.getByLabelText('Email'), 'invalid-email');
-    await userEvent.type(screen.getByLabelText('Password'), 'secret1');
-    await userEvent.type(screen.getByLabelText('Confirm password'), 'secret1');
-    fireEvent.submit(screen.getByRole('button', { name: 'Create account' }).closest('form')!);
-    expect(screen.getByRole('alert').textContent).toBe('Enter a valid email address.');
-
-    await userEvent.clear(screen.getByLabelText('Email'));
-    await userEvent.type(screen.getByLabelText('Email'), 'parent@example.com');
-    await userEvent.clear(screen.getByLabelText('Password'));
-    await userEvent.clear(screen.getByLabelText('Confirm password'));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'First time here? Create Family Account' })
+    );
+    await userEvent.type(screen.getByLabelText('Username'), 'School');
     await userEvent.type(screen.getByLabelText('Password'), 'short');
     await userEvent.type(screen.getByLabelText('Confirm password'), 'short');
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
     expect(screen.getByRole('alert').textContent).toBe(
-      'Choose a stronger password with at least 6 characters.'
+      'Choose a password with at least 6 characters.'
     );
 
     authMocks.createAccount.mockRejectedValue({ code: 'auth/email-already-in-use' });
     await userEvent.clear(screen.getByLabelText('Password'));
     await userEvent.clear(screen.getByLabelText('Confirm password'));
-    await userEvent.type(screen.getByLabelText('Password'), 'secret1');
-    await userEvent.type(screen.getByLabelText('Confirm password'), 'secret1');
+    await userEvent.type(screen.getByLabelText('Password'), 'family-pass-1');
+    await userEvent.type(screen.getByLabelText('Confirm password'), 'family-pass-1');
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
     expect((await screen.findByRole('alert')).textContent).toBe(
-      'An account already exists for this email. Please sign in.'
+      'The family account already exists. Please sign in.'
     );
   });
 
-  it('shows access pending with the current UID after permission is denied', async () => {
-    useAppStore.setState({ syncStatus: 'permissionDenied' });
+  it('does not render verification or UID-copy UI', async () => {
     authMocks.subscribeToAuthState.mockImplementation((callback) => {
-      callback({ uid: 'generated-parent-uid', email: 'new-parent@example.com' });
+      callback(null);
       return vi.fn();
     });
 
     renderGate();
 
-    expect(await screen.findByRole('heading', { name: 'Account created' })).toBeTruthy();
-    expect(screen.getByText('generated-parent-uid')).toBeTruthy();
+    expect(await screen.findByLabelText('Username')).toBeTruthy();
+    expect(screen.queryByText('Verify your email')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy User ID' })).toBeNull();
+  });
+
+  it('shows access denied without UID-copy instructions after permission is denied', async () => {
+    useAppStore.setState({ syncStatus: 'permissionDenied' });
+    authMocks.subscribeToAuthState.mockImplementation((callback) => {
+      callback({ uid: 'family-uid', email: 'school@parentcompanion.app' });
+      return vi.fn();
+    });
+
+    renderGate();
+
+    expect(await screen.findByRole('heading', { name: 'Access not available' })).toBeTruthy();
+    expect(screen.queryByText('family-uid')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy User ID' })).toBeNull();
     expect(screen.queryByText('Planner loaded')).toBeNull();
   });
 
-  it('copies only the current UID and signs out from access pending', async () => {
-    const writeText = vi.fn(async () => undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText },
-    });
+  it('signs out from access denied', async () => {
     useAppStore.setState({ syncStatus: 'permissionDenied' });
     authMocks.subscribeToAuthState.mockImplementation((callback) => {
-      callback({ uid: 'uid-to-copy', email: 'new-parent@example.com' });
+      callback({ uid: 'family-uid', email: 'school@parentcompanion.app' });
       return vi.fn();
     });
 
     renderGate();
-    await userEvent.click(await screen.findByRole('button', { name: 'Copy User ID' }));
-    expect(writeText).toHaveBeenCalledWith('uid-to-copy');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
     expect(authMocks.signOutUser).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the planner for an approved authenticated user', async () => {
-    useAppStore.setState({ syncStatus: 'synced' });
+  it('does not notify the sync controller while signed out', async () => {
+    const onAuthUserChange = vi.fn();
     authMocks.subscribeToAuthState.mockImplementation((callback) => {
-      callback({ uid: 'approved-uid', email: 'parent@example.com' });
+      callback(null);
       return vi.fn();
     });
 
-    renderGate();
+    renderGate(onAuthUserChange);
+
+    await screen.findByLabelText('Username');
+    expect(onAuthUserChange).toHaveBeenCalledWith(null);
+  });
+
+  it('shows the planner for a signed-in family account', async () => {
+    const onAuthUserChange = vi.fn();
+    useAppStore.setState({ syncStatus: 'synced' });
+    authMocks.subscribeToAuthState.mockImplementation((callback) => {
+      callback({ uid: 'family-uid', email: 'school@parentcompanion.app' });
+      return vi.fn();
+    });
+
+    renderGate(onAuthUserChange);
+
     expect(await screen.findByText('Planner loaded')).toBeTruthy();
-    expect(screen.queryByText('Account created')).toBeNull();
+    expect(onAuthUserChange).toHaveBeenCalledWith({
+      uid: 'family-uid',
+      email: 'school@parentcompanion.app',
+    });
+    expect(screen.queryByText('Verify your email')).toBeNull();
+    expect(screen.queryByText('Access not available')).toBeNull();
   });
 });

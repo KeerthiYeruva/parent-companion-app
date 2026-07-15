@@ -9,6 +9,10 @@ import {
 } from 'firebase/auth';
 import { firebaseAuth } from '@/lib/firebase';
 
+export const FAMILY_USERNAME = 'school';
+export const FAMILY_USERNAME_LABEL = 'School';
+export const FAMILY_AUTH_EMAIL = 'school@parentcompanion.app';
+
 export interface AuthenticatedUser {
   uid: string;
   email: string | null;
@@ -77,13 +81,18 @@ export const getFriendlyAuthError = (
     error && typeof error === 'object' && 'code' in error
       ? String((error as { code?: unknown }).code)
       : '';
+  const message = error instanceof Error ? error.message : '';
+
+  if (message.includes('Firebase Authentication is not configured')) {
+    return 'Firebase Authentication is not configured. Check local setup.';
+  }
 
   if (code.includes('email-already-in-use')) {
-    return 'An account already exists for this email. Please sign in.';
+    return 'The family account already exists. Please sign in.';
   }
 
   if (code.includes('weak-password')) {
-    return 'Choose a stronger password with at least 6 characters.';
+    return 'Choose a password with at least 6 characters.';
   }
 
   if (
@@ -91,7 +100,7 @@ export const getFriendlyAuthError = (
     code.includes('wrong-password') ||
     code.includes('user-not-found')
   ) {
-    return 'The email or password is incorrect.';
+    return 'The username or password is incorrect.';
   }
 
   if (code.includes('too-many-requests')) {
@@ -102,11 +111,11 @@ export const getFriendlyAuthError = (
     return 'Unable to connect. Check your internet connection and try again.';
   }
 
-  if (code.includes('invalid-email')) {
-    return 'Enter a valid email address.';
+  if (code.includes('operation-not-allowed')) {
+    return 'Account creation is not available yet. Check Firebase Authentication setup.';
   }
 
   return action === 'createAccount'
     ? 'Account creation failed. Please try again.'
-    : 'Sign in failed. Please check your details and try again.';
+    : 'Sign in failed. Please check your username and password and try again.';
 };

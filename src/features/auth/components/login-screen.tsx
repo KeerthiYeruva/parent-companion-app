@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import {
   createAccount,
+  FAMILY_AUTH_EMAIL,
+  FAMILY_USERNAME,
+  FAMILY_USERNAME_LABEL,
   getFriendlyAuthError,
   signIn,
 } from '@/features/auth/services/firebase-auth';
 
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
 export function LoginScreen({ initialError }: { initialError?: string }) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | undefined>(initialError);
@@ -17,20 +18,20 @@ export function LoginScreen({ initialError }: { initialError?: string }) {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmedEmail = email.trim();
+    const normalizedUsername = username.trim().toLowerCase();
 
-    if (!trimmedEmail || !password) {
-      setError('Enter your email and password.');
+    if (!normalizedUsername || !password) {
+      setError('Enter your username and password.');
       return;
     }
 
-    if (!isValidEmail(trimmedEmail)) {
-      setError('Enter a valid email address.');
+    if (normalizedUsername !== FAMILY_USERNAME) {
+      setError(`Use the family username: ${FAMILY_USERNAME_LABEL}.`);
       return;
     }
 
     if (mode === 'createAccount' && password.length < 6) {
-      setError('Choose a stronger password with at least 6 characters.');
+      setError('Choose a password with at least 6 characters.');
       return;
     }
 
@@ -43,9 +44,9 @@ export function LoginScreen({ initialError }: { initialError?: string }) {
     setError(undefined);
     try {
       if (mode === 'createAccount') {
-        await createAccount(trimmedEmail, password);
+        await createAccount(FAMILY_AUTH_EMAIL, password);
       } else {
-        await signIn(trimmedEmail, password);
+        await signIn(FAMILY_AUTH_EMAIL, password);
       }
     } catch (authError) {
       setError(getFriendlyAuthError(authError, mode));
@@ -58,22 +59,24 @@ export function LoginScreen({ initialError }: { initialError?: string }) {
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
       <section className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-slate-900">Parent Companion</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            {mode === 'createAccount' ? 'Create Family Account' : 'Parent Companion'}
+          </h1>
           <p className="mt-2 text-sm text-slate-600">
             {mode === 'createAccount'
-              ? 'Create a parent account to request access to your family planner.'
+              ? 'Create the shared family account for this planner.'
               : 'Sign in to sync your family planner securely.'}
           </p>
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">Email</span>
+            <span className="text-sm font-medium text-slate-700">Username</span>
             <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
               className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </label>
@@ -134,7 +137,7 @@ export function LoginScreen({ initialError }: { initialError?: string }) {
           >
             {mode === 'createAccount'
               ? 'Already have an account? Sign in'
-              : 'New parent? Create account'}
+              : 'First time here? Create Family Account'}
           </button>
         </form>
       </section>

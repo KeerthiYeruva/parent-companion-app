@@ -33,26 +33,6 @@ Everything else exists to make that answer accurate, trusted, and easy to act on
 
 Schools send monthly planners, co-scholastic planners, class test portions, unit test portions, and exam circular PDFs. Parents should not need to open every PDF, create tasks manually, assign categories, assign children, or remember each child's weekly plan.
 
-## Goal
-
-The successful workflow is:
-
-- Receive school PDFs
-- Drop them into a folder or upload them together
-- Open Parent Companion
-- See today's priorities first, then this week's tasks and this month's plan
-- Mark work complete
-
-The failed workflow is:
-
-- Upload PDFs
-- Assign child manually
-- Assign category manually
-- Enter dates manually
-- Fix most rows
-- Review everything before import
-
-If the parent is building the plan, the app is not solving the problem. The app should build the plan.
 
 ## Product Hierarchy
 
@@ -76,33 +56,11 @@ The product is organized around parent action, not document management:
 - pdfjs-dist (client-side PDF text and coordinate extraction)
 - Static web manifest + service worker registration for local-first PWA support
 
-No large calendar package is used in the MVP. The school PDFs already provide due dates, so parsing should create dated tasks directly from table cells. Month planning is intentionally week-based, because the school documents are organized by week; a square calendar grid can be added later only if it proves useful.
 
-## Parser Architecture
 
-School planners are treated as structured documents, not random text blobs. The PDF pipeline is:
 
-```text
-pdfjs-dist
-	-> text + coordinates
-	-> table reconstruction
-	-> fixed-column and matrix table parsers
-	-> child/date/category mapping
-	-> Today priorities
-	-> Week items
-	-> Month items grouped by school week
-```
 
-Reliability should come from school-specific parsers such as home study, class-test portions, unit-test timetables, scholastic matrix, co-scholastic, and exam circular parsers. The app keeps `pdfjs-dist`; changing frameworks, PDF libraries, or adding enterprise calendar packages is not the main path to better extraction.
 
-Required table mappings:
-
-- `S.NO | DATE | DAY | SUBJECT | HOME STUDY` -> `HomeStudy`
-- `DATE | DAY | SUBJECT | CLASS TEST - PORTIONS` -> `ClassTest`
-- `DATE & DAY | SUBJECT` -> `UnitTest`
-- Weekly scholastic matrix cells map `CLASS TEST` -> `ClassTest`, `UNIT TEST` -> `UnitTest`, `GRADED PROJECT` -> `Project`, `GRADED LAB ACTIVITY` -> `Activity`, and `HOME STUDY`/`REVISION` -> `HomeStudy`
-
-Headers, footers, school timing notes, book/notebook logistics, and raw date-grid fragments must not appear in Dashboard, Week, or Month task lists.
 
 ## Run
 
@@ -115,47 +73,8 @@ Open the Vite URL printed in the terminal, usually http://localhost:5173
 
 ## Firebase Setup
 
-Create a local `.env` from `.env.example` and fill in the Firebase web app values. Do not commit real Firebase values or passwords.
-
-Firebase Authentication setup:
-
-1. Open Firebase Console.
-2. Go to Build -> Authentication.
-3. Click Get started.
-4. Open Sign-in method.
-5. Enable Email/Password.
-
-First-time parent signup:
-
-1. Open Parent Companion.
-2. Select Create account.
-3. Enter the parent's email and password.
-4. Firebase Authentication creates the account and signs it in with a generated UID.
-5. Copy the Firebase User ID shown on the access-pending screen.
-6. Open `firestore.rules`.
-7. Replace the appropriate placeholder, or add the UID to the approved list.
-8. Publish the Firestore rules.
-9. Reopen the app or retry sync.
-
-Example placeholders only:
-
-```text
-request.auth.uid in [
-  "KEERTHI_REAL_UID",
-  "HUSBAND_REAL_UID"
-]
-```
-
-Creating an Authentication account does not grant access to family data. Firestore remains denied until the new UID
-is explicitly added to the approved allowlist and the rules are published.
-
-Children do not need Firebase Authentication accounts. Luhas and Ruthvish remain app `ChildProfile` records, and a parent can stay signed in on the family tablet so the children can use the planner without knowing a password.
-
-Passwords are managed by Firebase Authentication. Never store passwords in source code, Firestore, IndexedDB, localStorage, environment files, logs, tests, or GitHub.
-
-The Firestore rules intentionally allow only the approved parent UIDs under `/families/keerthi-family/**` and deny all other paths. The family ID is not treated as a secret, and the rules do not allow every authenticated Firebase user.
-
-Security note: removing `.env` from the latest commit does not erase it from old Git history. Do not rewrite history casually. Review Google Cloud API key restrictions, rotate the Firebase API key only if abuse is suspected or restrictions require it, and rely on Firebase Authentication plus Firestore Security Rules as the actual access controls.
+This app uses Firebase Authentication and Firestore Security Rules for protected cloud sync.
+Credentials and deployment-specific access settings are configured outside the public repository.
 
 ## Quality Checks
 
