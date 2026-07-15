@@ -1,29 +1,24 @@
 export type ItemCategory =
-  | "Homework"
-  | "HomeStudy"
-  | "Activity"
-  | "ClassTest"
-  | "UnitTest"
-  | "Exam"
-  | "Project"
-  | "Circular";
+  | 'Homework'
+  | 'HomeStudy'
+  | 'Activity'
+  | 'ClassTest'
+  | 'UnitTest'
+  | 'Exam'
+  | 'Project'
+  | 'Circular';
 
-export type ItemStatus =
-  | "Pending"
-  | "Completed"
-  | "Overdue"
-  | "Upcoming"
-  | "Past";
+export type ItemStatus = 'Pending' | 'Completed' | 'Overdue' | 'Upcoming' | 'Past';
 
 export type DocumentType =
-  | "ScholasticPlanner"
-  | "CoScholasticPlanner"
-  | "UnitTestPortion"
-  | "ClassTestPortion"
-  | "ExamCircular"
-  | "HomeworkSchedule"
-  | "ActivitySchedule"
-  | "Circular";
+  | 'ScholasticPlanner'
+  | 'CoScholasticPlanner'
+  | 'UnitTestPortion'
+  | 'ClassTestPortion'
+  | 'ExamCircular'
+  | 'HomeworkSchedule'
+  | 'ActivitySchedule'
+  | 'Circular';
 
 export interface ChildProfile {
   id: string;
@@ -50,7 +45,7 @@ export interface SchoolItem {
   pages?: string;
   dueDate: string;
   status: ItemStatus;
-  prepStatus?: "NotStarted" | "InProgress" | "Ready";
+  prepStatus?: 'NotStarted' | 'InProgress' | 'Ready';
   sourceDocumentId?: string;
   sourceDocumentIds?: string[];
   sourcePage?: number;
@@ -74,9 +69,9 @@ export interface UploadedDocument {
   updatedAt?: string;
 }
 
-export type SyncEntityType = "child" | "item" | "document";
-export type SyncOperationType = "upsert" | "delete";
-export type SyncReason = "user-change" | "import" | "backup" | "retry";
+export type SyncEntityType = 'child' | 'item' | 'document';
+export type SyncOperationType = 'upsert' | 'delete';
+export type SyncReason = 'user-change' | 'import' | 'backup' | 'retry';
 
 export interface DeletionRecord {
   id: string;
@@ -106,7 +101,7 @@ export interface ImportIssue {
   fieldName: string;
   issue: string;
   resolved: boolean;
-  severity?: "blocking" | "warning" | "info";
+  severity?: 'blocking' | 'warning' | 'info';
 }
 
 export interface PlannerBackup {
@@ -126,27 +121,27 @@ export interface ScanSessionFileRecord {
   fileHash: string;
   modifiedAt: string;
   fileSize: number;
-  detectedType: DocumentType | "Unknown";
+  detectedType: DocumentType | 'Unknown';
   monthLabel?: string;
   childHints: string[];
-  status: "ready" | "partiallyReady" | "needsReview" | "changed" | "duplicate";
+  status: 'ready' | 'partiallyReady' | 'needsReview' | 'changed' | 'duplicate';
   scannedAt: string;
   scanRunId: string;
 
   rawRows?: ReviewDraftRecord[];
-  importPreviewItems?: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>;
+  importPreviewItems?: Array<Omit<SchoolItem, 'id' | 'status' | 'completedAt'>>;
   importPreviewIssues?: ImportIssue[];
   importPreviewCategoryCounts?: Partial<Record<ItemCategory, number>>;
   skippedImportCount?: number;
   skippedImportReason?: string;
-  confidence?: "high" | "review" | "low";
+  confidence?: 'high' | 'review' | 'low';
   importPreviewSummary?: {
     totalRecords: number;
     normalizedRecords: number;
     validRecords: number;
     issuesCount: number;
   };
-  extractionStatus?: "success" | "empty" | "failed";
+  extractionStatus?: 'success' | 'empty' | 'failed';
   extractionError?: string;
   extractedTextPreview?: string;
 }
@@ -182,7 +177,8 @@ export interface AppState {
   importIssues: ImportIssue[];
   persistenceWarnings: string[];
   pendingItemSyncIds: string[];
-  syncStatus: "synced" | "syncing" | "offline" | "error";
+  syncStatus:
+    'signedOut' | 'synced' | 'syncing' | 'offline' | 'permissionDenied' | 'unavailable' | 'error';
   pendingSyncCount: number;
   selectedChildIds: string[];
   connectedFolderName?: string;
@@ -202,34 +198,26 @@ export interface AppState {
   setScanQueue: (files: ScanSessionFileRecord[], scannedAt: string) => void;
   updateScanFile: (
     documentId: string,
-    updater: (file: ScanSessionFileRecord) => ScanSessionFileRecord,
+    updater: (file: ScanSessionFileRecord) => ScanSessionFileRecord
   ) => void;
-  hydrateScanFile: (
-    documentId: string,
-  ) => Promise<ScanSessionFileRecord | undefined>;
+  hydrateScanFile: (documentId: string) => Promise<ScanSessionFileRecord | undefined>;
   clearScanQueue: () => void;
   hydrateScanHistory: () => Promise<void>;
   upsertReviewDraft: (draft: ReviewDraftRecord) => void;
   clearReviewDraftsForDocument: (documentId: string) => void;
   markDocumentReviewed: (documentId: string) => void;
-  addChild: (child: Omit<ChildProfile, "id" | "colorTag">) => void;
-  updateChild: (
-    id: string,
-    updates: Omit<ChildProfile, "id" | "colorTag">,
-  ) => void;
+  addChild: (child: Omit<ChildProfile, 'id' | 'colorTag'>) => void;
+  updateChild: (id: string, updates: Omit<ChildProfile, 'id' | 'colorTag'>) => void;
   deleteChild: (id: string) => void;
-  addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => void;
+  addItem: (item: Omit<SchoolItem, 'id' | 'status' | 'completedAt'>) => void;
   replaceItemsForSourceDocuments: (
     sourceDocumentIds: string[],
-    items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>,
-    scope?: ImportedItemReplacementScope,
+    items: Array<Omit<SchoolItem, 'id' | 'status' | 'completedAt'>>,
+    scope?: ImportedItemReplacementScope
   ) => void;
   toggleItemComplete: (id: string) => void;
-  setItemPrepStatus: (
-    id: string,
-    prepStatus: NonNullable<SchoolItem["prepStatus"]>,
-  ) => void;
-  addDocument: (document: Omit<UploadedDocument, "id" | "uploadedAt">) => void;
+  setItemPrepStatus: (id: string, prepStatus: NonNullable<SchoolItem['prepStatus']>) => void;
+  addDocument: (document: Omit<UploadedDocument, 'id' | 'uploadedAt'>) => void;
   deleteDocument: (documentId: string) => void;
   setSelectedChildIds: (childIds: string[]) => void;
   hydrateLocalData: () => void;

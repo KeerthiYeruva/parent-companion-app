@@ -1,38 +1,38 @@
-import type { SchoolItem } from "@/types/domain";
+import type { SchoolItem } from '@/types/domain';
 
-export type ImportSourceRole = "source" | "schedule" | "portion" | "combined";
+export type ImportSourceRole = 'source' | 'schedule' | 'portion' | 'combined';
 
 const subjectAliases: Record<string, string> = {
-  math: "Mathematics",
-  maths: "Mathematics",
-  mathematics: "Mathematics",
-  computer: "Computer Science",
-  "computer science": "Computer Science",
-  computerscience: "Computer Science",
-  sst: "Social Studies",
-  social: "Social Studies",
-  "social science": "Social Studies",
-  "social studies": "Social Studies",
-  gk: "General Knowledge",
-  general: "General Knowledge",
-  "general knowledge": "General Knowledge",
+  math: 'Mathematics',
+  maths: 'Mathematics',
+  mathematics: 'Mathematics',
+  computer: 'Computer Science',
+  'computer science': 'Computer Science',
+  computerscience: 'Computer Science',
+  sst: 'Social Studies',
+  social: 'Social Studies',
+  'social science': 'Social Studies',
+  'social studies': 'Social Studies',
+  gk: 'General Knowledge',
+  general: 'General Knowledge',
+  'general knowledge': 'General Knowledge',
 };
 
-const normalizeText = (value: string) => value.trim().replace(/\s+/g, " ");
+const normalizeText = (value: string) => value.trim().replace(/\s+/g, ' ');
 
 export const normalizeForComparison = (value?: string) =>
-  normalizeText(value ?? "")
+  normalizeText(value ?? '')
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 
 export const normalizeSubjectKey = (value?: string) => {
-  return normalizeText(value ?? "").toLowerCase();
+  return normalizeText(value ?? '').toLowerCase();
 };
 
 export const normalizeCanonicalSubject = (value?: string) => {
-  const cleaned = normalizeText(value ?? "");
+  const cleaned = normalizeText(value ?? '');
   if (!cleaned) {
     return undefined;
   }
@@ -46,32 +46,24 @@ export const normalizeCanonicalSubject = (value?: string) => {
 };
 
 export const buildImportKey = (
-  item: Pick<
-    SchoolItem,
-    "childId" | "category" | "subject" | "dueDate" | "sourceDocumentId"
-  >,
+  item: Pick<SchoolItem, 'childId' | 'category' | 'subject' | 'dueDate' | 'sourceDocumentId'>
 ) => {
   return [
     item.childId,
     item.category,
     normalizeSubjectKey(item.subject),
     item.dueDate,
-    item.sourceDocumentId ?? "",
-  ].join("__");
+    item.sourceDocumentId ?? '',
+  ].join('__');
 };
 
 export const buildLogicalItemKey = (
-  item: Pick<
-    SchoolItem,
-    "childId" | "category" | "subject" | "dueDate" | "title" | "description"
-  >,
+  item: Pick<SchoolItem, 'childId' | 'category' | 'subject' | 'dueDate' | 'title' | 'description'>
 ) => {
   const contentKey =
-    item.category === "UnitTest"
-      ? ""
-      : normalizeForComparison(
-          [item.title, item.description].filter(Boolean).join(" "),
-        );
+    item.category === 'UnitTest'
+      ? ''
+      : normalizeForComparison([item.title, item.description].filter(Boolean).join(' '));
 
   return [
     item.childId,
@@ -79,7 +71,7 @@ export const buildLogicalItemKey = (
     normalizeSubjectKey(item.subject),
     item.dueDate,
     contentKey,
-  ].join("__");
+  ].join('__');
 };
 
 export const dedupeTextBlocks = (...values: Array<string | undefined>) => {
@@ -99,12 +91,12 @@ export const dedupeTextBlocks = (...values: Array<string | undefined>) => {
     }
   });
 
-  return parts.join("\n");
+  return parts.join('\n');
 };
 
 export const buildUnitTestTitle = (subject?: string) => {
   const canonicalSubject = normalizeCanonicalSubject(subject);
-  return `${canonicalSubject ?? "Unit Test"} Unit Test`;
+  return `${canonicalSubject ?? 'Unit Test'} Unit Test`;
 };
 
 export const buildUnitTestDescription = (options: {
@@ -122,28 +114,18 @@ export const buildUnitTestDescription = (options: {
   const genericTitle =
     options.title &&
     options.subject &&
-    normalizeForComparison(options.title) ===
-      normalizeForComparison(`${options.subject} portions`)
+    normalizeForComparison(options.title) === normalizeForComparison(`${options.subject} portions`)
       ? undefined
       : options.title;
   const meaningful = dedupeTextBlocks(chapter, options.description, genericTitle);
-  return meaningful || (options.subject ? `${options.subject} portions` : "");
+  return meaningful || (options.subject ? `${options.subject} portions` : '');
 };
 
 export const mergeResolvedItemFields = (
-  current: Pick<
-    SchoolItem,
-    "title" | "description" | "chapterNumber" | "chapterName" | "subject"
-  >,
-  incoming: Pick<
-    SchoolItem,
-    "title" | "description" | "chapterNumber" | "chapterName" | "subject"
-  >,
+  current: Pick<SchoolItem, 'title' | 'description' | 'chapterNumber' | 'chapterName' | 'subject'>,
+  incoming: Pick<SchoolItem, 'title' | 'description' | 'chapterNumber' | 'chapterName' | 'subject'>
 ) => {
-  const description = dedupeTextBlocks(
-    incoming.description,
-    current.description,
-  );
+  const description = dedupeTextBlocks(incoming.description, current.description);
   const title = normalizeText(incoming.title || current.title);
 
   return {

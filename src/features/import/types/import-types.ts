@@ -1,7 +1,7 @@
-import type { ImportIssue, ItemCategory, SchoolItem } from "@/types/domain";
-import type { ImportSourceRole } from "@/features/import/services/import-content";
+import type { ImportIssue, ItemCategory, SchoolItem } from '@/types/domain';
+import type { ImportSourceRole } from '@/features/import/services/import-content';
 
-export type ImportSourceType = "manual" | "csv" | "future-pdf";
+export type ImportSourceType = 'manual' | 'csv' | 'future-pdf';
 
 export interface RawImportRecord {
   childName?: string;
@@ -56,7 +56,7 @@ export interface ImportPipelineSummary {
 export interface ImportPipelineResult {
   normalizedRecords: NormalizedImportRecord[];
   resolvedRecords: NormalizedImportRecord[];
-  items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>;
+  items: Array<Omit<SchoolItem, 'id' | 'status' | 'completedAt'>>;
   issues: ImportIssue[];
   summary: ImportPipelineSummary;
 }

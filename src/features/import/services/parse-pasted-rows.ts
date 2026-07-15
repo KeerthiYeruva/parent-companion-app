@@ -1,4 +1,4 @@
-import type { RawImportRecord } from "@/features/import/types/import-types";
+import type { RawImportRecord } from '@/features/import/types/import-types';
 
 // Expected header: childName,category,title,dueDate,description
 export const parsePastedRows = (input: string): RawImportRecord[] => {
@@ -12,8 +12,8 @@ export const parsePastedRows = (input: string): RawImportRecord[] => {
   }
 
   return lines.map((line) => {
-    const [childName = "", category = "", title = "", dueDate = "", description = ""] = line
-      .split(",")
+    const [childName = '', category = '', title = '', dueDate = '', description = ''] = line
+      .split(',')
       .map((part) => part.trim());
 
     return {

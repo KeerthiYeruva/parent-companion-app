@@ -1,25 +1,25 @@
-import dayjs from "dayjs";
-import type { ItemStatus } from "@/types/domain";
+import dayjs from 'dayjs';
+import type { ItemStatus } from '@/types/domain';
 
 export const deriveStatus = (dueDate: string, completedAt?: string): ItemStatus => {
   if (completedAt) {
-    return "Completed";
+    return 'Completed';
   }
 
-  const now = dayjs().startOf("day");
-  const due = dayjs(dueDate).startOf("day");
+  const now = dayjs().startOf('day');
+  const due = dayjs(dueDate).startOf('day');
 
   if (due.isBefore(now)) {
-    return "Overdue";
+    return 'Overdue';
   }
 
   if (due.isSame(now)) {
-    return "Pending";
+    return 'Pending';
   }
 
-  if (due.diff(now, "day") <= 7) {
-    return "Upcoming";
+  if (due.diff(now, 'day') <= 7) {
+    return 'Upcoming';
   }
 
-  return "Pending";
+  return 'Pending';
 };

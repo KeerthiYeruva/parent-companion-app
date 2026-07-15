@@ -1,6 +1,6 @@
 name: Feature Request
 description: Propose a product enhancement for parent planning workflows.
-title: "[Feature]: "
+title: '[Feature]: '
 labels:
   - enhancement
 body:

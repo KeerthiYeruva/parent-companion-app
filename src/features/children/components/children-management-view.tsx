@@ -1,12 +1,10 @@
-import { useState } from "react";
-import { AddChildForm } from "@/components/forms/add-child-form";
-import { NavShell } from "@/components/nav-shell";
-import { useAppStore } from "@/store/use-app-store";
-import type { ChildProfile } from "@/types/domain";
+import { useState } from 'react';
+import { AddChildForm } from '@/components/forms/add-child-form';
+import { NavShell } from '@/components/nav-shell';
+import { useAppStore } from '@/store/use-app-store';
+import type { ChildProfile } from '@/types/domain';
 
-const gradeOptions = Array.from({ length: 12 }, (_, index) =>
-  String(index + 1),
-);
+const gradeOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
 const isValidGrade = (grade: string) => /^(?:1[0-2]|[1-9])$/.test(grade.trim());
 
 export function ChildrenManagementView() {
@@ -21,19 +19,14 @@ export function ChildrenManagementView() {
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-xl font-semibold">Manage Kids</h2>
 
-          <p className="text-sm text-slate-600">
-            Add children and update their school details.
-          </p>
+          <p className="text-sm text-slate-600">Add children and update their school details.</p>
         </div>
 
         <AddChildForm />
 
         <div className="grid gap-3 md:grid-cols-2">
           {children.map((child) => (
-            <article
-              key={child.id}
-              className="rounded-xl border border-slate-200 bg-white p-4"
-            >
+            <article key={child.id} className="rounded-xl border border-slate-200 bg-white p-4">
               {editingChildId === child.id ? (
                 <EditChildProfileForm
                   child={child}
@@ -47,9 +40,7 @@ export function ChildrenManagementView() {
                 <>
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`h-3 w-3 rounded-full ${child.colorTag}`}
-                      />
+                      <span className={`h-3 w-3 rounded-full ${child.colorTag}`} />
                       <h3 className="font-semibold">{child.name}</h3>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -64,7 +55,7 @@ export function ChildrenManagementView() {
                         type="button"
                         onClick={() => {
                           const confirmed = window.confirm(
-                            `Remove ${child.name}? This will also remove their planner items and child-specific documents.`,
+                            `Remove ${child.name}? This will also remove their planner items and child-specific documents.`
                           );
 
                           if (confirmed) {
@@ -85,9 +76,7 @@ export function ChildrenManagementView() {
                       Choose the correct grade before scanning school files.
                     </p>
                   ) : null}
-                  <p className="text-sm text-slate-600">
-                    Academic Year: {child.academicYear}
-                  </p>
+                  <p className="text-sm text-slate-600">Academic Year: {child.academicYear}</p>
                 </>
               )}
             </article>
@@ -105,7 +94,7 @@ function EditChildProfileForm({
 }: {
   child: ChildProfile;
   onCancel: () => void;
-  onSave: (updates: Omit<ChildProfile, "id" | "colorTag">) => void;
+  onSave: (updates: Omit<ChildProfile, 'id' | 'colorTag'>) => void;
 }) {
   const [name, setName] = useState(child.name);
   const [grade, setGrade] = useState(child.grade);
@@ -147,9 +136,7 @@ function EditChildProfileForm({
           value={grade}
           onChange={(event) => setGrade(event.target.value)}
         >
-          {!isValidGrade(grade) ? (
-            <option value={grade}>Fix grade</option>
-          ) : null}
+          {!isValidGrade(grade) ? <option value={grade}>Fix grade</option> : null}
           {gradeOptions.map((option) => (
             <option key={option} value={option}>
               Grade {option}

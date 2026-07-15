@@ -1,16 +1,22 @@
-import type { StateCreator } from "zustand";
-import { scanRepository } from "@/db/repositories/scan-repository";
-import type { AppState, ScanRunRecord, ScanSessionFileRecord } from "@/types/domain";
+import type { StateCreator } from 'zustand';
+import { scanRepository } from '@/db/repositories/scan-repository';
+import type { AppState, ScanRunRecord, ScanSessionFileRecord } from '@/types/domain';
 
 type ScanSlice = Pick<
   AppState,
-  "connectedFolderName" | "lastScanAt" | "scanQueue" | "scanHistory" | "setConnectedFolderName" | "setScanQueue" | "updateScanFile" | "hydrateScanFile" | "clearScanQueue" | "hydrateScanHistory"
+  | 'connectedFolderName'
+  | 'lastScanAt'
+  | 'scanQueue'
+  | 'scanHistory'
+  | 'setConnectedFolderName'
+  | 'setScanQueue'
+  | 'updateScanFile'
+  | 'hydrateScanFile'
+  | 'clearScanQueue'
+  | 'hydrateScanHistory'
 >;
 
-const countByStatus = (
-  files: ScanSessionFileRecord[],
-  status: ScanSessionFileRecord["status"],
-) => {
+const countByStatus = (files: ScanSessionFileRecord[], status: ScanSessionFileRecord['status']) => {
   return files.filter((file) => file.status === status).length;
 };
 
@@ -28,15 +34,14 @@ export const createScanSlice: StateCreator<AppState, [], [], ScanSlice> = (set, 
       id: scanRunId,
       scannedAt,
       fileCount: files.length,
-      newCount: countByStatus(files, "ready"),
-      changedCount: countByStatus(files, "changed"),
-      duplicateCount: countByStatus(files, "duplicate"),
-      reviewCount:
-        countByStatus(files, "needsReview") + countByStatus(files, "partiallyReady"),
+      newCount: countByStatus(files, 'ready'),
+      changedCount: countByStatus(files, 'changed'),
+      duplicateCount: countByStatus(files, 'duplicate'),
+      reviewCount: countByStatus(files, 'needsReview') + countByStatus(files, 'partiallyReady'),
     };
 
     scanRepository.saveScanRun(run, files).catch(() => {
-      get().pushPersistenceWarning("Scan history could not be saved to local database.");
+      get().pushPersistenceWarning('Scan history could not be saved to local database.');
     });
 
     set((state) => ({
@@ -47,7 +52,9 @@ export const createScanSlice: StateCreator<AppState, [], [], ScanSlice> = (set, 
   },
   updateScanFile: (documentId, updater) => {
     set((state) => ({
-      scanQueue: state.scanQueue.map((file) => (file.documentId === documentId ? updater(file) : file)),
+      scanQueue: state.scanQueue.map((file) =>
+        file.documentId === documentId ? updater(file) : file
+      ),
     }));
   },
   hydrateScanFile: async (documentId: string) => {
@@ -65,7 +72,7 @@ export const createScanSlice: StateCreator<AppState, [], [], ScanSlice> = (set, 
 
       return persistedFile;
     } catch {
-      get().pushPersistenceWarning("Scanned file details could not be loaded from local database.");
+      get().pushPersistenceWarning('Scanned file details could not be loaded from local database.');
       return undefined;
     }
   },
@@ -77,7 +84,7 @@ export const createScanSlice: StateCreator<AppState, [], [], ScanSlice> = (set, 
       const scanHistory = await scanRepository.listScanRuns();
       set({ scanHistory });
     } catch {
-      get().pushPersistenceWarning("Scan history could not be loaded from local database.");
+      get().pushPersistenceWarning('Scan history could not be loaded from local database.');
     }
   },
 });

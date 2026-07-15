@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isApprovedFamilyUser() {
+      return request.auth != null
+        && request.auth.uid in [
+          "KEERTHI_UID",
+          "HUSBAND_UID"
+        ];
+    }
+
+    match /families/keerthi-family/{document=**} {
+      allow read, write: if isApprovedFamilyUser();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

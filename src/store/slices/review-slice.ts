@@ -1,7 +1,14 @@
-import type { StateCreator } from "zustand";
-import type { AppState, ReviewDraftRecord } from "@/types/domain";
+import type { StateCreator } from 'zustand';
+import type { AppState, ReviewDraftRecord } from '@/types/domain';
 
-type ReviewSlice = Pick<AppState, "reviewDrafts" | "reviewedDocumentIds" | "upsertReviewDraft" | "clearReviewDraftsForDocument" | "markDocumentReviewed">;
+type ReviewSlice = Pick<
+  AppState,
+  | 'reviewDrafts'
+  | 'reviewedDocumentIds'
+  | 'upsertReviewDraft'
+  | 'clearReviewDraftsForDocument'
+  | 'markDocumentReviewed'
+>;
 
 export const createReviewSlice: StateCreator<AppState, [], [], ReviewSlice> = (set) => ({
   reviewDrafts: [],
@@ -9,7 +16,9 @@ export const createReviewSlice: StateCreator<AppState, [], [], ReviewSlice> = (s
   upsertReviewDraft: (draft: ReviewDraftRecord) => {
     set((state) => ({
       reviewDrafts: [
-        ...state.reviewDrafts.filter((entry) => !(entry.documentId === draft.documentId && entry.rowIndex === draft.rowIndex)),
+        ...state.reviewDrafts.filter(
+          (entry) => !(entry.documentId === draft.documentId && entry.rowIndex === draft.rowIndex)
+        ),
         draft,
       ].sort((left, right) => left.rowIndex - right.rowIndex),
     }));

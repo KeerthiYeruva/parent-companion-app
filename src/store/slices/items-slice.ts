@@ -1,41 +1,34 @@
-import type { StateCreator } from "zustand";
-import { appRepository } from "@/db/repositories/app-repository";
-import { deriveStatus } from "@/lib/status";
+import type { StateCreator } from 'zustand';
+import { appRepository } from '@/db/repositories/app-repository';
+import { deriveStatus } from '@/lib/status';
 import {
   buildImportKey,
   buildLogicalItemKey,
   mergeResolvedItemFields,
-} from "@/features/import/services/import-content";
-import type {
-  AppState,
-  ImportedItemReplacementScope,
-  SchoolItem,
-} from "@/types/domain";
+} from '@/features/import/services/import-content';
+import type { AppState, ImportedItemReplacementScope, SchoolItem } from '@/types/domain';
 import {
   queueCloudDelete,
   upsertCloudItem,
   withUpdatedAt,
-} from "@/features/sync/services/cloud-sync";
+} from '@/features/sync/services/cloud-sync';
 
 type ItemsSlice = Pick<
   AppState,
-  | "items"
-  | "addItem"
-  | "replaceItemsForSourceDocuments"
-  | "toggleItemComplete"
-  | "setItemPrepStatus"
+  | 'items'
+  | 'addItem'
+  | 'replaceItemsForSourceDocuments'
+  | 'toggleItemComplete'
+  | 'setItemPrepStatus'
 >;
 
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 
-const itemKey = (
-  item: Omit<SchoolItem, "id" | "status" | "completedAt"> | SchoolItem,
-) => buildLogicalItemKey(item);
+const itemKey = (item: Omit<SchoolItem, 'id' | 'status' | 'completedAt'> | SchoolItem) =>
+  buildLogicalItemKey(item);
 
-const dedupeByItemKey = <
-  T extends Omit<SchoolItem, "id" | "status" | "completedAt"> | SchoolItem,
->(
-  items: T[],
+const dedupeByItemKey = <T extends Omit<SchoolItem, 'id' | 'status' | 'completedAt'> | SchoolItem>(
+  items: T[]
 ) => {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -51,7 +44,7 @@ const dedupeByItemKey = <
 
 const mergeItems = (
   existing: SchoolItem,
-  incoming: Omit<SchoolItem, "id" | "status" | "completedAt">,
+  incoming: Omit<SchoolItem, 'id' | 'status' | 'completedAt'>
 ): SchoolItem => {
   const mergedContent = mergeResolvedItemFields(
     {
@@ -67,7 +60,7 @@ const mergeItems = (
       chapterNumber: incoming.chapterNumber,
       chapterName: incoming.chapterName,
       subject: incoming.subject,
-    },
+    }
   );
   const completedAt = existing.completedAt ?? undefined;
 
@@ -82,7 +75,7 @@ const mergeItems = (
         ...(incoming.sourceDocumentIds ?? []),
         ...(existing.sourceDocumentId ? [existing.sourceDocumentId] : []),
         ...(incoming.sourceDocumentId ? [incoming.sourceDocumentId] : []),
-      ]),
+      ])
     ),
     completedAt,
     status: deriveStatus(incoming.dueDate ?? existing.dueDate, completedAt),
@@ -98,31 +91,26 @@ const itemContent = (item: SchoolItem) => {
 const itemChanged = (left: SchoolItem, right: SchoolItem) =>
   JSON.stringify(itemContent(left)) !== JSON.stringify(itemContent(right));
 
-export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
-  set,
-  get,
-) => ({
+export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set, get) => ({
   items: [],
-  addItem: (item: Omit<SchoolItem, "id" | "status" | "completedAt">) => {
-    const existing = get().items.find(
-      (entry) => itemKey(entry) === itemKey(item),
-    );
+  addItem: (item: Omit<SchoolItem, 'id' | 'status' | 'completedAt'>) => {
+    const existing = get().items.find((entry) => itemKey(entry) === itemKey(item));
     const nextItem = existing
       ? mergeItems(existing, item)
       : {
           ...item,
-          id: createId("item"),
+          id: createId('item'),
           status: deriveStatus(item.dueDate),
         };
-    const stampedItem = existing && !itemChanged(existing, nextItem)
-      ? existing
-      : withUpdatedAt(nextItem);
+    const stampedItem =
+      existing && !itemChanged(existing, nextItem) ? existing : withUpdatedAt(nextItem);
 
     if (existing && stampedItem === existing) {
       return;
     }
 
-    void appRepository.upsertItem(stampedItem)
+    void appRepository
+      .upsertItem(stampedItem)
       .then(() => {
         void upsertCloudItem(stampedItem)
           .then(() => {
@@ -130,41 +118,36 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           })
           .catch(() => {
             get().queueItemSync(stampedItem.id);
-            get().pushPersistenceWarning("New item could not be synced to cloud.");
+            get().pushPersistenceWarning('New item could not be synced to cloud.');
           });
       })
       .catch(() => {
-        get().pushPersistenceWarning("New item could not be saved to local database.");
+        get().pushPersistenceWarning('New item could not be saved to local database.');
       });
 
     set((state) => ({
       items: existing
-        ? state.items.map((entry) =>
-            itemKey(entry) === itemKey(item) ? stampedItem : entry,
-          )
+        ? state.items.map((entry) => (itemKey(entry) === itemKey(item) ? stampedItem : entry))
         : [...state.items, stampedItem],
     }));
   },
   replaceItemsForSourceDocuments: (
     sourceDocumentIds: string[],
-    items: Array<Omit<SchoolItem, "id" | "status" | "completedAt">>,
-    scope?: ImportedItemReplacementScope,
+    items: Array<Omit<SchoolItem, 'id' | 'status' | 'completedAt'>>,
+    scope?: ImportedItemReplacementScope
   ) => {
     const sourceDocumentIdSet = new Set(sourceDocumentIds);
     const nextItems = dedupeByItemKey(items);
 
     set((state) => {
       const isReplaceable = (item: SchoolItem) => {
-        if (
-          item.sourceDocumentId &&
-          sourceDocumentIdSet.has(item.sourceDocumentId)
-        ) {
+        if (item.sourceDocumentId && sourceDocumentIdSet.has(item.sourceDocumentId)) {
           return true;
         }
 
         if (
           (item.sourceDocumentIds ?? []).some((sourceDocumentId) =>
-            sourceDocumentIdSet.has(sourceDocumentId),
+            sourceDocumentIdSet.has(sourceDocumentId)
           )
         ) {
           return true;
@@ -192,17 +175,16 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
       const reusedIds = new Set<string>();
       nextItems.forEach((incoming) => {
         const exactExisting = state.items.find(
-          (entry) => !reusedIds.has(entry.id) && itemKey(entry) === itemKey(incoming),
+          (entry) => !reusedIds.has(entry.id) && itemKey(entry) === itemKey(incoming)
         );
         const stableCandidates = exactExisting
           ? []
           : state.items.filter(
               (entry) =>
-                !reusedIds.has(entry.id) &&
-                buildImportKey(entry) === buildImportKey(incoming),
+                !reusedIds.has(entry.id) && buildImportKey(entry) === buildImportKey(incoming)
             );
-        const existing = exactExisting ??
-          (stableCandidates.length === 1 ? stableCandidates[0] : undefined);
+        const existing =
+          exactExisting ?? (stableCandidates.length === 1 ? stableCandidates[0] : undefined);
         const existingIndex = existing
           ? mergedItems.findIndex((entry) => entry.id === existing.id)
           : -1;
@@ -212,12 +194,11 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           ? mergeItems(existing, incoming)
           : {
               ...incoming,
-              id: createId("item"),
+              id: createId('item'),
               status: deriveStatus(incoming.dueDate),
             };
-        const reconciled = existing && !itemChanged(existing, nextItem)
-          ? existing
-          : withUpdatedAt(nextItem);
+        const reconciled =
+          existing && !itemChanged(existing, nextItem) ? existing : withUpdatedAt(nextItem);
 
         if (existingIndex >= 0) {
           mergedItems[existingIndex] = reconciled;
@@ -235,14 +216,14 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
 
       appRepository
         .applyItemImportChanges(changedItems, deletedItemIds)
-        .then(() => Promise.all([
-          ...changedItems.map((item) => upsertCloudItem(item, "import")),
-          ...deletedItemIds.map((id) => queueCloudDelete("item", id, undefined, "import")),
-        ]))
+        .then(() =>
+          Promise.all([
+            ...changedItems.map((item) => upsertCloudItem(item, 'import')),
+            ...deletedItemIds.map((id) => queueCloudDelete('item', id, undefined, 'import')),
+          ])
+        )
         .catch(() => {
-          get().pushPersistenceWarning(
-            "Imported items could not be fully synced.",
-          );
+          get().pushPersistenceWarning('Imported items could not be fully synced.');
         });
 
       return {
@@ -257,9 +238,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           return item;
         }
 
-        const completedAt = item.completedAt
-          ? undefined
-          : new Date().toISOString();
+        const completedAt = item.completedAt ? undefined : new Date().toISOString();
         const nextItem = {
           ...item,
           completedAt,
@@ -267,7 +246,8 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           updatedAt: new Date().toISOString(),
         };
 
-        void appRepository.upsertItem(nextItem)
+        void appRepository
+          .upsertItem(nextItem)
           .then(() => {
             void upsertCloudItem(nextItem)
               .then(() => {
@@ -275,25 +255,18 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
               })
               .catch(() => {
                 get().queueItemSync(nextItem.id);
-                get().pushPersistenceWarning(
-                  "Item update could not be synced to cloud.",
-                );
+                get().pushPersistenceWarning('Item update could not be synced to cloud.');
               });
           })
           .catch(() => {
-            get().pushPersistenceWarning(
-              "Item update could not be saved to local database.",
-            );
+            get().pushPersistenceWarning('Item update could not be saved to local database.');
           });
 
         return nextItem;
       }),
     }));
   },
-  setItemPrepStatus: (
-    id: string,
-    prepStatus: NonNullable<SchoolItem["prepStatus"]>,
-  ) => {
+  setItemPrepStatus: (id: string, prepStatus: NonNullable<SchoolItem['prepStatus']>) => {
     set((state) => ({
       items: state.items.map((item) => {
         if (item.id !== id) {
@@ -301,9 +274,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
         }
 
         const completedAt =
-          prepStatus === "Ready"
-            ? (item.completedAt ?? new Date().toISOString())
-            : undefined;
+          prepStatus === 'Ready' ? (item.completedAt ?? new Date().toISOString()) : undefined;
         const nextItem = {
           ...item,
           prepStatus,
@@ -312,7 +283,8 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
           updatedAt: new Date().toISOString(),
         };
 
-        void appRepository.upsertItem(nextItem)
+        void appRepository
+          .upsertItem(nextItem)
           .then(() => {
             void upsertCloudItem(nextItem)
               .then(() => {
@@ -320,15 +292,11 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (
               })
               .catch(() => {
                 get().queueItemSync(nextItem.id);
-                get().pushPersistenceWarning(
-                  "Item update could not be synced to cloud.",
-                );
+                get().pushPersistenceWarning('Item update could not be synced to cloud.');
               });
           })
           .catch(() => {
-            get().pushPersistenceWarning(
-              "Item update could not be saved to local database.",
-            );
+            get().pushPersistenceWarning('Item update could not be saved to local database.');
           });
 
         return nextItem;

@@ -1,7 +1,7 @@
-import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { Link as RouterLink, useLocation } from "react-router-dom";
+import type { AnchorHTMLAttributes, ReactNode } from 'react';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 
-type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
+type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   href: string;
   children: ReactNode;
 };

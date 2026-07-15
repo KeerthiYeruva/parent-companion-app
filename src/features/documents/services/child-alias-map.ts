@@ -1,32 +1,35 @@
-import type { ChildProfile } from "@/types/domain";
+import type { ChildProfile } from '@/types/domain';
 
 const normalize = (value: string) => value.trim().toLowerCase();
 
 const romanToNumber: Record<string, string> = {
-  i: "1",
-  ii: "2",
-  iii: "3",
-  iv: "4",
-  v: "5",
-  vi: "6",
-  vii: "7",
-  viii: "8",
-  ix: "9",
-  x: "10",
-  xi: "11",
-  xii: "12",
+  i: '1',
+  ii: '2',
+  iii: '3',
+  iv: '4',
+  v: '5',
+  vi: '6',
+  vii: '7',
+  viii: '8',
+  ix: '9',
+  x: '10',
+  xi: '11',
+  xii: '12',
 };
 
-const numberToRoman = Object.entries(romanToNumber).reduce<Record<string, string>>((acc, [roman, number]) => {
-  acc[number] = roman;
-  return acc;
-}, {});
+const numberToRoman = Object.entries(romanToNumber).reduce<Record<string, string>>(
+  (acc, [roman, number]) => {
+    acc[number] = roman;
+    return acc;
+  },
+  {}
+);
 
 export const normalizeGrade = (value: string) => {
   const normalized = value
     .trim()
     .toLowerCase()
-    .replace(/^(grade|class)[\s_-]*[-:]?[\s_-]*/i, "")
+    .replace(/^(grade|class)[\s_-]*[-:]?[\s_-]*/i, '')
     .trim();
 
   return romanToNumber[normalized] ?? normalized;
@@ -35,20 +38,13 @@ export const normalizeGrade = (value: string) => {
 export const expandGradeHint = (value: string) => {
   const normalized = value.trim().toLowerCase();
   const rangeMatch = normalized.match(
-    /^(?:grades?|classes?)\s*([0-9ivx]+)\s*(?:-|\u2013|to)\s*([0-9ivx]+)$/i,
+    /^(?:grades?|classes?)\s*([0-9ivx]+)\s*(?:-|\u2013|to)\s*([0-9ivx]+)$/i
   );
   if (rangeMatch?.[1] && rangeMatch[2]) {
     const start = Number(normalizeGrade(rangeMatch[1]));
     const end = Number(normalizeGrade(rangeMatch[2]));
-    if (
-      Number.isInteger(start) &&
-      Number.isInteger(end) &&
-      start > 0 &&
-      end >= start
-    ) {
-      return Array.from({ length: end - start + 1 }, (_, index) =>
-        String(start + index),
-      );
+    if (Number.isInteger(start) && Number.isInteger(end) && start > 0 && end >= start) {
+      return Array.from({ length: end - start + 1 }, (_, index) => String(start + index));
     }
   }
 

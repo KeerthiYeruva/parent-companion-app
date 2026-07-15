@@ -113,6 +113,32 @@ npm run dev
 
 Open the Vite URL printed in the terminal, usually http://localhost:5173
 
+## Firebase Setup
+
+Create a local `.env` from `.env.example` and fill in the Firebase web app values. Do not commit real Firebase values or passwords.
+
+Firebase Authentication setup:
+
+1. Open Firebase Console.
+2. Go to Build -> Authentication.
+3. Click Get started.
+4. Open Sign-in method.
+5. Enable Email/Password.
+6. Open Users -> Add user.
+7. Create Keerthi's parent account.
+8. Create the husband's parent account.
+9. Copy both Firebase Authentication UIDs.
+10. Replace `KEERTHI_UID` and `HUSBAND_UID` in `firestore.rules` with the real UIDs.
+11. Publish the Firestore rules.
+
+Children do not need Firebase Authentication accounts. Luhas and Ruthvish remain app `ChildProfile` records, and a parent can stay signed in on the family tablet so the children can use the planner without knowing a password.
+
+Passwords are managed by Firebase Authentication. Never store passwords in source code, Firestore, IndexedDB, localStorage, environment files, logs, tests, or GitHub.
+
+The Firestore rules intentionally allow only the approved parent UIDs under `/families/keerthi-family/**` and deny all other paths. The family ID is not treated as a secret, and the rules do not allow every authenticated Firebase user.
+
+Security note: removing `.env` from the latest commit does not erase it from old Git history. Do not rewrite history casually. Review Google Cloud API key restrictions, rotate the Firebase API key only if abuse is suspected or restrictions require it, and rely on Firebase Authentication plus Firestore Security Rules as the actual access controls.
+
 ## Quality Checks
 
 ```bash

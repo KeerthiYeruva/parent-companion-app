@@ -1,24 +1,24 @@
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useAppStore } from "@/store/use-app-store";
-import type { DocumentType } from "@/types/domain";
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAppStore } from '@/store/use-app-store';
+import type { DocumentType } from '@/types/domain';
 
 const documentTypes: DocumentType[] = [
-  "ScholasticPlanner",
-  "CoScholasticPlanner",
-  "UnitTestPortion",
-  "ClassTestPortion",
-  "ExamCircular",
-  "HomeworkSchedule",
-  "ActivitySchedule",
-  "Circular",
+  'ScholasticPlanner',
+  'CoScholasticPlanner',
+  'UnitTestPortion',
+  'ClassTestPortion',
+  'ExamCircular',
+  'HomeworkSchedule',
+  'ActivitySchedule',
+  'Circular',
 ];
 
 const schema = z.object({
-  title: z.string().min(3, "Title is required"),
+  title: z.string().min(3, 'Title is required'),
   type: z.enum(documentTypes),
-  childIds: z.array(z.string()).min(1, "Select at least one child"),
+  childIds: z.array(z.string()).min(1, 'Select at least one child'),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -39,7 +39,7 @@ export function UploadDocumentForm() {
     defaultValues: { childIds: [] },
   });
 
-  const childIds = watch("childIds");
+  const childIds = watch('childIds');
 
   return (
     <form
@@ -49,10 +49,16 @@ export function UploadDocumentForm() {
         reset({ childIds: [] });
       })}
     >
-      <p className="text-sm text-slate-700">Documents are references only. Extracted items power the plan.</p>
+      <p className="text-sm text-slate-700">
+        Documents are references only. Extracted items power the plan.
+      </p>
       <div className="grid gap-2 md:grid-cols-3">
-        <input className="rounded-lg border border-slate-300 px-3 py-2" placeholder="Document title" {...register("title")} />
-        <select className="rounded-lg border border-slate-300 px-3 py-2" {...register("type")}>
+        <input
+          className="rounded-lg border border-slate-300 px-3 py-2"
+          placeholder="Document title"
+          {...register('title')}
+        />
+        <select className="rounded-lg border border-slate-300 px-3 py-2" {...register('type')}>
           {documentTypes.map((type) => (
             <option key={type} value={type}>
               {type}
@@ -72,11 +78,13 @@ export function UploadDocumentForm() {
               key={child.id}
               type="button"
               onClick={() => {
-                const next = checked ? childIds.filter((id) => id !== child.id) : [...childIds, child.id];
-                setValue("childIds", next, { shouldValidate: true });
+                const next = checked
+                  ? childIds.filter((id) => id !== child.id)
+                  : [...childIds, child.id];
+                setValue('childIds', next, { shouldValidate: true });
               }}
               className={`rounded-full border px-3 py-1 text-sm ${
-                checked ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300"
+                checked ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300'
               }`}
             >
               {child.name}

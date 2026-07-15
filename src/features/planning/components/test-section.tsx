@@ -1,8 +1,8 @@
-import { useState } from "react";
-import type { LucideIcon } from "lucide-react";
-import { ItemList } from "@/components/item-list";
-import { ChevronIcon } from "@/components/ui/chevron-icon";
-import type { SchoolItem } from "@/types/domain";
+import { useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { ItemList } from '@/components/item-list';
+import { ChevronIcon } from '@/components/ui/chevron-icon';
+import type { SchoolItem } from '@/types/domain';
 
 type TestSectionProps = {
   title: string;
@@ -11,12 +11,7 @@ type TestSectionProps = {
   icon?: LucideIcon;
 };
 
-export function TestSection({
-  title,
-  items,
-  defaultOpen = false,
-  icon: Icon,
-}: TestSectionProps) {
+export function TestSection({ title, items, defaultOpen = false, icon: Icon }: TestSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
@@ -34,18 +29,16 @@ export function TestSection({
             </span>
           ) : null}
           <div>
-          <h3 className="test-section__title font-semibold text-slate-900">
-            {title}
-          </h3>
+            <h3 className="test-section__title font-semibold text-slate-900">{title}</h3>
 
-          <p className="test-section__count text-sm text-slate-500">
-            {items.length} {items.length === 1 ? "test" : "tests"}
-          </p>
+            <p className="test-section__count text-sm text-slate-500">
+              {items.length} {items.length === 1 ? 'test' : 'tests'}
+            </p>
           </div>
         </div>
 
         <span className="test-section__chevron text-slate-500">
-          <ChevronIcon direction={isOpen ? "up" : "down"} />
+          <ChevronIcon direction={isOpen ? 'up' : 'down'} />
         </span>
       </button>
 

@@ -1,14 +1,7 @@
-import {
-  BookOpen,
-  Calculator,
-  FlaskConical,
-  Languages,
-  Monitor,
-  Palette,
-} from "lucide-react";
+import { BookOpen, Calculator, FlaskConical, Languages, Monitor, Palette } from 'lucide-react';
 
 const subjectIconFor = (subject?: string) => {
-  const value = subject?.toLowerCase() ?? "";
+  const value = subject?.toLowerCase() ?? '';
 
   if (/math|mathematics/.test(value)) return Calculator;
   if (/science|physics|chemistry|biology/.test(value)) return FlaskConical;
@@ -21,7 +14,7 @@ const subjectIconFor = (subject?: string) => {
 
 export function SubjectIcon({
   subject,
-  className = "h-4 w-4",
+  className = 'h-4 w-4',
 }: {
   subject?: string;
   className?: string;
