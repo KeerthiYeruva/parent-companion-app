@@ -1,5 +1,6 @@
 import {
   browserLocalPersistence,
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   setPersistence,
   signInWithEmailAndPassword,
@@ -35,6 +36,16 @@ export const signIn = async (email: string, password: string) => {
   return toAuthenticatedUser(credential.user);
 };
 
+export const createAccount = async (email: string, password: string) => {
+  if (!firebaseAuth) {
+    throw new Error('Firebase Authentication is not configured.');
+  }
+
+  await persistenceReady;
+  const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+  return toAuthenticatedUser(credential.user);
+};
+
 export const signOutUser = async () => {
   if (!firebaseAuth) {
     return;
@@ -58,11 +69,22 @@ export const subscribeToAuthState = (callback: AuthStateCallback, onError?: Auth
   );
 };
 
-export const getFriendlyAuthError = (error: unknown) => {
+export const getFriendlyAuthError = (
+  error: unknown,
+  action: 'signIn' | 'createAccount' = 'signIn'
+) => {
   const code =
     error && typeof error === 'object' && 'code' in error
       ? String((error as { code?: unknown }).code)
       : '';
+
+  if (code.includes('email-already-in-use')) {
+    return 'An account already exists for this email. Please sign in.';
+  }
+
+  if (code.includes('weak-password')) {
+    return 'Choose a stronger password with at least 6 characters.';
+  }
 
   if (
     code.includes('invalid-credential') ||
@@ -73,16 +95,18 @@ export const getFriendlyAuthError = (error: unknown) => {
   }
 
   if (code.includes('too-many-requests')) {
-    return 'Too many sign-in attempts. Please try again later.';
+    return 'Too many attempts. Please wait and try again.';
   }
 
   if (code.includes('network-request-failed')) {
-    return 'Network error. Please check your connection and try again.';
+    return 'Unable to connect. Check your internet connection and try again.';
   }
 
   if (code.includes('invalid-email')) {
-    return 'Please enter a valid email address.';
+    return 'Enter a valid email address.';
   }
 
-  return 'Sign in failed. Please check your details and try again.';
+  return action === 'createAccount'
+    ? 'Account creation failed. Please try again.'
+    : 'Sign in failed. Please check your details and try again.';
 };

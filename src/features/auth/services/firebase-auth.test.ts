@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authMocks = vi.hoisted(() => ({
+  createUserWithEmailAndPassword: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
   signOut: vi.fn(),
   onAuthStateChanged: vi.fn(),
@@ -10,6 +11,7 @@ const authMocks = vi.hoisted(() => ({
 
 vi.mock('firebase/auth', () => ({
   browserLocalPersistence: 'local',
+  createUserWithEmailAndPassword: authMocks.createUserWithEmailAndPassword,
   onAuthStateChanged: authMocks.onAuthStateChanged,
   setPersistence: authMocks.setPersistence,
   signInWithEmailAndPassword: authMocks.signInWithEmailAndPassword,
@@ -21,6 +23,7 @@ vi.mock('@/lib/firebase', () => ({
 }));
 
 import {
+  createAccount,
   getFriendlyAuthError,
   signIn,
   signOutUser,
@@ -29,6 +32,7 @@ import {
 
 describe('Firebase auth service', () => {
   beforeEach(() => {
+    authMocks.createUserWithEmailAndPassword.mockReset();
     authMocks.signInWithEmailAndPassword.mockReset();
     authMocks.signOut.mockReset();
     authMocks.onAuthStateChanged.mockReset();
@@ -47,6 +51,22 @@ describe('Firebase auth service', () => {
       authMocks.auth,
       'parent@example.com',
       'secret'
+    );
+  });
+
+  it('creates an account and returns the Firebase-created authenticated user', async () => {
+    authMocks.createUserWithEmailAndPassword.mockResolvedValue({
+      user: { uid: 'generated-parent-uid', email: 'new-parent@example.com' },
+    });
+
+    await expect(createAccount('new-parent@example.com', 'secret1')).resolves.toEqual({
+      uid: 'generated-parent-uid',
+      email: 'new-parent@example.com',
+    });
+    expect(authMocks.createUserWithEmailAndPassword).toHaveBeenCalledWith(
+      authMocks.auth,
+      'new-parent@example.com',
+      'secret1'
     );
   });
 
@@ -90,5 +110,14 @@ describe('Firebase auth service', () => {
       'The email or password is incorrect.'
     );
     expect(getFriendlyAuthError({ code: 'auth/permission-denied' })).not.toContain('auth/');
+    expect(getFriendlyAuthError({ code: 'auth/invalid-email' }, 'createAccount')).toBe(
+      'Enter a valid email address.'
+    );
+    expect(getFriendlyAuthError({ code: 'auth/weak-password' }, 'createAccount')).toBe(
+      'Choose a stronger password with at least 6 characters.'
+    );
+    expect(getFriendlyAuthError({ code: 'auth/email-already-in-use' }, 'createAccount')).toBe(
+      'An account already exists for this email. Please sign in.'
+    );
   });
 });

@@ -9,5 +9,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    env: {
+      VITE_FIREBASE_FAMILY_ID: 'test-family',
+    },
   },
 });

@@ -124,12 +124,30 @@ Firebase Authentication setup:
 3. Click Get started.
 4. Open Sign-in method.
 5. Enable Email/Password.
-6. Open Users -> Add user.
-7. Create Keerthi's parent account.
-8. Create the husband's parent account.
-9. Copy both Firebase Authentication UIDs.
-10. Replace `KEERTHI_UID` and `HUSBAND_UID` in `firestore.rules` with the real UIDs.
-11. Publish the Firestore rules.
+
+First-time parent signup:
+
+1. Open Parent Companion.
+2. Select Create account.
+3. Enter the parent's email and password.
+4. Firebase Authentication creates the account and signs it in with a generated UID.
+5. Copy the Firebase User ID shown on the access-pending screen.
+6. Open `firestore.rules`.
+7. Replace the appropriate placeholder, or add the UID to the approved list.
+8. Publish the Firestore rules.
+9. Reopen the app or retry sync.
+
+Example placeholders only:
+
+```text
+request.auth.uid in [
+  "KEERTHI_REAL_UID",
+  "HUSBAND_REAL_UID"
+]
+```
+
+Creating an Authentication account does not grant access to family data. Firestore remains denied until the new UID
+is explicitly added to the approved allowlist and the rules are published.
 
 Children do not need Firebase Authentication accounts. Luhas and Ruthvish remain app `ChildProfile` records, and a parent can stay signed in on the family tablet so the children can use the planner without knowing a password.
 
