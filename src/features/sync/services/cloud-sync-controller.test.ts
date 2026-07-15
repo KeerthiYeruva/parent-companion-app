@@ -76,8 +76,14 @@ describe('cloud sync controller', () => {
   it('starts Firestore listeners once after authentication', () => {
     const harness = createHarness();
 
-    harness.controller.handleAuthUserChange({ uid: 'uid-1', email: 'parent@example.com' });
-    harness.controller.handleAuthUserChange({ uid: 'uid-1', email: 'parent@example.com' });
+    harness.controller.handleAuthUserChange({
+      uid: 'uid-1',
+      email: 'parent@example.com',
+    });
+    harness.controller.handleAuthUserChange({
+      uid: 'uid-1',
+      email: 'parent@example.com',
+    });
 
     expect(harness.startListeners).toHaveBeenCalledTimes(1);
     expect(harness.retryQueued).toHaveBeenCalledTimes(1);

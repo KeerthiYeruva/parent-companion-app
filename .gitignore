@@ -16,6 +16,7 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+PRIVATE_SETUP.md
 
 # typescript
 *.tsbuildinfo

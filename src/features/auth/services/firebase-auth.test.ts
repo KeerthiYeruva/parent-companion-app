@@ -24,6 +24,9 @@ vi.mock('@/lib/firebase', () => ({
 
 import {
   createAccount,
+  FAMILY_AUTH_EMAIL,
+  FAMILY_USERNAME,
+  FAMILY_USERNAME_LABEL,
   getFriendlyAuthError,
   signIn,
   signOutUser,
@@ -38,42 +41,51 @@ describe('Firebase auth service', () => {
     authMocks.onAuthStateChanged.mockReset();
   });
 
+  it('defines the shared family account mapping', () => {
+    expect(FAMILY_USERNAME).toBe('school');
+    expect(FAMILY_USERNAME_LABEL).toBe('School');
+    expect(FAMILY_AUTH_EMAIL).toBe('school@parentcompanion.app');
+  });
+
   it('signs in with Firebase Email/Password', async () => {
     authMocks.signInWithEmailAndPassword.mockResolvedValue({
-      user: { uid: 'uid-1', email: 'parent@example.com' },
+      user: { uid: 'uid-1', email: 'school@parentcompanion.app' },
     });
 
-    await expect(signIn('parent@example.com', 'secret')).resolves.toEqual({
+    await expect(signIn('school@parentcompanion.app', 'family-pass-1')).resolves.toEqual({
       uid: 'uid-1',
-      email: 'parent@example.com',
+      email: 'school@parentcompanion.app',
     });
     expect(authMocks.signInWithEmailAndPassword).toHaveBeenCalledWith(
       authMocks.auth,
-      'parent@example.com',
-      'secret'
+      'school@parentcompanion.app',
+      'family-pass-1'
     );
   });
 
   it('creates an account and returns the Firebase-created authenticated user', async () => {
     authMocks.createUserWithEmailAndPassword.mockResolvedValue({
-      user: { uid: 'generated-parent-uid', email: 'new-parent@example.com' },
+      user: {
+        uid: 'generated-parent-uid',
+        email: 'school@parentcompanion.app',
+      },
     });
 
-    await expect(createAccount('new-parent@example.com', 'secret1')).resolves.toEqual({
+    await expect(createAccount('school@parentcompanion.app', 'family-pass-1')).resolves.toEqual({
       uid: 'generated-parent-uid',
-      email: 'new-parent@example.com',
+      email: 'school@parentcompanion.app',
     });
     expect(authMocks.createUserWithEmailAndPassword).toHaveBeenCalledWith(
       authMocks.auth,
-      'new-parent@example.com',
-      'secret1'
+      'school@parentcompanion.app',
+      'family-pass-1'
     );
   });
 
   it('subscribes to Firebase auth state and returns typed users', () => {
     const unsubscribe = vi.fn();
     authMocks.onAuthStateChanged.mockImplementation((_auth, callback) => {
-      callback({ uid: 'uid-1', email: 'parent@example.com' });
+      callback({ uid: 'uid-1', email: 'school@parentcompanion.app' });
       return unsubscribe;
     });
     const callback = vi.fn();
@@ -82,7 +94,7 @@ describe('Firebase auth service', () => {
 
     expect(callback).toHaveBeenCalledWith({
       uid: 'uid-1',
-      email: 'parent@example.com',
+      email: 'school@parentcompanion.app',
     });
   });
 
@@ -107,17 +119,20 @@ describe('Firebase auth service', () => {
 
   it('maps Firebase errors to friendly messages', () => {
     expect(getFriendlyAuthError({ code: 'auth/invalid-credential' })).toBe(
-      'The email or password is incorrect.'
+      'The username or password is incorrect.'
     );
     expect(getFriendlyAuthError({ code: 'auth/permission-denied' })).not.toContain('auth/');
-    expect(getFriendlyAuthError({ code: 'auth/invalid-email' }, 'createAccount')).toBe(
-      'Enter a valid email address.'
-    );
     expect(getFriendlyAuthError({ code: 'auth/weak-password' }, 'createAccount')).toBe(
-      'Choose a stronger password with at least 6 characters.'
+      'Choose a password with at least 6 characters.'
     );
     expect(getFriendlyAuthError({ code: 'auth/email-already-in-use' }, 'createAccount')).toBe(
-      'An account already exists for this email. Please sign in.'
+      'The family account already exists. Please sign in.'
     );
+    expect(getFriendlyAuthError({ code: 'auth/operation-not-allowed' }, 'createAccount')).toBe(
+      'Account creation is not available yet. Check Firebase Authentication setup.'
+    );
+    expect(
+      getFriendlyAuthError(new Error('Firebase Authentication is not configured.'), 'createAccount')
+    ).toBe('Firebase Authentication is not configured. Check local setup.');
   });
 });
