@@ -335,9 +335,11 @@ export const mergeCloudSnapshot = async ({
   const mergedDocuments = mergeEntities(localDocuments, documents, 'document');
 
   await Promise.all([
-    appRepository.upsertChildren(mergedChildren),
-    appRepository.upsertItems(mergedItems),
-    appRepository.upsertDocuments(mergedDocuments),
+    appRepository.replaceEntities({
+      children: mergedChildren,
+      items: mergedItems,
+      documents: mergedDocuments,
+    }),
     ...allDeletions.map((deletion) => appRepository.upsertDeletion(deletion)),
   ]);
 
@@ -375,7 +377,36 @@ export const uploadLocalDataToCloud = async () => {
     appRepository.listDocuments(),
     appRepository.listDeletions(),
   ]);
+  const [cloudChildren, cloudItems, cloudDocuments] = await Promise.all([
+    getDocs(collection(db, 'families', scopedFamilyId, 'children')),
+    getDocs(collection(db, 'families', scopedFamilyId, 'items')),
+    getDocs(collection(db, 'families', scopedFamilyId, 'documents')),
+  ]);
   const batch = writeBatch(db);
+  const deleteMissingCloudDocs = (
+    collectionName: 'children' | 'items' | 'documents',
+    cloudDocs: Array<{ id: string }>,
+    localIds: Set<string>
+  ) => {
+    cloudDocs.forEach((cloudDoc) => {
+      if (!localIds.has(cloudDoc.id)) {
+        batch.delete(doc(db, 'families', scopedFamilyId, collectionName, cloudDoc.id));
+      }
+    });
+  };
+
+  deleteMissingCloudDocs(
+    'children',
+    cloudChildren.docs,
+    new Set(children.map((child) => child.id))
+  );
+  deleteMissingCloudDocs('items', cloudItems.docs, new Set(items.map((item) => item.id)));
+  deleteMissingCloudDocs(
+    'documents',
+    cloudDocuments.docs,
+    new Set(documents.map((document) => document.id))
+  );
+
   children.forEach((child) => {
     batch.set(doc(db, 'families', scopedFamilyId, 'children', child.id), removeUndefined(child));
   });

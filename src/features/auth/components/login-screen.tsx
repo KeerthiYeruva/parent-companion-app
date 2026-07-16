@@ -8,6 +8,8 @@ import {
   signIn,
 } from '@/features/auth/services/firebase-auth';
 
+const allowAccountCreation = import.meta.env.VITE_ALLOW_FAMILY_ACCOUNT_CREATION === 'true';
+
 export function LoginScreen({ initialError }: { initialError?: string }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -27,6 +29,11 @@ export function LoginScreen({ initialError }: { initialError?: string }) {
 
     if (normalizedUsername !== FAMILY_USERNAME) {
       setError(`Use the family username: ${FAMILY_USERNAME_LABEL}.`);
+      return;
+    }
+
+    if (mode === 'createAccount' && !allowAccountCreation) {
+      setError('Account creation is not available from this app.');
       return;
     }
 
@@ -125,20 +132,22 @@ export function LoginScreen({ initialError }: { initialError?: string }) {
                 : 'Sign in'}
           </button>
 
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => {
-              setMode((current) => (current === 'signIn' ? 'createAccount' : 'signIn'));
-              setError(undefined);
-              setConfirmPassword('');
-            }}
-            className="min-h-11 w-full text-sm font-medium text-blue-700 hover:text-blue-800 disabled:cursor-not-allowed disabled:text-slate-400"
-          >
-            {mode === 'createAccount'
-              ? 'Already have an account? Sign in'
-              : 'First time here? Create Family Account'}
-          </button>
+          {allowAccountCreation ? (
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => {
+                setMode((current) => (current === 'signIn' ? 'createAccount' : 'signIn'));
+                setError(undefined);
+                setConfirmPassword('');
+              }}
+              className="min-h-11 w-full text-sm font-medium text-blue-700 hover:text-blue-800 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {mode === 'createAccount'
+                ? 'Already have an account? Sign in'
+                : 'First time here? Create Family Account'}
+            </button>
+          ) : null}
         </form>
       </section>
     </main>

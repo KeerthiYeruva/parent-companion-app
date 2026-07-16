@@ -22,8 +22,14 @@ type ItemListProps = {
   showCategory?: boolean;
 };
 
-export function ItemList({ items, emptyText }: ItemListProps) {
+export function ItemList({
+  items,
+  emptyText,
+  showChild = true,
+  showCategory = true,
+}: ItemListProps) {
   const toggleItemComplete = useAppStore((state) => state.toggleItemComplete);
+  const children = useAppStore((state) => state.children);
 
   if (items.length === 0) {
     return (
@@ -41,7 +47,11 @@ export function ItemList({ items, emptyText }: ItemListProps) {
         const isFutureLocked = isItemFutureLocked(item);
         const timing = getItemTiming(item);
         const display = buildPlannerItemDisplay(item);
-        const metadata = [dayjs(item.dueDate).format('ddd, DD MMM')].filter(Boolean);
+        const childName = children.find((child) => child.id === item.childId)?.name;
+        const metadata = [
+          showChild ? childName : undefined,
+          dayjs(item.dueDate).format('ddd, DD MMM'),
+        ].filter(Boolean);
 
         return (
           <li
@@ -93,9 +103,11 @@ export function ItemList({ items, emptyText }: ItemListProps) {
                   {display.subject ? (
                     <SubjectIcon subject={display.subject} className="h-4 w-4 text-slate-400" />
                   ) : null}
-                  <span className="planner-item__category text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {display.category}
-                  </span>
+                  {showCategory ? (
+                    <span className="planner-item__category text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {display.category}
+                    </span>
+                  ) : null}
                   {display.subject ? (
                     <span className="planner-item__subject text-sm font-medium text-slate-700">
                       {display.subject}

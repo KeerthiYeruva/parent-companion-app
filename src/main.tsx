@@ -60,17 +60,12 @@ const applySnapshot = (snapshot: {
   items: ReturnType<typeof useAppStore.getState>['items'];
   documents: ReturnType<typeof useAppStore.getState>['documents'];
 }) => {
-  const hasData =
-    snapshot.children.length > 0 || snapshot.items.length > 0 || snapshot.documents.length > 0;
-
-  if (hasData) {
-    useAppStore.setState(
-      buildHydratedSnapshot({
-        ...snapshot,
-        selectedChildIds: useAppStore.getState().selectedChildIds,
-      })
-    );
-  }
+  useAppStore.setState(
+    buildHydratedSnapshot({
+      ...snapshot,
+      selectedChildIds: useAppStore.getState().selectedChildIds,
+    })
+  );
 };
 
 const startApp = async () => {

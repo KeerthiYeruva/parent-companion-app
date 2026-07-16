@@ -171,19 +171,6 @@ const buildReplacementScope = (
   };
 };
 
-const isInReplacementScope = (item: SchoolItem, scope?: ImportedItemReplacementScope) => {
-  if (!scope || (!item.sourceDocumentId && !item.sourceDocumentIds?.length)) {
-    return false;
-  }
-
-  return (
-    scope.childIds.includes(item.childId) &&
-    scope.categories.includes(item.category) &&
-    item.dueDate >= scope.fromDate &&
-    item.dueDate <= scope.toDate
-  );
-};
-
 const itemHasAnySourceDocument = (
   item: Pick<SchoolItem, 'sourceDocumentId' | 'sourceDocumentIds'>,
   sourceDocumentIds: Set<string>
@@ -383,7 +370,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
   const setScanQueue = useAppStore((state) => state.setScanQueue);
   const pushPersistenceWarning = useAppStore((state) => state.pushPersistenceWarning);
   const [isScanning, setIsScanning] = useState(false);
-  const [, setLastRebuildSummary] = useState<{ cleared: number; imported: number } | undefined>();
 
   const directoryPickerProps: InputHTMLAttributes<HTMLInputElement> & {
     webkitdirectory?: string;
@@ -393,14 +379,18 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     directory: '',
   };
 
-  const existingByHash = useMemo(() => {
-    const map = new Map<string, { modifiedAt?: string }>();
+  const existingDocumentKeys = useMemo(() => {
+    const byHash = new Set<string>();
+    const byRelativePath = new Set<string>();
     documents.forEach((doc) => {
       if (doc.fileHash) {
-        map.set(doc.fileHash, { modifiedAt: doc.modifiedAt });
+        byHash.add(doc.fileHash);
+      }
+      if (doc.relativePath) {
+        byRelativePath.add(doc.relativePath);
       }
     });
-    return map;
+    return { byHash, byRelativePath };
   }, [documents]);
 
   const saveableResults = useMemo(() => {
@@ -441,15 +431,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     () => buildReplacementScope(readyPreviewItems),
     [readyPreviewItems]
   );
-
-  const replaceableImportedCount = useMemo(() => {
-    const scannedSourceDocumentIdSet = new Set(scannedSourceDocumentIds);
-    return items.filter(
-      (item) =>
-        itemHasAnySourceDocument(item, scannedSourceDocumentIdSet) ||
-        isInReplacementScope(item, replacementScope)
-    ).length;
-  }, [items, replacementScope, scannedSourceDocumentIds]);
 
   const scanTotals = useMemo(() => {
     return scanQueue.reduce(
@@ -534,7 +515,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     }
 
     setIsScanning(true);
-    setLastRebuildSummary(undefined);
 
     try {
       const scannedAt = new Date().toISOString();
@@ -669,9 +649,24 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
             parserIssue: row.parserIssue,
           }))
       );
+      const rowGroupsWithScheduleDates = attachUnitTestDatesFromSchedule([
+        { rows: historicalRows, isGradeSpecificSchedule: false },
+        ...classifiedFiles.map((entry) => ({
+          rows: entry.classifiedRows.importRows,
+          isGradeSpecificSchedule: entry.isGradeSpecificSchedule,
+        })),
+      ]);
+      const historicalRowsWithScheduleDates = rowGroupsWithScheduleDates[0] ?? [];
+      const classifiedFilesWithScheduleDates = classifiedFiles.map((entry, index) => ({
+        ...entry,
+        classifiedRows: {
+          ...entry.classifiedRows,
+          importRows: rowGroupsWithScheduleDates[index + 1] ?? entry.classifiedRows.importRows,
+        },
+      }));
       const batchRows = [
-        ...historicalRows,
-        ...classifiedFiles.flatMap((entry, index) =>
+        ...historicalRowsWithScheduleDates,
+        ...classifiedFilesWithScheduleDates.flatMap((entry, index) =>
           entry.classifiedRows.importRows.map((row) => ({
             ...row,
             sourceDocumentId: scannedFiles[index].detected.fileHash,
@@ -693,7 +688,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       for (const [index, scannedFile] of scannedFiles.entries()) {
         const { file, contentText, extractionStatus, extractionError, relativePath, detected } =
           scannedFile;
-        const classifiedRows = classifiedFiles[index].classifiedRows;
+        const classifiedRows = classifiedFilesWithScheduleDates[index].classifiedRows;
         const allRawRows = classifiedRows.importRows;
         const rawRows = allRawRows;
         console.debug('[smart-folder-import] final merge', {
@@ -774,12 +769,14 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           categoryCounts,
         });
 
-        const existing = existingByHash.get(detected.fileHash);
-        const derivedStatus: ScanSessionFileRecord['status'] = existing
-          ? existing.modifiedAt === new Date(file.lastModified).toISOString()
-            ? 'duplicate'
-            : 'changed'
-          : 'ready';
+        const existingByPath = existingDocumentKeys.byRelativePath.has(relativePath);
+        const derivedStatus: ScanSessionFileRecord['status'] = existingDocumentKeys.byHash.has(
+          detected.fileHash
+        )
+          ? 'duplicate'
+          : existingByPath
+            ? 'changed'
+            : 'ready';
         const status: ScanSessionFileRecord['status'] =
           derivedStatus === 'duplicate' || derivedStatus === 'changed'
             ? derivedStatus
@@ -846,10 +843,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
     }
 
     replaceItemsForSourceDocuments(scannedSourceDocumentIds, readyPreviewItems, replacementScope);
-    setLastRebuildSummary({
-      cleared: replaceableImportedCount,
-      imported: readyPreviewItems.length,
-    });
   };
 
   return (

@@ -24,6 +24,9 @@ export interface AppRepository {
   upsertDeletion: (deletion: DeletionRecord) => Promise<void>;
   upsertSyncQueueRecord: (record: SyncQueueRecord) => Promise<void>;
   deleteSyncQueueRecord: (id: string) => Promise<void>;
+  replaceEntities: (
+    snapshot: Pick<HydrationInput, 'children' | 'items' | 'documents'>
+  ) => Promise<void>;
   deleteDocumentAndItems: (documentId: string, sourceDocumentIds: string[]) => Promise<void>;
   deleteChildAndLinkedData: (
     childId: string,
@@ -88,6 +91,16 @@ export const appRepository: AppRepository = {
   deleteSyncQueueRecord: async (id) => {
     await db.syncQueue.delete(id);
   },
+  replaceEntities: async ({ children, items, documents }) => {
+    await db.transaction('rw', db.children, db.items, db.documents, async () => {
+      await Promise.all([db.children.clear(), db.items.clear(), db.documents.clear()]);
+      await Promise.all([
+        children.length > 0 ? db.children.bulkPut(children) : Promise.resolve(),
+        items.length > 0 ? db.items.bulkPut(items) : Promise.resolve(),
+        documents.length > 0 ? db.documents.bulkPut(documents) : Promise.resolve(),
+      ]);
+    });
+  },
   deleteDocumentAndItems: async (documentId, sourceDocumentIds) => {
     await db.transaction('rw', db.documents, db.items, async () => {
       const allItems = await db.items.toArray();
@@ -124,13 +137,7 @@ export const appRepository: AppRepository = {
     });
   },
   replaceSnapshot: async ({ children, items, documents }) => {
-    await db.transaction('rw', db.children, db.items, db.documents, async () => {
-      await Promise.all([
-        children.length > 0 ? db.children.bulkPut(children) : Promise.resolve(),
-        items.length > 0 ? db.items.bulkPut(items) : Promise.resolve(),
-        documents.length > 0 ? db.documents.bulkPut(documents) : Promise.resolve(),
-      ]);
-    });
+    await appRepository.replaceEntities({ children, items, documents });
   },
   replaceItemsForSourceDocuments: async (sourceDocumentIds, items, scope) => {
     await db.transaction('rw', db.items, async () => {

@@ -20,11 +20,18 @@ const cloud = vi.hoisted(() => ({
   failingIds: new Set<string>(),
 }));
 
+const batchMocks = vi.hoisted(() => ({
+  set: vi.fn(),
+  delete: vi.fn(),
+  commit: vi.fn(async () => undefined),
+}));
+
 const authState = vi.hoisted(() => ({
   currentUser: { uid: 'approved-user' } as { uid: string } | null,
 }));
 
 const firestoreMocks = vi.hoisted(() => ({
+  getDocs: vi.fn(async (_reference?: { id?: string }) => ({ docs: [] as Array<{ id: string }> })),
   getDoc: vi.fn(async (reference: { id: string }) => ({
     exists: () => cloud.documents.has(reference.id),
     data: () => cloud.documents.get(reference.id),
@@ -43,11 +50,15 @@ vi.mock('firebase/firestore', () => ({
   collection: vi.fn((...parts: string[]) => ({ id: parts.at(-1), parts })),
   doc: vi.fn((...parts: string[]) => ({ id: parts.at(-1), parts })),
   getDoc: firestoreMocks.getDoc,
-  getDocs: vi.fn(),
+  getDocs: firestoreMocks.getDocs,
   setDoc: firestoreMocks.setDoc,
   deleteDoc: firestoreMocks.deleteDoc,
   onSnapshot: vi.fn(() => vi.fn()),
-  writeBatch: vi.fn(() => ({ set: vi.fn(), commit: vi.fn() })),
+  writeBatch: vi.fn(() => ({
+    set: batchMocks.set,
+    delete: batchMocks.delete,
+    commit: batchMocks.commit,
+  })),
 }));
 
 vi.mock('@/lib/firebase', () => ({
@@ -71,6 +82,21 @@ vi.mock('@/db/repositories/app-repository', () => ({
     upsertDocuments: vi.fn(async (documents: UploadedDocument[]) => {
       store.documents = documents;
     }),
+    replaceEntities: vi.fn(
+      async ({
+        children,
+        items,
+        documents,
+      }: {
+        children: ChildProfile[];
+        items: SchoolItem[];
+        documents: UploadedDocument[];
+      }) => {
+        store.children = children;
+        store.items = items;
+        store.documents = documents;
+      }
+    ),
     upsertDeletion: vi.fn(async (deletion: DeletionRecord) => {
       store.deletions = [...store.deletions.filter((entry) => entry.id !== deletion.id), deletion];
     }),
@@ -88,6 +114,7 @@ import {
   queueCloudDelete,
   queueCloudUpsert,
   retryQueuedCloudOperations,
+  uploadLocalDataToCloud,
   withUpdatedAt,
 } from '@/features/sync/services/cloud-sync';
 
@@ -131,8 +158,12 @@ describe('cloud sync merge helpers', () => {
     cloud.documents.clear();
     cloud.failingIds.clear();
     firestoreMocks.getDoc.mockClear();
+    firestoreMocks.getDocs.mockClear();
     firestoreMocks.setDoc.mockClear();
     firestoreMocks.deleteDoc.mockClear();
+    batchMocks.set.mockClear();
+    batchMocks.delete.mockClear();
+    batchMocks.commit.mockClear();
   });
 
   it('downloads cloud-only entities without clearing unrelated local data', async () => {
@@ -334,5 +365,27 @@ describe('cloud sync merge helpers', () => {
     expect(firestoreMocks.setDoc.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ id: 'item-success' })
     );
+  });
+
+  it('backup upload deletes cloud entities that are absent locally', async () => {
+    store.children = [child('child-local', '2026-07-13T10:00:00.000Z')];
+    store.items = [item('item-local', '2026-07-13T10:00:00.000Z')];
+    store.documents = [documentRecord('doc-local', '2026-07-13T10:00:00.000Z')];
+    firestoreMocks.getDocs.mockImplementation(async (reference?: { id?: string }) => {
+      if (reference?.id === 'children') return { docs: [{ id: 'child-old' }] };
+      if (reference?.id === 'items') return { docs: [{ id: 'item-old' }, { id: 'item-local' }] };
+      if (reference?.id === 'documents') return { docs: [{ id: 'doc-old' }] };
+      return { docs: [] };
+    });
+
+    await uploadLocalDataToCloud();
+
+    expect(batchMocks.delete).toHaveBeenCalledWith(expect.objectContaining({ id: 'child-old' }));
+    expect(batchMocks.delete).toHaveBeenCalledWith(expect.objectContaining({ id: 'item-old' }));
+    expect(batchMocks.delete).toHaveBeenCalledWith(expect.objectContaining({ id: 'doc-old' }));
+    expect(batchMocks.delete).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'item-local' })
+    );
+    expect(batchMocks.commit).toHaveBeenCalledTimes(1);
   });
 });
