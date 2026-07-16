@@ -8,6 +8,9 @@ describe('document intelligence', () => {
     expect(
       classifyPlannerDocument('July Scholastic Planner.pdf', 'Monthly scholastic planner')
     ).toBe('ScholasticPlanner');
+    expect(classifyPlannerDocument('July Co-Scholastic Planner.pdf', 'Co scholastic planner')).toBe(
+      'CoScholasticPlanner'
+    );
     expect(classifyPlannerDocument('Unit Test Portion.pdf', 'Unit Test Portion for July')).toBe(
       'UnitTestPortion'
     );

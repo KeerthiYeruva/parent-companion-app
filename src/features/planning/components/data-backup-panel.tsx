@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { PlannerBackup } from '@/types/domain';
+import type { DocumentType, ItemCategory, ItemStatus, PlannerBackup } from '@/types/domain';
 import { useAppStore } from '@/store/use-app-store';
 
 type StorageDiagnostics = {
@@ -13,6 +13,84 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null;
 };
 
+const itemCategories = new Set<ItemCategory>([
+  'Homework',
+  'HomeStudy',
+  'Activity',
+  'ClassTest',
+  'UnitTest',
+  'Exam',
+  'Project',
+  'Circular',
+]);
+const itemStatuses = new Set<ItemStatus>(['Pending', 'Completed', 'Overdue', 'Upcoming', 'Past']);
+const prepStatuses = new Set(['NotStarted', 'InProgress', 'Ready']);
+const documentTypes = new Set<DocumentType>([
+  'ScholasticPlanner',
+  'CoScholasticPlanner',
+  'UnitTestPortion',
+  'ClassTestPortion',
+  'ExamCircular',
+  'HomeworkSchedule',
+  'ActivitySchedule',
+  'Circular',
+]);
+
+const isString = (value: unknown): value is string => typeof value === 'string';
+const optionalString = (value: unknown) => value === undefined || isString(value);
+const optionalNumber = (value: unknown) => value === undefined || typeof value === 'number';
+const stringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every(isString);
+
+const isBackupChild = (value: unknown) =>
+  isRecord(value) &&
+  isString(value.id) &&
+  isString(value.name) &&
+  isString(value.grade) &&
+  isString(value.section) &&
+  isString(value.academicYear) &&
+  isString(value.colorTag) &&
+  optionalString(value.updatedAt);
+
+const isBackupItem = (value: unknown) =>
+  isRecord(value) &&
+  isString(value.id) &&
+  isString(value.childId) &&
+  itemCategories.has(value.category as ItemCategory) &&
+  isString(value.title) &&
+  isString(value.dueDate) &&
+  itemStatuses.has(value.status as ItemStatus) &&
+  optionalString(value.subject) &&
+  optionalString(value.description) &&
+  optionalString(value.chapterNumber) &&
+  optionalString(value.chapterName) &&
+  optionalString(value.revisionNumber) &&
+  optionalString(value.revisionWork) &&
+  optionalString(value.homework) &&
+  optionalString(value.pages) &&
+  (value.prepStatus === undefined || prepStatuses.has(String(value.prepStatus))) &&
+  optionalString(value.sourceDocumentId) &&
+  (value.sourceDocumentIds === undefined || stringArray(value.sourceDocumentIds)) &&
+  optionalNumber(value.sourcePage) &&
+  optionalString(value.sourceText) &&
+  optionalString(value.completedAt) &&
+  optionalString(value.updatedAt);
+
+const isBackupDocument = (value: unknown) =>
+  isRecord(value) &&
+  isString(value.id) &&
+  isString(value.title) &&
+  documentTypes.has(value.type as DocumentType) &&
+  stringArray(value.childIds) &&
+  isString(value.uploadedAt) &&
+  optionalString(value.fileName) &&
+  optionalNumber(value.fileSize) &&
+  optionalString(value.fileHash) &&
+  optionalString(value.relativePath) &&
+  optionalString(value.modifiedAt) &&
+  optionalString(value.extractedMonth) &&
+  optionalString(value.updatedAt);
+
 const isPlannerBackup = (value: unknown): value is PlannerBackup => {
   if (!isRecord(value)) {
     return false;
@@ -20,10 +98,14 @@ const isPlannerBackup = (value: unknown): value is PlannerBackup => {
 
   return (
     value.schemaVersion === 1 &&
+    isString(value.exportedAt) &&
     Array.isArray(value.children) &&
+    value.children.every(isBackupChild) &&
     Array.isArray(value.items) &&
+    value.items.every(isBackupItem) &&
     Array.isArray(value.documents) &&
-    Array.isArray(value.selectedChildIds)
+    value.documents.every(isBackupDocument) &&
+    stringArray(value.selectedChildIds)
   );
 };
 

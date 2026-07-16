@@ -27,7 +27,7 @@ const formatCategoryCounts = (counts?: Partial<Record<ItemCategory, number>>) =>
     .map((category) => [category, counts[category] ?? 0] as const)
     .filter(([, count]) => count > 0);
   return entries.length > 0
-    ? entries.map(([category, count]) => `${category}: ${count}`).join(' � ')
+    ? entries.map(([category, count]) => `${category}: ${count}`).join(' | ')
     : 'No weekly or monthly targets found';
 };
 
@@ -128,7 +128,7 @@ export function ScanInboxView() {
                               {formatSchoolDocumentTitle(file.fileName, file.detectedType)}
                             </p>
                             <p className="text-sm text-slate-600">
-                              {file.detectedType} � {file.monthLabel ?? 'Month unknown'} �{' '}
+                              {file.detectedType} | {file.monthLabel ?? 'Month unknown'} |{' '}
                               {file.relativePath}
                             </p>
                             <p className="text-sm font-medium text-emerald-700">
@@ -184,7 +184,7 @@ export function ScanInboxView() {
             <ul className="space-y-2">
               {scanHistory.slice(0, 5).map((run) => (
                 <li key={run.id} className="text-sm text-slate-600">
-                  {new Date(run.scannedAt).toLocaleString()} � {run.fileCount} files �{' '}
+                  {new Date(run.scannedAt).toLocaleString()} | {run.fileCount} files |{' '}
                   {run.reviewCount} need review
                 </li>
               ))}

@@ -161,95 +161,19 @@ describe('auth gate', () => {
     expect(screen.getByRole('alert').textContent).not.toContain('auth/');
   });
 
-  it('switches between sign-in and create-family-account modes', async () => {
+  it('does not expose account creation from the public login screen', async () => {
     authMocks.subscribeToAuthState.mockImplementation((callback) => {
       callback(null);
       return vi.fn();
     });
 
     renderGate();
-    await userEvent.click(
-      screen.getByRole('button', { name: 'First time here? Create Family Account' })
-    );
 
-    expect(screen.getByRole('heading', { name: 'Create Family Account' })).toBeTruthy();
-    expect(screen.getByLabelText('Username')).toBeTruthy();
-    expect(screen.getByLabelText('Password')).toBeTruthy();
-    expect(screen.getByLabelText('Confirm password')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Create account' })).toBeTruthy();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Already have an account? Sign in' }));
+    expect(
+      screen.queryByRole('button', { name: 'First time here? Create Family Account' })
+    ).toBeNull();
     expect(screen.queryByLabelText('Confirm password')).toBeNull();
-  });
-
-  it('maps School to the internal Firebase email for signup', async () => {
-    authMocks.subscribeToAuthState.mockImplementation((callback) => {
-      callback(null);
-      return vi.fn();
-    });
-
-    renderGate();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'First time here? Create Family Account' })
-    );
-    await userEvent.type(screen.getByLabelText('Username'), 'School');
-    await userEvent.type(screen.getByLabelText('Password'), ' family-pass-1 ');
-    await userEvent.type(screen.getByLabelText('Confirm password'), ' family-pass-1 ');
-    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
-
-    expect(authMocks.createAccount).toHaveBeenCalledWith(
-      'school@parentcompanion.app',
-      ' family-pass-1 '
-    );
-  });
-
-  it('blocks account creation when passwords do not match', async () => {
-    authMocks.subscribeToAuthState.mockImplementation((callback) => {
-      callback(null);
-      return vi.fn();
-    });
-
-    renderGate();
-    await userEvent.click(
-      screen.getByRole('button', { name: 'First time here? Create Family Account' })
-    );
-    await userEvent.type(screen.getByLabelText('Username'), 'School');
-    await userEvent.type(screen.getByLabelText('Password'), 'family-pass-1');
-    await userEvent.type(screen.getByLabelText('Confirm password'), 'different-pass');
-    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
-
-    expect(screen.getByRole('alert').textContent).toBe('Passwords do not match.');
     expect(authMocks.createAccount).not.toHaveBeenCalled();
-  });
-
-  it('shows signup validation and existing-account errors without Firebase codes', async () => {
-    authMocks.subscribeToAuthState.mockImplementation((callback) => {
-      callback(null);
-      return vi.fn();
-    });
-
-    renderGate();
-    await userEvent.click(
-      screen.getByRole('button', { name: 'First time here? Create Family Account' })
-    );
-    await userEvent.type(screen.getByLabelText('Username'), 'School');
-    await userEvent.type(screen.getByLabelText('Password'), 'short');
-    await userEvent.type(screen.getByLabelText('Confirm password'), 'short');
-    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
-    expect(screen.getByRole('alert').textContent).toBe(
-      'Choose a password with at least 6 characters.'
-    );
-
-    authMocks.createAccount.mockRejectedValue({ code: 'auth/email-already-in-use' });
-    await userEvent.clear(screen.getByLabelText('Password'));
-    await userEvent.clear(screen.getByLabelText('Confirm password'));
-    await userEvent.type(screen.getByLabelText('Password'), 'family-pass-1');
-    await userEvent.type(screen.getByLabelText('Confirm password'), 'family-pass-1');
-    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
-    expect((await screen.findByRole('alert')).textContent).toBe(
-      'The family account already exists. Please sign in.'
-    );
   });
 
   it('does not render verification or UID-copy UI', async () => {

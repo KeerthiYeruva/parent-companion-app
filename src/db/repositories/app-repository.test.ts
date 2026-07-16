@@ -5,8 +5,11 @@ const mocks = vi.hoisted(() => ({
   itemsToArray: vi.fn(),
   documentsToArray: vi.fn(),
   childrenBulkPut: vi.fn(),
+  childrenClear: vi.fn(),
   itemsBulkPut: vi.fn(),
+  itemsClear: vi.fn(),
   documentsBulkPut: vi.fn(),
+  documentsClear: vi.fn(),
   childrenPut: vi.fn(),
   childrenDelete: vi.fn(),
   itemsPut: vi.fn(),
@@ -27,12 +30,14 @@ vi.mock('@/lib/db', () => ({
     children: {
       toArray: mocks.childrenToArray,
       bulkPut: mocks.childrenBulkPut,
+      clear: mocks.childrenClear,
       put: mocks.childrenPut,
       delete: mocks.childrenDelete,
     },
     items: {
       toArray: mocks.itemsToArray,
       bulkPut: mocks.itemsBulkPut,
+      clear: mocks.itemsClear,
       bulkDelete: mocks.itemsBulkDelete,
       put: mocks.itemsPut,
       where: mocks.itemsWhere,
@@ -40,6 +45,7 @@ vi.mock('@/lib/db', () => ({
     documents: {
       toArray: mocks.documentsToArray,
       bulkPut: mocks.documentsBulkPut,
+      clear: mocks.documentsClear,
       put: mocks.documentsPut,
       bulkDelete: mocks.documentsBulkDelete,
     },
@@ -162,6 +168,25 @@ describe('appRepository', () => {
 
     expect(mocks.itemsBulkPut).toHaveBeenCalledWith([changedItem]);
     expect(mocks.itemsBulkDelete).toHaveBeenCalledWith(['item-stale']);
+  });
+
+  it('clears existing entities before applying a replacement snapshot', async () => {
+    const child = { id: 'child-1' };
+    const item = { id: 'item-1' };
+    const doc = { id: 'doc-1' };
+
+    await appRepository.replaceSnapshot({
+      children: [child],
+      items: [item],
+      documents: [doc],
+    } as never);
+
+    expect(mocks.childrenClear).toHaveBeenCalledTimes(1);
+    expect(mocks.itemsClear).toHaveBeenCalledTimes(1);
+    expect(mocks.documentsClear).toHaveBeenCalledTimes(1);
+    expect(mocks.childrenBulkPut).toHaveBeenCalledWith([child]);
+    expect(mocks.itemsBulkPut).toHaveBeenCalledWith([item]);
+    expect(mocks.documentsBulkPut).toHaveBeenCalledWith([doc]);
   });
 
   it('deletes a child with linked items and updates shared documents', async () => {

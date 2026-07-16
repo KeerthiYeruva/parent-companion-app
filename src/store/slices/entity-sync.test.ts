@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppState, SchoolItem } from '@/types/domain';
 
 const mocks = vi.hoisted(() => ({
@@ -68,7 +68,13 @@ const createHarness = (items: SchoolItem[]) => {
 
 describe('entity-level item synchronization', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-15T09:00:00.000Z'));
     Object.values(mocks).forEach((mock) => mock.mockClear());
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('completing one homework item persists and writes only that item', async () => {

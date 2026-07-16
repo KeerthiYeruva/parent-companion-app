@@ -1,8 +1,8 @@
 import type { DocumentType } from '@/types/domain';
 
 const classifierRules: Array<{ type: DocumentType; patterns: RegExp[] }> = [
-  { type: 'ScholasticPlanner', patterns: [/scholastic/i, /planner/i] },
   { type: 'CoScholasticPlanner', patterns: [/co[-\s]?scholastic/i, /planner/i] },
+  { type: 'ScholasticPlanner', patterns: [/scholastic/i, /planner/i] },
   { type: 'UnitTestPortion', patterns: [/unit\s*test/i, /portion/i] },
   { type: 'ClassTestPortion', patterns: [/class\s*test/i, /portion/i] },
   { type: 'ExamCircular', patterns: [/exam/i, /circular/i] },
