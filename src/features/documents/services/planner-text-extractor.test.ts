@@ -519,38 +519,38 @@ describe('extractPlannerRows', () => {
     });
 
 
-  it('does not classify home-study fixed tables as unit tests', () => {
-    const rows = extractPlannerRows({
-      relativePath: 'Grade 1/August/Scholastic Planner.pdf',
-      childNames: ['Grade 1'],
-      contentText: [
-        'AUGUST: WEEK 1',
-        'S.NO\tDATE\tDAY\tSUBJECT\tHOMESTUDY',
-        '1\t03.08.2026\tMonday\tMathematics\tChapter2-Practice Pg.No.31 & 32',
-        '2\t04.08.2026\tTuesday\tScience\tRead Course book Pg. No. 29,30',
-        '3\t05.08.2026\tWednesday\tKannada\tNotebook work letter ಒ,ಓ',
-      ].join('\n'),
+    it('does not classify home-study fixed tables as unit tests', () => {
+      const rows = extractPlannerRows({
+        relativePath: 'Grade 1/August/Scholastic Planner.pdf',
+        childNames: ['Grade 1'],
+        contentText: [
+          'AUGUST: WEEK 1',
+          'S.NO\tDATE\tDAY\tSUBJECT\tHOMESTUDY',
+          '1\t03.08.2026\tMonday\tMathematics\tChapter2-Practice Pg.No.31 & 32',
+          '2\t04.08.2026\tTuesday\tScience\tRead Course book Pg. No. 29,30',
+          '3\t05.08.2026\tWednesday\tKannada\tNotebook work letter ಒ,ಓ',
+        ].join('\n'),
+      });
+
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            category: 'HomeStudy',
+            subject: 'Mathematics',
+            dueDate: '2026-08-03',
+          }),
+          expect.objectContaining({
+            category: 'HomeStudy',
+            subject: 'Science',
+            dueDate: '2026-08-04',
+          }),
+        ])
+      );
+
+      expect(rows).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ category: 'UnitTest' })])
+      );
     });
-
-    expect(rows).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          category: 'HomeStudy',
-          subject: 'Mathematics',
-          dueDate: '2026-08-03',
-        }),
-        expect.objectContaining({
-          category: 'HomeStudy',
-          subject: 'Science',
-          dueDate: '2026-08-04',
-        }),
-      ])
-    );
-
-    expect(rows).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ category: 'UnitTest' })])
-    );
-  });
     expect(rows).toEqual([
       expect.objectContaining({
         category: 'ClassTest',

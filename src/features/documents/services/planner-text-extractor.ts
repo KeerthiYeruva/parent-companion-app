@@ -6,18 +6,39 @@ import { extractMonthLabel } from '@/features/documents/services/month-extractor
 dayjs.extend(customParseFormat);
 
 const categoryPatterns: Array<{ category: string; pattern: RegExp }> = [
-  { category: 'Homework', pattern: /\bhomework\b/i },
-  { category: 'ClassTest', pattern: /\bclass\s*test\b/i },
-  { category: 'UnitTest', pattern: /\bunit\s*test\b/i },
+  {
+    category: 'Homework',
+    pattern: /\b(?:h\.?\s*w\.?|home\s*work|homework)\b/i,
+  },
+  {
+    category: 'ClassTest',
+    pattern: /\bclass\s*test\b/i,
+  },
+  {
+    category: 'UnitTest',
+    pattern: /\bunit\s*test\b/i,
+  },
   {
     category: 'Activity',
     pattern:
-      /\b(?:graded\s+)?(?:activity|activities|dance|music|yoga|karate|art\s*&\s*craft|physical\s+education|cca|talk\s+the\s+talk)\b/i,
+      /\b(?:graded\s+)?(?:lab\s+activity|creative\s+activity|activity|activities|dance|music|yoga|karate|art\s*&\s*craft|physical\s+education|cca|talk\s+the\s+talk)\b/i,
   },
-  { category: 'Project', pattern: /\b(?:graded\s+)?project\b/i },
-  { category: 'Exam', pattern: /\bexam\b/i },
-  { category: 'HomeStudy', pattern: /\bhome\s*study|revision\b/i },
-  { category: 'Circular', pattern: /\bcircular\b/i },
+  {
+    category: 'Project',
+    pattern: /\b(?:graded\s+)?project\b/i,
+  },
+  {
+    category: 'Exam',
+    pattern: /\bexam\b/i,
+  },
+  {
+    category: 'HomeStudy',
+    pattern: /\bhome\s*study\b|\bhomestudy\b/i,
+  },
+  {
+    category: 'Circular',
+    pattern: /\bcircular\b/i,
+  },
 ];
 
 const datePatterns = [
@@ -488,6 +509,10 @@ const inferCellCategory = (value: string): string | undefined => {
     return 'Homework';
   }
 
+  if (/\bhome\s*study\b|\bhomestudy\b/i.test(value)) {
+    return 'HomeStudy';
+  }
+
   if (/^\s*class\s*test\b/i.test(value)) {
     return 'ClassTest';
   }
@@ -496,7 +521,9 @@ const inferCellCategory = (value: string): string | undefined => {
     return 'UnitTest';
   }
 
-  if (/graded\s+(?:lab\s+)?activity|graded\s+(?:speaking|listening)\s+skills?/i.test(value)) {
+  if (
+    /graded\s+(?:lab|creative\s+)?activity|graded\s+(?:speaking|listening)\s+skills?/i.test(value)
+  ) {
     return 'Activity';
   }
 
@@ -935,6 +962,12 @@ const normalizeHeaderText = (value: string) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 
+const isHomeStudyHeader = (header: string) => /\bhome\s*study\b/i.test(header);
+const isClassTestPortionsHeader = (header: string) =>
+  /\bclass\s*test\b(?:\s+(?:i{1,3}|[1-9]))?(?:\s+timetable)?(?:\s+and)?\s+portions?\b/i.test(
+    header
+  );
+
 const getFixedTableKind = (line: string): FixedTableKind | undefined => {
   const header = normalizeHeaderText(line);
   if (
@@ -942,7 +975,7 @@ const getFixedTableKind = (line: string): FixedTableKind | undefined => {
     /\bdate\b/.test(header) &&
     /\bday\b/.test(header) &&
     /\bsubject\b/.test(header) &&
-    /\bhome study\b/.test(header)
+    isHomeStudyHeader(header)
   ) {
     return 'HomeStudy';
   }
@@ -951,7 +984,7 @@ const getFixedTableKind = (line: string): FixedTableKind | undefined => {
     /\bdate\b/.test(header) &&
     /\bday\b/.test(header) &&
     /\bsubject\b/.test(header) &&
-    /\bclass test(?: and)? portions?\b/.test(header)
+    isClassTestPortionsHeader(header)
   ) {
     return 'ClassTest';
   }
@@ -959,8 +992,8 @@ const getFixedTableKind = (line: string): FixedTableKind | undefined => {
   if (
     /\bdate day\b/.test(header) &&
     /\bsubject\b/.test(header) &&
-    !/\bclass test\b/.test(header) &&
-    !/\bhome study\b/.test(header) &&
+    !/\bclass\s*test\b/.test(header) &&
+    !isHomeStudyHeader(header) &&
     !/\bs no\b/.test(header)
   ) {
     return 'UnitTest';
@@ -969,11 +1002,15 @@ const getFixedTableKind = (line: string): FixedTableKind | undefined => {
   return undefined;
 };
 
-const isFixedTableTitle = (line: string) =>
-  /\b(?:unit\s*test\s*[-–]?\s*i\s+exam\s+timetable|class\s+test\s+and\s+portions)\b/i.test(
-    normalizeText(line)
+const isFixedTableTitle = (line: string) => {
+  const title = normalizeHeaderText(line);
+  return (
+    /\bunit\s*test\s*(?:i|1)\s+exam\s+timetable\b/i.test(title) ||
+    /\bclass\s*test\b(?:\s+(?:i{1,3}|[1-9]))?(?:\s+timetable)?(?:\s+and)?\s+portions?\b/i.test(
+      title
+    )
   );
-
+};
 const startsNewPlannerSection = (line: string) =>
   /\b(?:JULY\s*:\s*WEEK|ACTIVITIES\s+OF\s+THE\s+MONTH|SUBJECT\s+ACTIVITIES|CO\s*SCHOLASTIC|UNIT\s*TEST|CLASS\s+TEST\s+AND\s+PORTIONS)\b/i.test(
     normalizeText(line)
