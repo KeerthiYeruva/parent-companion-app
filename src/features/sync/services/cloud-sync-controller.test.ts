@@ -3,8 +3,10 @@ import { createCloudSyncController } from '@/features/sync/services/cloud-sync-c
 
 const createHarness = () => {
   const unsubscribe = vi.fn();
+  let failListenerStarts = 0;
   const listeners = {
     online: undefined as (() => void) | undefined,
+    offline: undefined as (() => void) | undefined,
     focus: undefined as (() => void) | undefined,
     visibilitychange: undefined as (() => void) | undefined,
   };
@@ -15,6 +17,10 @@ const createHarness = () => {
       onError?: (error: Error) => void
     ) => {
       listenerError = onError;
+      if (failListenerStarts > 0) {
+        failListenerStarts -= 1;
+        return undefined;
+      }
       return unsubscribe;
     }
   );
@@ -53,6 +59,9 @@ const createHarness = () => {
     retryQueued,
     setSyncStatus,
     startListeners,
+    failNextListenerStarts: (count: number) => {
+      failListenerStarts = count;
+    },
     triggerListenerError: (error: Error) => listenerError?.(error),
     unsubscribe,
   };
@@ -130,6 +139,73 @@ describe('cloud sync controller', () => {
     );
 
     expect(harness.setSyncStatus).toHaveBeenCalledWith('permissionDenied');
+  });
+
+  it('restarts listeners after recoverable listener failure on reconnect events', async () => {
+    const harness = createHarness();
+
+    harness.controller.handleAuthUserChange({ uid: 'uid-1', email: null });
+    harness.triggerListenerError(
+      Object.assign(new Error('network unavailable'), { code: 'unavailable' })
+    );
+
+    expect(harness.startListeners).toHaveBeenCalledTimes(1);
+
+    harness.listeners.online?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(harness.startListeners).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries listener startup when initial subscription cannot be created', async () => {
+    const harness = createHarness();
+    harness.failNextListenerStarts(1);
+
+    harness.controller.handleAuthUserChange({ uid: 'uid-1', email: null });
+    expect(harness.setSyncStatus).toHaveBeenCalledWith('unavailable');
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(harness.startListeners).toHaveBeenCalledTimes(2);
+
+    harness.listeners.focus?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(harness.startListeners).toHaveBeenCalledTimes(2);
+  });
+
+  it('marks sync as offline on connectivity loss and retries on reconnect', async () => {
+    const harness = createHarness();
+
+    harness.controller.handleAuthUserChange({ uid: 'uid-1', email: null });
+    harness.listeners.offline?.();
+    expect(harness.setSyncStatus).toHaveBeenCalledWith('offline');
+
+    harness.listeners.online?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(harness.retryQueued).toHaveBeenCalled();
+  });
+
+  it('stops listeners on permission-denied and does not restart on reconnect events', async () => {
+    const harness = createHarness();
+
+    harness.controller.handleAuthUserChange({ uid: 'uid-1', email: null });
+    harness.triggerListenerError(
+      Object.assign(new Error('permission denied'), { code: 'permission-denied' })
+    );
+
+    expect(harness.unsubscribe).toHaveBeenCalledTimes(1);
+
+    harness.listeners.online?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(harness.startListeners).toHaveBeenCalledTimes(1);
   });
 
   it('does not overwrite a listener access error when a retry finishes', async () => {

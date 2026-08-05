@@ -64,6 +64,44 @@ npm run dev
 
 Open the Vite URL printed in the terminal, usually http://localhost:5173
 
+### Local-Only Server (No Firebase)
+
+Local development can run without touching Firebase.
+
+Set the following in `.env.local`:
+
+```bash
+VITE_ENABLE_FIREBASE_SYNC=false
+VITE_FIREBASE_SYNC_MODE=production-only
+```
+
+With these flags:
+
+- Local `npm run dev` does not initialize Firebase Auth or Firestore.
+- Cloud sync calls are skipped locally.
+- Production builds still use Firebase sync when `VITE_ENABLE_FIREBASE_SYNC=true`.
+- If local storage is empty, the app seeds two local profiles:
+  - Ruthvish Reddy Annapareddy (Grade 1)
+  - Luhas Reddy (Grade 5)
+
+### Local And Production Data Model
+
+- Local mode:
+  - Uses Dexie (IndexedDB) as the system of record.
+  - Uses scanned file metadata and extracted rows for local rebuild operations.
+  - Does not call Firebase when cloud sync is disabled.
+- Production mode:
+  - Uses the same local-first Dexie model for UI responsiveness and offline support.
+  - Syncs CRUD changes to Firebase Auth and Firestore.
+  - Applies cloud changes from one signed-in device to all other signed-in devices for the same family (phone, tablet, and desktop).
+  - Reconciles local and cloud data through the sync controller.
+
+### CRUD Requirements
+
+- Local DB is required in both local and production modes.
+- Create, update, and delete operations write to local DB first.
+- Cloud sync is additive in production mode, not a replacement for local persistence.
+
 ## Firebase Setup
 
 This app uses Firebase Authentication and Firestore Security Rules for protected cloud sync.

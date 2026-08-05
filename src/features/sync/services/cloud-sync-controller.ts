@@ -52,9 +52,31 @@ export const createCloudSyncController = ({
   let listenerErrorStatus: ReturnType<typeof cloudSyncStatusForError> | undefined;
   let authGeneration = 0;
 
+  const detachSnapshotListeners = () => {
+    unsubscribeListeners?.();
+    unsubscribeListeners = undefined;
+  };
+
+  const isRecoverableListenerError = () =>
+    listenerErrorStatus && listenerErrorStatus !== 'permissionDenied';
+
   const retryPendingCloudData = async () => {
     if (!activeUser) {
       return;
+    }
+
+    if (listenerErrorStatus === 'permissionDenied') {
+      return;
+    }
+
+    if (!unsubscribeListeners && isOnline()) {
+      listenerErrorStatus = undefined;
+      start(false);
+
+      if (!unsubscribeListeners) {
+        setSyncStatus('unavailable');
+        return;
+      }
     }
 
     const retryGeneration = authGeneration;
@@ -82,6 +104,14 @@ export const createCloudSyncController = ({
     void retryPendingCloudData();
   };
 
+  const markOffline = () => {
+    if (!activeUser || listenerErrorStatus === 'permissionDenied') {
+      return;
+    }
+
+    setSyncStatus('offline');
+  };
+
   const retryWhenVisible = () => {
     if (!isDocumentHidden()) {
       retry();
@@ -89,44 +119,67 @@ export const createCloudSyncController = ({
   };
 
   const stop = () => {
-    unsubscribeListeners?.();
-    unsubscribeListeners = undefined;
+    detachSnapshotListeners();
 
     if (lifecycleEventsRegistered) {
       removeEventListener?.('online', retry);
+      removeEventListener?.('offline', markOffline);
       removeEventListener?.('focus', retry);
       removeDocumentEventListener?.('visibilitychange', retryWhenVisible);
       lifecycleEventsRegistered = false;
     }
   };
 
-  const start = () => {
+  const ensureLifecycleEvents = () => {
+    if (lifecycleEventsRegistered) {
+      return;
+    }
+
+    addEventListener?.('online', retry);
+    addEventListener?.('offline', markOffline);
+    addEventListener?.('focus', retry);
+    addDocumentEventListener?.('visibilitychange', retryWhenVisible);
+    lifecycleEventsRegistered = true;
+  };
+
+  const start = (triggerRetry = true) => {
     if (!activeUser || unsubscribeListeners) {
       return;
     }
 
-    retry();
+    ensureLifecycleEvents();
 
     unsubscribeListeners = startListeners(
       (snapshot) => {
         applySnapshot(snapshot);
+        listenerErrorStatus = undefined;
         void refreshSyncState();
       },
       (error) => {
         logError('Cloud listener failed', error);
         listenerErrorStatus = cloudSyncStatusForError(error);
         setSyncStatus(listenerErrorStatus);
+
+        if (listenerErrorStatus === 'permissionDenied') {
+          stop();
+          return;
+        }
+
+        detachSnapshotListeners();
       }
     );
 
     if (!unsubscribeListeners) {
+      setSyncStatus(isOnline() ? 'unavailable' : 'offline');
+      if (triggerRetry) {
+        retry();
+      }
       return;
     }
 
-    addEventListener?.('online', retry);
-    addEventListener?.('focus', retry);
-    addDocumentEventListener?.('visibilitychange', retryWhenVisible);
-    lifecycleEventsRegistered = true;
+    if (triggerRetry) {
+      retry();
+    }
   };
 
   return {

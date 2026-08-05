@@ -11,7 +11,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { appRepository } from '@/db/repositories/app-repository';
-import { firebaseAuth, firestore } from '@/lib/firebase';
+import { firebaseAuth, firestore, isCloudSyncEnabled } from '@/lib/firebase';
 import type {
   ChildProfile,
   DeletionRecord,
@@ -130,6 +130,10 @@ export const queueCloudUpsert = async (
   payload: ChildProfile | SchoolItem | UploadedDocument,
   reason: SyncReason = 'user-change'
 ) => {
+  if (!isCloudSyncEnabled) {
+    return;
+  }
+
   const record: SyncQueueRecord = {
     id: buildQueueId(entityType, payload.id),
     entityType,
@@ -162,6 +166,10 @@ export const queueCloudDelete = async (
   sourceDocumentIds?: string[],
   reason: SyncReason = 'user-change'
 ) => {
+  if (!isCloudSyncEnabled) {
+    return;
+  }
+
   const deletedAt = nowIso();
   const deletion: DeletionRecord = {
     id: deletionId(entityType, entityId),
@@ -244,6 +252,10 @@ const writeQueuedOperation = async (
 };
 
 export const retryQueuedCloudOperations = async () => {
+  if (!isCloudSyncEnabled) {
+    return { attempted: 0, synced: 0 };
+  }
+
   const queued = await appRepository.listSyncQueue();
   const syncedIds: string[] = [];
 
@@ -351,6 +363,16 @@ export const mergeCloudSnapshot = async ({
 };
 
 export const downloadCloudDataToLocal = async () => {
+  if (!isCloudSyncEnabled) {
+    const [children, items, documents] = await Promise.all([
+      appRepository.listChildren(),
+      appRepository.listItems(),
+      appRepository.listDocuments(),
+    ]);
+
+    return { children, items, documents };
+  }
+
   const { db, familyId: scopedFamilyId } = assertCloudReady();
   const [childrenSnapshot, itemsSnapshot, documentsSnapshot, deletionsSnapshot] = await Promise.all(
     [
@@ -370,6 +392,20 @@ export const downloadCloudDataToLocal = async () => {
 };
 
 export const uploadLocalDataToCloud = async () => {
+  if (!isCloudSyncEnabled) {
+    const [children, items, documents] = await Promise.all([
+      appRepository.listChildren(),
+      appRepository.listItems(),
+      appRepository.listDocuments(),
+    ]);
+
+    return {
+      children: children.length,
+      items: items.length,
+      documents: documents.length,
+    };
+  }
+
   const { db, familyId: scopedFamilyId } = assertCloudReady();
   const [children, items, documents, deletions] = await Promise.all([
     appRepository.listChildren(),
@@ -479,7 +515,7 @@ export const startCloudSnapshotListeners = (
   }) => void,
   onError?: (error: Error) => void
 ): Unsubscribe | undefined => {
-  if (!firestore || !familyId || !firebaseAuth?.currentUser) {
+  if (!isCloudSyncEnabled || !firestore || !familyId || !firebaseAuth?.currentUser) {
     return undefined;
   }
 

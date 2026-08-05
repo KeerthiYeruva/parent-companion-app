@@ -12,6 +12,8 @@ import {
   upsertCloudItem,
   withUpdatedAt,
 } from '@/features/sync/services/cloud-sync';
+import { runLocalThenCloud } from '@/features/sync/services/entity-sync';
+import { syncWarning } from '@/features/sync/services/sync-policy';
 
 type ItemsSlice = Pick<
   AppState,
@@ -109,21 +111,20 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
       return;
     }
 
-    void appRepository
-      .upsertItem(stampedItem)
-      .then(() => {
-        void upsertCloudItem(stampedItem)
-          .then(() => {
-            get().clearItemSync(stampedItem.id);
-          })
-          .catch(() => {
-            get().queueItemSync(stampedItem.id);
-            get().pushPersistenceWarning('New item could not be synced to cloud.');
-          });
-      })
-      .catch(() => {
-        get().pushPersistenceWarning('New item could not be saved to local database.');
-      });
+    runLocalThenCloud({
+      performLocal: () => appRepository.upsertItem(stampedItem),
+      performCloud: () => upsertCloudItem(stampedItem),
+      onCloudSuccess: () => {
+        get().clearItemSync(stampedItem.id);
+      },
+      onCloudFailure: () => {
+        get().queueItemSync(stampedItem.id);
+        get().pushPersistenceWarning(syncWarning('item', 'create', 'cloud'));
+      },
+      onLocalFailure: () => {
+        get().pushPersistenceWarning(syncWarning('item', 'create', 'local'));
+      },
+    });
 
     set((state) => ({
       items: existing
@@ -223,7 +224,7 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
           ])
         )
         .catch(() => {
-          get().pushPersistenceWarning('Imported items could not be fully synced.');
+          get().pushPersistenceWarning(syncWarning('import', 'update', 'cloud'));
         });
 
       return {
@@ -246,21 +247,20 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
           updatedAt: new Date().toISOString(),
         };
 
-        void appRepository
-          .upsertItem(nextItem)
-          .then(() => {
-            void upsertCloudItem(nextItem)
-              .then(() => {
-                get().clearItemSync(nextItem.id);
-              })
-              .catch(() => {
-                get().queueItemSync(nextItem.id);
-                get().pushPersistenceWarning('Item update could not be synced to cloud.');
-              });
-          })
-          .catch(() => {
-            get().pushPersistenceWarning('Item update could not be saved to local database.');
-          });
+        runLocalThenCloud({
+          performLocal: () => appRepository.upsertItem(nextItem),
+          performCloud: () => upsertCloudItem(nextItem),
+          onCloudSuccess: () => {
+            get().clearItemSync(nextItem.id);
+          },
+          onCloudFailure: () => {
+            get().queueItemSync(nextItem.id);
+            get().pushPersistenceWarning(syncWarning('item', 'update', 'cloud'));
+          },
+          onLocalFailure: () => {
+            get().pushPersistenceWarning(syncWarning('item', 'update', 'local'));
+          },
+        });
 
         return nextItem;
       }),
@@ -283,21 +283,20 @@ export const createItemsSlice: StateCreator<AppState, [], [], ItemsSlice> = (set
           updatedAt: new Date().toISOString(),
         };
 
-        void appRepository
-          .upsertItem(nextItem)
-          .then(() => {
-            void upsertCloudItem(nextItem)
-              .then(() => {
-                get().clearItemSync(nextItem.id);
-              })
-              .catch(() => {
-                get().queueItemSync(nextItem.id);
-                get().pushPersistenceWarning('Item update could not be synced to cloud.');
-              });
-          })
-          .catch(() => {
-            get().pushPersistenceWarning('Item update could not be saved to local database.');
-          });
+        runLocalThenCloud({
+          performLocal: () => appRepository.upsertItem(nextItem),
+          performCloud: () => upsertCloudItem(nextItem),
+          onCloudSuccess: () => {
+            get().clearItemSync(nextItem.id);
+          },
+          onCloudFailure: () => {
+            get().queueItemSync(nextItem.id);
+            get().pushPersistenceWarning(syncWarning('item', 'update', 'cloud'));
+          },
+          onLocalFailure: () => {
+            get().pushPersistenceWarning(syncWarning('item', 'update', 'local'));
+          },
+        });
 
         return nextItem;
       }),

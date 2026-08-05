@@ -1,27 +1,21 @@
 import type { InputHTMLAttributes } from 'react';
 import { useMemo, useRef, useState } from 'react';
 import Link from '@/components/routing';
-import {
-  buildChildAliasMap,
-  expandGradeHint,
-  normalizeGrade,
-} from '@/features/documents/services/child-alias-map';
+import { buildChildAliasMap } from '@/features/documents/services/child-alias-map';
 import { detectPlannerDocument } from '@/features/documents/services/document-detector';
 import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
 import { extractPdfText } from '@/features/documents/services/pdf-parser';
 import { extractPlannerRows } from '@/features/documents/services/planner-text-extractor';
+import {
+  attachUnitTestDatesFromSchedule,
+  buildReplacementScope,
+  classifyRowsByChildProfile,
+} from '@/features/import/services/rebuild-import';
 import { importPipeline } from '@/features/import';
 import type { RawImportRecord } from '@/features/import';
 import { appRepository } from '@/db/repositories/app-repository';
 import { useAppStore } from '@/store/use-app-store';
-import type {
-  ChildProfile,
-  ImportedItemReplacementScope,
-  ImportIssue,
-  ItemCategory,
-  ScanSessionFileRecord,
-  SchoolItem,
-} from '@/types/domain';
+import type { ImportIssue, ItemCategory, ScanSessionFileRecord, SchoolItem } from '@/types/domain';
 
 const itemCategories: ItemCategory[] = [
   'Homework',
@@ -155,22 +149,6 @@ const formatCounts = (counts: Record<string, number>) => {
     : 'None yet';
 };
 
-const buildReplacementScope = (
-  items: Array<Omit<SchoolItem, 'id' | 'status' | 'completedAt'>>
-): ImportedItemReplacementScope | undefined => {
-  if (items.length === 0) {
-    return undefined;
-  }
-
-  const dates = items.map((item) => item.dueDate).sort();
-  return {
-    childIds: Array.from(new Set(items.map((item) => item.childId))),
-    categories: Array.from(new Set(items.map((item) => item.category))),
-    fromDate: dates[0],
-    toDate: dates[dates.length - 1],
-  };
-};
-
 const itemHasAnySourceDocument = (
   item: Pick<SchoolItem, 'sourceDocumentId' | 'sourceDocumentIds'>,
   sourceDocumentIds: Set<string>
@@ -189,7 +167,7 @@ const isGradeOrClassHint = (value: string) => /^(grades?|classes?)\b/i.test(valu
 
 const normalizeRowChildNames = (
   rows: RawImportRecord[],
-  children: ChildProfile[],
+  children: Array<{ id: string; name: string }>,
   childNameToIdMap: Record<string, string>
 ) => {
   const childNameById = new Map(children.map((child) => [child.id, child.name]));
@@ -198,125 +176,17 @@ const normalizeRowChildNames = (
     const childId = row.childName
       ? childNameToIdMap[row.childName.trim().toLowerCase()]
       : undefined;
-    return childId ? { ...row, childName: childNameById.get(childId) ?? row.childName } : row;
+    return childId
+      ? {
+          ...row,
+          rawChildHint: row.rawChildHint ?? row.childName,
+          childName: childNameById.get(childId) ?? row.childName,
+        }
+      : row;
   });
 };
 
-const classifyRowsByChildProfile = (
-  rows: RawImportRecord[],
-  children: ChildProfile[],
-  childNameToIdMap: Record<string, string>
-) => {
-  const childrenByGrade = children.reduce<Record<string, ChildProfile[]>>((acc, child) => {
-    const grade = normalizeGrade(child.grade);
-    acc[grade] = [...(acc[grade] ?? []), child];
-    return acc;
-  }, {});
-
-  return rows.reduce<{
-    importRows: RawImportRecord[];
-    skippedRows: RawImportRecord[];
-    ambiguousRows: RawImportRecord[];
-    skippedReason?: string;
-  }>(
-    (result, row) => {
-      const rawChildName = row.childName?.trim();
-      if (!rawChildName || childNameToIdMap[rawChildName.toLowerCase()]) {
-        result.importRows.push(row);
-        return result;
-      }
-
-      const grade = normalizeGrade(rawChildName);
-      const hintedGrades = expandGradeHint(rawChildName);
-      const gradeChildren = (hintedGrades.length > 0 ? hintedGrades : [grade]).flatMap(
-        (hintedGrade) => childrenByGrade[hintedGrade] ?? []
-      );
-      if (gradeChildren.length === 0) {
-        result.skippedRows.push(row);
-        result.skippedReason = `${rawChildName}: no matching child profile found`;
-        return result;
-      }
-
-      gradeChildren.forEach((child) => {
-        result.importRows.push({ ...row, childName: child.name });
-      });
-      return result;
-    },
-    { importRows: [], skippedRows: [], ambiguousRows: [] }
-  );
-};
-
-export const attachUnitTestDatesFromSchedule = (
-  files: Array<{ rows: RawImportRecord[]; isGradeSpecificSchedule: boolean }>
-) => {
-  const keyFor = (row: RawImportRecord) =>
-    (row.childName?.trim().toLowerCase() ?? '') + '::' + normalizeSubjectKey(row.subject);
-  const authoritativeChildren = new Set(
-    files
-      .filter((file) => file.isGradeSpecificSchedule)
-      .flatMap((file) =>
-        file.rows
-          .filter(
-            (row) =>
-              row.category === 'UnitTest' && Boolean(row.childName && row.subject && row.dueDate)
-          )
-          .map((row) => row.childName!.trim().toLowerCase())
-      )
-  );
-  const scheduleByKey = new Map<string, string>();
-  const portionKeys = new Set<string>();
-
-  files.forEach((file) =>
-    file.rows.forEach((row) => {
-      if (row.category !== 'UnitTest' || !row.subject || !row.childName) return;
-      const childKey = row.childName.trim().toLowerCase();
-      if (row.dueDate && (!authoritativeChildren.has(childKey) || file.isGradeSpecificSchedule)) {
-        scheduleByKey.set(keyFor(row), row.dueDate);
-      }
-      if (/unit test portion found without an exam schedule date/i.test(row.parserIssue ?? '')) {
-        portionKeys.add(keyFor(row));
-      }
-    })
-  );
-
-  const seenSchedules = new Set<string>();
-  return files.map((file) =>
-    file.rows.flatMap((row) => {
-      if (row.category !== 'UnitTest' || !row.subject || !row.childName) return [row];
-      const key = keyFor(row);
-      const childKey = row.childName.trim().toLowerCase();
-      if (row.dueDate) {
-        if (
-          (authoritativeChildren.has(childKey) && !file.isGradeSpecificSchedule) ||
-          portionKeys.has(key) ||
-          seenSchedules.has(key)
-        )
-          return [];
-        seenSchedules.add(key);
-        return [row];
-      }
-
-      const isPortion = /unit test portion found without an exam schedule date/i.test(
-        row.parserIssue ?? ''
-      );
-      const scheduleDate = scheduleByKey.get(key);
-      if (!isPortion || !scheduleDate) return [row];
-
-      return [
-        {
-          ...row,
-          title: row.subject + ' Unit Test',
-          description: (row.title ?? row.description ?? row.subject + ' portions').replace(
-            /^Unit Test Portion:\s*/i,
-            'Portions: '
-          ),
-          dueDate: scheduleDate,
-          parserIssue: undefined,
-        },
-      ];
-    })
-  );
-};
+export { attachUnitTestDatesFromSchedule };
 const buildConfidence = ({
   extractionStatus,
   issueCount,
@@ -638,7 +508,8 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         (file.rawRows ?? [])
           .filter(() => !currentBatchDocumentIds.has(file.documentId))
           .map((row) => ({
-            childName: row.childName,
+            childName: row.rawChildHint ?? row.childName,
+            rawChildHint: row.rawChildHint ?? row.childName,
             category: row.category,
             subject: row.subject,
             title: row.title,
@@ -809,6 +680,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
             documentId: detected.fileHash,
             rowIndex: index,
             childName: row.childName,
+            rawChildHint: row.rawChildHint ?? row.childName,
             category: row.category,
             subject: row.subject,
             title: row.title,

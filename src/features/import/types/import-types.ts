@@ -5,6 +5,7 @@ export type ImportSourceType = 'manual' | 'csv' | 'future-pdf';
 
 export interface RawImportRecord {
   childName?: string;
+  rawChildHint?: string;
   category?: string;
   subject?: string;
   title?: string;

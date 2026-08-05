@@ -64,6 +64,7 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('@/lib/firebase', () => ({
   firebaseAuth: authState,
   firestore: {},
+  isCloudSyncEnabled: true,
 }));
 
 vi.mock('@/db/repositories/app-repository', () => ({

@@ -7,6 +7,8 @@ import {
   upsertCloudDocument,
   withUpdatedAt,
 } from '@/features/sync/services/cloud-sync';
+import { runLocalThenCloud, warningHandlers } from '@/features/sync/services/entity-sync';
+import { syncWarning } from '@/features/sync/services/sync-policy';
 
 type DocumentsSlice = Pick<
   AppState,
@@ -44,12 +46,11 @@ export const createDocumentsSlice: StateCreator<AppState, [], [], DocumentsSlice
       }
     }
 
-    void appRepository
-      .upsertDocument(newDoc)
-      .then(() => upsertCloudDocument(newDoc, 'import'))
-      .catch(() => {
-        get().pushPersistenceWarning('Document could not be saved or synced.');
-      });
+    runLocalThenCloud({
+      performLocal: () => appRepository.upsertDocument(newDoc),
+      performCloud: () => upsertCloudDocument(newDoc, 'import'),
+      ...warningHandlers(get().pushPersistenceWarning, syncWarning('document', 'upsert', 'either')),
+    });
 
     set((state) => ({
       documents: [newDoc, ...state.documents.filter((entry) => entry.id !== newDoc.id)],
@@ -69,12 +70,11 @@ export const createDocumentsSlice: StateCreator<AppState, [], [], DocumentsSlice
           )
       )
       .map((item) => item.id);
-    void appRepository
-      .deleteDocumentAndItems(documentId, sourceDocumentIds)
-      .then(() => deleteCloudDocumentAndItems(documentId, sourceDocumentIds, linkedItemIds))
-      .catch(() => {
-        get().pushPersistenceWarning('Document could not be fully deleted.');
-      });
+    runLocalThenCloud({
+      performLocal: () => appRepository.deleteDocumentAndItems(documentId, sourceDocumentIds),
+      performCloud: () => deleteCloudDocumentAndItems(documentId, sourceDocumentIds, linkedItemIds),
+      ...warningHandlers(get().pushPersistenceWarning, syncWarning('document', 'delete', 'either')),
+    });
     set((state) => ({
       documents: state.documents.filter((entry) => entry.id !== documentId),
       items: state.items.filter(

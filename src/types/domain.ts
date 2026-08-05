@@ -160,6 +160,7 @@ export interface ReviewDraftRecord {
   documentId: string;
   rowIndex: number;
   childName?: string;
+  rawChildHint?: string;
   category?: string;
   subject?: string;
   title?: string;

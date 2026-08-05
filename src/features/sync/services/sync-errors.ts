@@ -13,5 +13,15 @@ export const cloudSyncStatusForError = (error: unknown) => {
     return 'unavailable' as const;
   }
 
+  if (
+    code.includes('unavailable') ||
+    code.includes('deadline-exceeded') ||
+    message.includes('network') ||
+    message.includes('offline') ||
+    message.includes('unavailable')
+  ) {
+    return 'unavailable' as const;
+  }
+
   return 'error' as const;
 };

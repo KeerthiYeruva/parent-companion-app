@@ -4,6 +4,7 @@ import {
   subscribeToAuthState,
   type AuthenticatedUser,
 } from '@/features/auth/services/firebase-auth';
+import { isCloudSyncEnabled } from '@/lib/firebase';
 
 interface AuthContextValue {
   user: AuthenticatedUser | null;
@@ -14,6 +15,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const localDevUser: AuthenticatedUser = { uid: 'local-user', email: 'local@parentcompanion.app' };
 
 export function AuthProvider({
   children,
@@ -27,6 +29,14 @@ export function AuthProvider({
   const [authError, setAuthError] = useState<string | undefined>();
 
   useEffect(() => {
+    if (!isCloudSyncEnabled) {
+      setUser(localDevUser);
+      setInitializing(false);
+      setAuthError(undefined);
+      onAuthUserChange?.(localDevUser);
+      return () => undefined;
+    }
+
     const unsubscribe = subscribeToAuthState(
       (nextUser) => {
         setUser(nextUser);
@@ -52,6 +62,10 @@ export function AuthProvider({
       authenticated: Boolean(user),
       authError,
       signOut: async () => {
+        if (!isCloudSyncEnabled) {
+          return;
+        }
+
         try {
           await signOutUser();
         } catch {

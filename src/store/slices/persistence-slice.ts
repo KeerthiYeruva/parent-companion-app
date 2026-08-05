@@ -4,6 +4,11 @@ import {
   retryQueuedCloudOperations,
   uploadLocalDataToCloud,
 } from '@/features/sync/services/cloud-sync';
+import {
+  itemSyncRetryPolicy,
+  pendingSyncWarning,
+  syncWarning,
+} from '@/features/sync/services/sync-policy';
 import { buildHydratedSnapshot } from '@/store/hydration';
 import type { AppState } from '@/types/domain';
 
@@ -117,9 +122,15 @@ export const createPersistenceSlice: StateCreator<AppState, [], [], PersistenceS
     if (remaining.length === 0) {
       get().clearPersistenceWarnings();
     } else {
-      get().pushPersistenceWarning(
-        `${remaining.length} change${remaining.length === 1 ? '' : 's'} still could not be synced to cloud.`
-      );
+      get().pushPersistenceWarning(pendingSyncWarning(remaining.length));
+      const exhausted = remaining.filter(
+        (record) => record.attempts >= itemSyncRetryPolicy.maxAttempts
+      ).length;
+      if (exhausted > 0) {
+        get().pushPersistenceWarning(
+          `${exhausted} change${exhausted === 1 ? '' : 's'} reached retry limit and may need manual retry after network/auth is restored.`
+        );
+      }
     }
 
     void result;
@@ -150,7 +161,7 @@ export const createPersistenceSlice: StateCreator<AppState, [], [], PersistenceS
 
     await appRepository.replaceSnapshot(snapshot);
     await uploadLocalDataToCloud().catch(() => {
-      get().pushPersistenceWarning('Backup data could not be synced to cloud.');
+      get().pushPersistenceWarning(syncWarning('backup', 'update', 'cloud'));
     });
 
     set(snapshot);

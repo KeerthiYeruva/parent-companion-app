@@ -2,6 +2,14 @@ import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+const cloudSyncMode = (import.meta.env.VITE_FIREBASE_SYNC_MODE ?? 'all').toLowerCase();
+const cloudSyncExplicitlyDisabled = import.meta.env.VITE_ENABLE_FIREBASE_SYNC === 'false';
+const cloudSyncAllowedForEnvironment = cloudSyncMode !== 'production-only' || import.meta.env.PROD;
+const isTestMode = import.meta.env.MODE === 'test';
+
+export const isCloudSyncEnabled =
+  isTestMode || (!cloudSyncExplicitlyDisabled && cloudSyncAllowedForEnvironment);
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -12,8 +20,9 @@ const firebaseConfig = {
 };
 
 const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
+const shouldInitializeFirebase = isCloudSyncEnabled && hasFirebaseConfig;
 
-export const firebaseApp = hasFirebaseConfig
+export const firebaseApp = shouldInitializeFirebase
   ? getApps().length > 0
     ? getApp()
     : initializeApp(firebaseConfig)

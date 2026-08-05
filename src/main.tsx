@@ -6,10 +6,13 @@ import { appRepository } from '@/db/repositories/app-repository';
 import {
   retryQueuedCloudOperations,
   startCloudSnapshotListeners,
+  withUpdatedAt,
 } from '@/features/sync/services/cloud-sync';
 import { createCloudSyncController } from '@/features/sync/services/cloud-sync-controller';
+import { isCloudSyncEnabled } from '@/lib/firebase';
 import { buildHydratedSnapshot } from '@/store/hydration';
 import { useAppStore } from '@/store/use-app-store';
+import type { ChildProfile } from '@/types/domain';
 import '@/styles/globals.css';
 
 const rootElement = document.getElementById('root');
@@ -68,6 +71,48 @@ const applySnapshot = (snapshot: {
   );
 };
 
+const localSeedChildren: ChildProfile[] = [
+  withUpdatedAt<ChildProfile>({
+    id: 'child-local-ruthvish',
+    name: 'Ruthvish Reddy Annapareddy',
+    grade: '1',
+    section: 'A',
+    academicYear: '2026-2027',
+    colorTag: 'bg-blue-500',
+  }),
+  withUpdatedAt<ChildProfile>({
+    id: 'child-local-luhas',
+    name: 'Luhas Reddy',
+    grade: '5',
+    section: 'A',
+    academicYear: '2026-2027',
+    colorTag: 'bg-emerald-500',
+  }),
+];
+
+const seedLocalProfilesIfNeeded = async () => {
+  const [children, items, documents] = await Promise.all([
+    appRepository.listChildren(),
+    appRepository.listItems(),
+    appRepository.listDocuments(),
+  ]);
+
+  if (children.length > 0 || items.length > 0 || documents.length > 0) {
+    return false;
+  }
+
+  await appRepository.upsertChildren(localSeedChildren);
+  useAppStore.setState(
+    buildHydratedSnapshot({
+      children: localSeedChildren,
+      items: [],
+      documents: [],
+      selectedChildIds: [localSeedChildren[0].id],
+    })
+  );
+  return true;
+};
+
 const startApp = async () => {
   let hasLocalData = false;
 
@@ -75,6 +120,23 @@ const startApp = async () => {
     hasLocalData = await hydrateLocalData();
   } catch (error: unknown) {
     console.error('Local data hydration failed', error);
+  }
+
+  if (!isCloudSyncEnabled) {
+    if (!hasLocalData) {
+      await seedLocalProfilesIfNeeded().catch((error: unknown) => {
+        console.error('Local profile seed failed', error);
+      });
+    }
+
+    useAppStore.setState({
+      pendingItemSyncIds: [],
+      pendingSyncCount: 0,
+      syncStatus: 'synced',
+    });
+    renderApp();
+    void hasLocalData;
+    return;
   }
 
   cloudSyncController = createCloudSyncController({
