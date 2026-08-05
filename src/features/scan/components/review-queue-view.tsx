@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { buildChildAliasMap } from '@/features/documents/services/child-alias-map';
 import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
 import { importPipeline } from '@/features/import';
 import { ReviewRowEditor } from '@/features/scan/components/review-row-editor';
 import { NavShell } from '@/components/nav-shell';
-import { OutlineButton, PrimaryButton } from '@/components/ui/button';
+import { OutlineButton } from '@/components/ui/button';
 import { HeaderCard, PanelCard } from '@/components/ui/card';
 import { useAppStore } from '@/store/use-app-store';
 import type { ItemCategory, ReviewDraftRecord, ScanSessionFileRecord } from '@/types/domain';
@@ -36,18 +36,6 @@ const countExtractedItems = (file: ScanSessionFileRecord) => {
   );
 };
 
-const countChildAssignmentIssues = (file: ScanSessionFileRecord) => {
-  return (file.importPreviewIssues ?? []).filter((issue) => issue.fieldName === 'childName').length;
-};
-
-const countIssueRows = (file: ScanSessionFileRecord) => {
-  return new Set(
-    (file.importPreviewIssues ?? [])
-      .map((issue) => issue.rowIndex)
-      .filter((index): index is number => typeof index === 'number')
-  ).size;
-};
-
 const toRawRow = (draft: ReviewDraftRecord) => ({
   childName: draft.childName,
   category: draft.category,
@@ -59,6 +47,22 @@ const toRawRow = (draft: ReviewDraftRecord) => ({
   parserIssue: draft.parserIssue,
 });
 
+const hasBlockingIssues = (issues: Array<{ severity?: 'blocking' | 'warning' | 'info' }>) =>
+  issues.some((issue) => issue.severity !== 'warning' && issue.severity !== 'info');
+
+const importSignature = (documentId: string, rows: ReviewDraftRecord[]) =>
+  `${documentId}::${JSON.stringify(
+    rows.map((row) => [
+      row.rowIndex,
+      row.childName ?? '',
+      row.category ?? '',
+      row.subject ?? '',
+      row.title ?? '',
+      row.dueDate ?? '',
+      row.description ?? '',
+    ])
+  )}`;
+
 export function ReviewQueueView() {
   const children = useAppStore((state) => state.children);
   const addItem = useAppStore((state) => state.addItem);
@@ -68,6 +72,7 @@ export function ReviewQueueView() {
   const clearReviewDraftsForDocument = useAppStore((state) => state.clearReviewDraftsForDocument);
   const updateScanFile = useAppStore((state) => state.updateScanFile);
   const markDocumentReviewed = useAppStore((state) => state.markDocumentReviewed);
+  const importedReviewSignaturesRef = useRef<Record<string, string>>({});
 
   const childNameToIdMap = useMemo(() => buildChildAliasMap(children), [children]);
   const filesNeedingReview = scanQueue.filter(
@@ -93,62 +98,63 @@ export function ReviewQueueView() {
     );
   };
 
+  useEffect(() => {
+    filesNeedingReview.forEach((file) => {
+      const draftRows = buildDraftRows(file.documentId);
+      const signature = importSignature(file.documentId, draftRows);
+
+      if (importedReviewSignaturesRef.current[file.documentId] === signature) {
+        return;
+      }
+
+      const result = importPipeline.run(draftRows.map(toRawRow), {
+        sourceType: 'future-pdf',
+        documentId: file.documentId,
+        childNameToIdMap,
+      });
+
+      if (result.items.length === 0) {
+        importedReviewSignaturesRef.current[file.documentId] = signature;
+        return;
+      }
+
+      result.items.forEach((item) => addItem(item));
+      importedReviewSignaturesRef.current[file.documentId] = signature;
+
+      const blockingIssues = hasBlockingIssues(result.issues);
+      const nextStatus: ScanSessionFileRecord['status'] = blockingIssues
+        ? 'partiallyReady'
+        : 'ready';
+
+      if (!blockingIssues) {
+        markDocumentReviewed(file.documentId);
+        clearReviewDraftsForDocument(file.documentId);
+      }
+
+      updateScanFile(file.documentId, (current) => ({
+        ...current,
+        rawRows: draftRows,
+        importPreviewItems: result.items,
+        importPreviewIssues: result.issues,
+        importPreviewSummary: result.summary,
+        status: nextStatus,
+      }));
+    });
+  }, [
+    addItem,
+    childNameToIdMap,
+    clearReviewDraftsForDocument,
+    filesNeedingReview,
+    markDocumentReviewed,
+    reviewDrafts,
+    updateScanFile,
+  ]);
+
   const assignChildToDocument = (documentId: string, childName: string) => {
     const draftRows = buildDraftRows(documentId);
     draftRows.forEach((row) => {
       upsertReviewDraft({ ...row, childName });
     });
-  };
-
-  const revalidateDocument = (documentId: string) => {
-    const file = filesNeedingReview.find((entry) => entry.documentId === documentId);
-    if (!file) {
-      return;
-    }
-
-    const draftRows = buildDraftRows(documentId);
-    const result = importPipeline.run(draftRows.map(toRawRow), {
-      sourceType: 'future-pdf',
-      documentId,
-      childNameToIdMap,
-    });
-
-    updateScanFile(documentId, (current) => ({
-      ...current,
-      rawRows: draftRows,
-      importPreviewItems: result.items,
-      importPreviewIssues: result.issues,
-      importPreviewSummary: result.summary,
-      status: result.issues.some(
-        (issue) => issue.severity !== 'warning' && issue.severity !== 'info'
-      )
-        ? result.items.length > 0
-          ? 'partiallyReady'
-          : 'needsReview'
-        : 'ready',
-    }));
-  };
-
-  const importReviewedDocument = (documentId: string) => {
-    const file = filesNeedingReview.find((entry) => entry.documentId === documentId);
-    if (!file || !file.importPreviewItems || file.importPreviewItems.length === 0) {
-      return;
-    }
-
-    file.importPreviewItems.forEach((item) => addItem(item));
-    markDocumentReviewed(documentId);
-    clearReviewDraftsForDocument(documentId);
-    updateScanFile(documentId, (current) => ({
-      ...current,
-      status: 'ready',
-      importPreviewIssues: [],
-      importPreviewSummary: current.importPreviewSummary
-        ? {
-            ...current.importPreviewSummary,
-            issuesCount: 0,
-          }
-        : current.importPreviewSummary,
-    }));
   };
 
   return (
@@ -166,6 +172,20 @@ export function ReviewQueueView() {
         ) : (
           filesNeedingReview.map((file) => {
             const draftRows = buildDraftRows(file.documentId);
+            const liveResult = importPipeline.run(draftRows.map(toRawRow), {
+              sourceType: 'future-pdf',
+              documentId: file.documentId,
+              childNameToIdMap,
+            });
+
+            const issueRows = new Set(
+              liveResult.issues
+                .map((issue) => issue.rowIndex)
+                .filter((index): index is number => typeof index === 'number')
+            ).size;
+            const childAssignmentIssues = liveResult.issues.filter(
+              (issue) => issue.fieldName === 'childName'
+            ).length;
 
             return (
               <PanelCard key={file.documentId} className="space-y-3">
@@ -179,10 +199,10 @@ export function ReviewQueueView() {
                     </p>
                     <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
                       <p className="rounded-md bg-emerald-50 px-2 py-1 font-medium text-emerald-700">
-                        Ready: {file.importPreviewItems?.length ?? 0}
+                        Ready: {liveResult.items.length}
                       </p>
                       <p className="rounded-md bg-amber-50 px-2 py-1 font-medium text-amber-800">
-                        Needs help: {countIssueRows(file)}
+                        Needs help: {issueRows}
                       </p>
                       <p className="rounded-md bg-slate-50 px-2 py-1 font-medium text-slate-700">
                         Extracted: {countExtractedItems(file)}
@@ -191,36 +211,19 @@ export function ReviewQueueView() {
                     <p className="text-xs text-slate-500">
                       {formatCategoryCounts(file.importPreviewCategoryCounts)}
                     </p>
-                    {countChildAssignmentIssues(file) > 0 ? (
+                    {childAssignmentIssues > 0 ? (
                       <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-sm text-amber-800">
-                        Child assignment needed for {countChildAssignmentIssues(file)} item
-                        {countChildAssignmentIssues(file) > 1 ? 's' : ''}.
+                        Child assignment needed for {childAssignmentIssues} item
+                        {childAssignmentIssues > 1 ? 's' : ''}.
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex gap-2">
-                    <PrimaryButton
-                      onClick={() => revalidateDocument(file.documentId)}
-                      className="bg-slate-900 hover:bg-slate-800"
-                    >
-                      Revalidate
-                    </PrimaryButton>
-                    <PrimaryButton
-                      onClick={() => importReviewedDocument(file.documentId)}
-                      disabled={
-                        (file.importPreviewItems?.length ?? 0) === 0 ||
-                        (file.importPreviewIssues ?? []).some(
-                          (issue) => issue.severity !== 'warning' && issue.severity !== 'info'
-                        )
-                      }
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      Import Valid Rows
-                    </PrimaryButton>
-                  </div>
+                  <p className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+                    Valid rows auto-imported
+                  </p>
                 </div>
 
-                {countChildAssignmentIssues(file) > 0 && children.length > 0 ? (
+                {childAssignmentIssues > 0 && children.length > 0 ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                     <p className="mb-2 text-sm font-medium text-amber-900">
                       Assign all extracted items in this file to:
@@ -257,13 +260,14 @@ export function ReviewQueueView() {
                       </thead>
                       <tbody>
                         {draftRows.map((row) => {
-                          const issues = (file.importPreviewIssues ?? [])
+                          const issues = liveResult.issues
                             .filter((issue) => issue.rowIndex === row.rowIndex)
                             .map((issue) => issue.issue);
                           return (
                             <ReviewRowEditor
                               key={`${file.documentId}-${row.rowIndex}`}
                               draft={row}
+                              rowNumber={row.rowIndex + 1}
                               children={children}
                               issues={issues}
                               onChange={(updates) => upsertReviewDraft({ ...row, ...updates })}

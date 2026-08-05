@@ -26,11 +26,13 @@ const formatIssueForParent = (issue: string) => {
 
 export function ReviewRowEditor({
   draft,
+  rowNumber,
   children,
   issues,
   onChange,
 }: {
   draft: ReviewDraftRecord;
+  rowNumber: number;
   children: ChildProfile[];
   issues: string[];
   onChange: (updates: Partial<ReviewDraftRecord>) => void;
@@ -81,6 +83,7 @@ export function ReviewRowEditor({
         />
       </td>
       <td className="document-import__row-title min-w-56 px-2 py-2">
+        <p className="mb-1 text-xs font-medium text-slate-500">Row {rowNumber}</p>
         <input
           value={draft.title ?? ''}
           onChange={(event) => onChange({ title: event.target.value })}

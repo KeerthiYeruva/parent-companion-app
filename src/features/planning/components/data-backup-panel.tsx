@@ -112,6 +112,7 @@ const isPlannerBackup = (value: unknown): value is PlannerBackup => {
 };
 
 export function DataBackupPanel() {
+  const showDiagnostics = import.meta.env.DEV;
   const inputRef = useRef<HTMLInputElement>(null);
   const children = useAppStore((state) => state.children);
   const items = useAppStore((state) => state.items);
@@ -216,9 +217,7 @@ export function DataBackupPanel() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-slate-900">Data & Backup</h3>
-          <p className="text-sm text-slate-600">
-            Export, import, and check planner data for this device.
-          </p>
+          <p className="text-sm text-slate-600">Export and import planner data for this device.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <OutlineButton onClick={exportData} className="px-3">
@@ -230,9 +229,11 @@ export function DataBackupPanel() {
           >
             Import Data
           </PrimaryButton>
-          <OutlineButton onClick={() => void checkStorage()} className="px-3">
-            Check Storage
-          </OutlineButton>
+          {showDiagnostics ? (
+            <OutlineButton onClick={() => void checkStorage()} className="px-3">
+              Check Storage
+            </OutlineButton>
+          ) : null}
         </div>
       </div>
       <input
@@ -252,7 +253,7 @@ export function DataBackupPanel() {
         {items.length} item{items.length === 1 ? '' : 's'}, {documents.length} document
         {documents.length === 1 ? '' : 's'}.
       </p>
-      {diagnostics ? (
+      {showDiagnostics && diagnostics ? (
         <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
           <p className="font-medium text-slate-900">IndexedDB: {diagnostics.indexedDb}</p>
           {diagnostics.counts ? (
