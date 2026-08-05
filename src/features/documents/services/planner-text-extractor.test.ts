@@ -518,7 +518,6 @@ describe('extractPlannerRows', () => {
       ].join('\n'),
     });
 
-
     it('does not classify home-study fixed tables as unit tests', () => {
       const rows = extractPlannerRows({
         relativePath: 'Grade 1/August/Scholastic Planner.pdf',
