@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { NavShell } from '@/components/nav-shell';
+import { HeaderCard, PanelCard } from '@/components/ui/card';
 import { useAppStore } from '@/store/use-app-store';
 
 export function ScanHistoryView() {
@@ -13,14 +14,12 @@ export function ScanHistoryView() {
   return (
     <NavShell>
       <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-xl font-semibold text-slate-900">Import History</h2>
-          <p className="text-sm text-slate-600">
-            Recent school-file checks and their summary counts.
-          </p>
-        </div>
+        <HeaderCard
+          title="Import History"
+          subtitle="Recent school-file checks and their summary counts."
+        />
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <PanelCard>
           {scanHistory.length === 0 ? (
             <p className="text-sm text-slate-500">No import history yet.</p>
           ) : (
@@ -41,7 +40,7 @@ export function ScanHistoryView() {
               ))}
             </ul>
           )}
-        </div>
+        </PanelCard>
       </section>
     </NavShell>
   );

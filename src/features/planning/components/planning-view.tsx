@@ -17,6 +17,7 @@ import {
 import { ItemList } from '@/components/item-list';
 import { CheckIcon } from '@/components/ui/check-icon';
 import { SubjectIcon } from '@/components/ui/subject-icon';
+import { ArticleCard, HeaderCard, PanelCard } from '@/components/ui/card';
 import { NavShell } from '@/components/nav-shell';
 import {
   bySelectedChildren,
@@ -181,13 +182,13 @@ export function PlanningView({
       <section className="planner-week space-y-3">
         <ProgressCard label="Weekly Progress" progress={weeklyProgress} />
         {groups.map((group) => (
-          <div
+          <ArticleCard
             key={group.child.id}
-            className="planner-week__child-group rounded-xl border border-slate-200 bg-white p-4"
+            className="planner-week__child-group p-4"
             data-child-id={group.child.id}
           >
             <WeekTaskBuckets items={group.items} />
-          </div>
+          </ArticleCard>
         ))}
       </section>
     );
@@ -204,7 +205,7 @@ export function PlanningView({
 
     content = (
       <section className="planner-month space-y-3">
-        <div className="planner-month__nav flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3">
+        <PanelCard className="planner-month__nav flex flex-wrap items-center justify-between gap-2 p-3">
           <div>
             <p className="planner-month__nav-label text-xs font-semibold uppercase tracking-wide text-slate-500">
               Month
@@ -238,7 +239,7 @@ export function PlanningView({
               <ChevronRight aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
-        </div>
+        </PanelCard>
         <div className="planner-month__metrics grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <ProgressCard label="Monthly Progress" progress={monthlyProgress} />
           <MonthMetricCard icon={BookOpen} label="Homework" value={monthly.homework} />
@@ -247,9 +248,9 @@ export function PlanningView({
           <MonthMetricCard icon={FolderKanban} label="Projects" value={monthly.projects} />
         </div>
         {childGroups.map((group) => (
-          <div
+          <ArticleCard
             key={group.child.id}
-            className="planner-month__child-group rounded-xl border border-slate-200 bg-white p-4"
+            className="planner-month__child-group p-4"
             data-child-id={group.child.id}
           >
             <div className="mb-3 flex justify-end">
@@ -267,7 +268,7 @@ export function PlanningView({
                 <ItemList items={[]} emptyText="No records this month." />
               ) : null}
             </div>
-          </div>
+          </ArticleCard>
         ))}
       </section>
     );
@@ -276,16 +277,17 @@ export function PlanningView({
   return (
     <NavShell>
       <section className={`planner-view planner-view--${mode} space-y-3`}>
-        <div className="planner-view__header rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="planner-view__title text-xl font-semibold text-slate-900">{title}</h2>
-          <p className="planner-view__date text-sm text-slate-600">{periodLabel}</p>
-        </div>
+        <HeaderCard
+          title={title}
+          subtitle={<span className="planner-view__date">{periodLabel}</span>}
+          className="planner-view__header"
+        />
 
         <div className="planner-view__controls flex flex-wrap items-center justify-between gap-3">
           <ChildSwitcher />
         </div>
         {showKidsTabs ? (
-          <nav className="rounded-xl border border-slate-200 bg-white p-3">
+          <PanelCard className="p-3">
             <div className="flex flex-wrap gap-2">
               {[
                 { href: '/', label: 'Today', icon: Sun },
@@ -311,7 +313,7 @@ export function PlanningView({
                 );
               })}
             </div>
-          </nav>
+          </PanelCard>
         ) : null}
         {content}
       </section>
@@ -776,10 +778,7 @@ function ChildTodayCard({
   const weekProgress = completionProgress(weekItems);
 
   return (
-    <article
-      className="planner-dashboard__child-card rounded-xl border border-slate-200 bg-white p-4"
-      data-child-id={child.id}
-    >
+    <ArticleCard className="planner-dashboard__child-card p-4" data-child-id={child.id}>
       <div className="planner-dashboard__child-header mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="planner-dashboard__child-identity flex items-center gap-2">
           <span
@@ -816,7 +815,7 @@ function ChildTodayCard({
           {tests.length} upcoming test{tests.length > 1 ? 's' : ''} this week
         </p>
       ) : null}
-    </article>
+    </ArticleCard>
   );
 }
 
@@ -879,10 +878,10 @@ function DashboardTaskSection({
 
 function MetricCard({ label, value }: { label: string; value: number }) {
   return (
-    <article className="planner-metric-card rounded-xl border border-slate-200 bg-white p-4">
+    <ArticleCard className="planner-metric-card p-4">
       <p className="planner-metric-card__label text-sm text-slate-600">{label}</p>
       <p className="planner-metric-card__value text-3xl font-bold text-slate-900">{value}</p>
-    </article>
+    </ArticleCard>
   );
 }
 
@@ -896,13 +895,13 @@ function MonthMetricCard({
   value: number;
 }) {
   return (
-    <article className="planner-month-metric rounded-xl border border-slate-200 bg-white p-4">
+    <ArticleCard className="planner-month-metric p-4">
       <div className="planner-month-metric__header flex items-center gap-2 text-sm text-slate-600">
         <Icon aria-hidden="true" className="h-4 w-4" />
         <span>{label}</span>
       </div>
       <p className="planner-month-metric__value mt-2 text-3xl font-bold text-slate-900">{value}</p>
-    </article>
+    </ArticleCard>
   );
 }
 
@@ -919,7 +918,7 @@ function ProgressCard({
   };
 }) {
   return (
-    <article className="planner-progress-card rounded-xl border border-slate-200 bg-white p-4">
+    <ArticleCard className="planner-progress-card p-4">
       <p className="planner-progress-card__label text-sm text-slate-600">{label}</p>
       <p className="planner-progress-card__value text-3xl font-bold text-slate-900">
         {progress.label}
@@ -930,6 +929,6 @@ function ProgressCard({
           style={{ width: `${progress.percent}%` }}
         />
       </div>
-    </article>
+    </ArticleCard>
   );
 }

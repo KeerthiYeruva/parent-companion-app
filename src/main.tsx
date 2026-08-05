@@ -9,7 +9,7 @@ import {
   withUpdatedAt,
 } from '@/features/sync/services/cloud-sync';
 import { createCloudSyncController } from '@/features/sync/services/cloud-sync-controller';
-import { isCloudSyncEnabled } from '@/lib/firebase';
+import { isCloudSyncEnabled, isFirebaseConfigured } from '@/lib/firebase';
 import { buildHydratedSnapshot } from '@/store/hydration';
 import { useAppStore } from '@/store/use-app-store';
 import type { ChildProfile } from '@/types/domain';
@@ -114,6 +114,10 @@ const seedLocalProfilesIfNeeded = async () => {
 };
 
 const startApp = async () => {
+  if (import.meta.env.PROD && (!isCloudSyncEnabled || !isFirebaseConfigured)) {
+    throw new Error('Firebase cloud sync is required in production and must be fully configured.');
+  }
+
   let hasLocalData = false;
 
   try {

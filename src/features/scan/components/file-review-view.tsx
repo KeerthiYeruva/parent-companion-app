@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import Link from '@/components/routing';
 import { NavShell } from '@/components/nav-shell';
+import { LinkButton } from '@/components/ui/button';
+import { HeaderCard, PanelCard } from '@/components/ui/card';
 import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
 import { useAppStore } from '@/store/use-app-store';
 import type { ItemCategory, ScanSessionFileRecord } from '@/types/domain';
@@ -77,24 +79,22 @@ export function FileReviewView({ documentId }: { documentId: string }) {
   return (
     <NavShell>
       <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-xl font-semibold text-slate-900">School File Detail</h2>
-          <p className="text-sm text-slate-600">
-            Check what Parent Companion found before adding it to the family calendar.
-          </p>
-        </div>
+        <HeaderCard
+          title="School File Detail"
+          subtitle="Check what Parent Companion found before adding it to the family calendar."
+        />
 
         {!file ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+          <PanelCard className="rounded-xl border-dashed border-slate-300 text-sm text-slate-500">
             File not found in the current school-file list. Choose files again from{' '}
             <Link href="/scan" className="text-blue-700">
               School Files
             </Link>
             .
-          </div>
+          </PanelCard>
         ) : (
           <>
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <PanelCard>
               <h3 className="font-semibold text-slate-900">
                 {formatSchoolDocumentTitle(file.fileName, file.detectedType)}
               </h3>
@@ -112,9 +112,9 @@ export function FileReviewView({ documentId }: { documentId: string }) {
               <p className="mt-1 text-xs text-slate-500">
                 {formatCategoryCounts(file.importPreviewCategoryCounts)}
               </p>
-            </div>
+            </PanelCard>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <PanelCard>
               <h3 className="mb-2 font-semibold text-slate-900">Tasks Found</h3>
               {(file.rawRows ?? []).length === 0 ? (
                 <p className="text-sm text-slate-500">No tasks found in this file.</p>
@@ -132,10 +132,10 @@ export function FileReviewView({ documentId }: { documentId: string }) {
                   ))}
                 </ul>
               )}
-            </div>
+            </PanelCard>
 
             {file.importPreviewIssues && file.importPreviewIssues.length > 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <PanelCard>
                 <h3 className="mb-2 font-semibold text-slate-900">Details Needed</h3>
                 <ul className="space-y-1">
                   {file.importPreviewIssues.map((issue) => (
@@ -147,13 +147,10 @@ export function FileReviewView({ documentId }: { documentId: string }) {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href="/scan/review"
-                  className="mt-3 inline-block rounded-lg bg-slate-900 px-3 py-2 text-sm text-white"
-                >
+                <LinkButton href="/scan/review" className="mt-3">
                   Assign Items
-                </Link>
-              </div>
+                </LinkButton>
+              </PanelCard>
             ) : null}
           </>
         )}

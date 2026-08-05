@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { useMemo } from 'react';
+import { PanelCard } from '@/components/ui/card';
 import { ChildDetailLayout } from '@/features/children/components/child-detail-layout';
 import { useAppStore } from '@/store/use-app-store';
 
@@ -12,7 +13,7 @@ export function ChildDocumentsView({ childId }: { childId: string }) {
 
   return (
     <ChildDetailLayout childId={childId} title="Documents">
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <PanelCard>
         <h3 className="mb-2 text-lg font-semibold">Document References</h3>
         {documents.length === 0 ? (
           <p className="text-sm text-slate-500">No documents linked to this child yet.</p>
@@ -29,7 +30,7 @@ export function ChildDocumentsView({ childId }: { childId: string }) {
             ))}
           </ul>
         )}
-      </div>
+      </PanelCard>
     </ChildDetailLayout>
   );
 }

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { PrimaryButton } from '@/components/ui/button';
 import { useAppStore } from '@/store/use-app-store';
 
 const schema = z.object({
@@ -30,7 +31,7 @@ export function AddChildForm() {
 
   return (
     <form
-      className="grid gap-2 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4"
+      className="pc-panel grid gap-2 md:grid-cols-4"
       onSubmit={handleSubmit((values) => {
         addChild(values);
         reset({ academicYear: values.academicYear, grade: '', name: '', section: '' });
@@ -60,9 +61,9 @@ export function AddChildForm() {
           placeholder="Academic year"
           {...register('academicYear')}
         />
-        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-white">
+        <PrimaryButton type="submit" className="px-4">
           Add
-        </button>
+        </PrimaryButton>
       </div>
       {(errors.name || errors.grade || errors.section || errors.academicYear) && (
         <p className="text-sm text-rose-600 md:col-span-4">

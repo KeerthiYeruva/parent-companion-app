@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { useMemo } from 'react';
 import { ItemList } from '@/components/item-list';
+import { PanelCard } from '@/components/ui/card';
 import { ChildDetailLayout } from '@/features/children/components/child-detail-layout';
 import {
   completionProgress,
@@ -30,10 +31,7 @@ export function ChildCategoryView({
 
   return (
     <ChildDetailLayout childId={childId} title={title}>
-      <div
-        className="child-category-view rounded-xl border border-slate-200 bg-white p-4"
-        data-child-id={childId}
-      >
+      <PanelCard className="child-category-view" data-child-id={childId}>
         <div className="child-category-view__header mb-3 flex items-center justify-between gap-3">
           <h3 className="child-category-view__title text-lg font-semibold">{title}</h3>
           <span className="child-category-view__progress text-sm font-medium text-slate-600">
@@ -41,7 +39,7 @@ export function ChildCategoryView({
           </span>
         </div>
         <TaskSplitList items={items} emptyText={`No ${title.toLowerCase()} for this child.`} />
-      </div>
+      </PanelCard>
     </ChildDetailLayout>
   );
 }
@@ -59,7 +57,7 @@ export function ChildMonthView({ childId }: { childId: string }) {
   return (
     <ChildDetailLayout childId={childId} title="Month">
       <section className="child-month-view space-y-3" data-child-id={childId}>
-        <div className="child-month-view__panel rounded-xl border border-slate-200 bg-white p-4">
+        <PanelCard className="child-month-view__panel">
           <div className="child-month-view__header mb-3 flex items-center justify-between gap-3">
             <h3 className="child-month-view__title text-lg font-semibold">This Month</h3>
             <span className="child-month-view__progress text-sm font-medium text-slate-600">
@@ -92,7 +90,7 @@ export function ChildMonthView({ childId }: { childId: string }) {
               />
             ) : null}
           </div>
-        </div>
+        </PanelCard>
       </section>
     </ChildDetailLayout>
   );

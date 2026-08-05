@@ -1,6 +1,6 @@
 import type { InputHTMLAttributes } from 'react';
 import { useMemo, useRef, useState } from 'react';
-import Link from '@/components/routing';
+import { LinkButton, OutlineButton, PrimaryButton } from '@/components/ui/button';
 import { buildChildAliasMap } from '@/features/documents/services/child-alias-map';
 import { detectPlannerDocument } from '@/features/documents/services/document-detector';
 import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
@@ -231,7 +231,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
   const deleteDocument = useAppStore((state) => state.deleteDocument);
   const items = useAppStore((state) => state.items);
   const addDocument = useAppStore((state) => state.addDocument);
-  const addItem = useAppStore((state) => state.addItem);
   const replaceItemsForSourceDocuments = useAppStore(
     (state) => state.replaceItemsForSourceDocuments
   );
@@ -272,35 +271,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
       );
     });
   }, [documents, scanQueue]);
-
-  const existingItemKeys = useMemo(() => {
-    return new Set(
-      items.map((item) =>
-        [
-          item.childId,
-          item.category,
-          item.subject ?? '',
-          item.title.trim().toLowerCase(),
-          item.dueDate,
-          item.sourceDocumentId ?? '',
-          ...(item.sourceDocumentIds ?? []),
-        ].join('__')
-      )
-    );
-  }, [items]);
-
-  const scannedSourceDocumentIds = useMemo(() => {
-    return Array.from(new Set(scanQueue.map((result) => result.documentId)));
-  }, [scanQueue]);
-
-  const readyPreviewItems = useMemo(
-    () => scanQueue.flatMap((result) => result.importPreviewItems ?? []),
-    [scanQueue]
-  );
-  const replacementScope = useMemo(
-    () => buildReplacementScope(readyPreviewItems),
-    [readyPreviewItems]
-  );
 
   const scanTotals = useMemo(() => {
     return scanQueue.reduce(
@@ -358,25 +328,6 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           extractedMonth: result.monthLabel,
         });
       });
-  };
-
-  const importReadyItems = (results: ScanSessionFileRecord[]) => {
-    results.forEach((result) => {
-      result.importPreviewItems?.forEach((item) => {
-        const key = [
-          item.childId,
-          item.category,
-          item.subject ?? '',
-          item.title.trim().toLowerCase(),
-          item.dueDate,
-          item.sourceDocumentId ?? '',
-          ...(item.sourceDocumentIds ?? []),
-        ].join('__');
-        if (!existingItemKeys.has(key)) {
-          addItem(item);
-        }
-      });
-    });
   };
 
   const scanFiles = async (files: FileList | null) => {
@@ -700,25 +651,29 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
         });
       }
 
+      const nextSourceDocumentIds = Array.from(
+        new Set(nextResults.map((result) => result.documentId))
+      );
+      const nextPreviewItems = nextResults.flatMap((result) => result.importPreviewItems ?? []);
+      const nextReplacementScope = buildReplacementScope(nextPreviewItems);
+
       setConnectedFolderName(rootFolderName);
       setScanQueue(nextResults, scannedAt);
       saveScannedDocuments(nextResults);
-      importReadyItems(nextResults);
+      if (nextSourceDocumentIds.length > 0) {
+        replaceItemsForSourceDocuments(
+          nextSourceDocumentIds,
+          nextPreviewItems,
+          nextReplacementScope
+        );
+      }
     } finally {
       setIsScanning(false);
     }
   };
 
-  const replaceImportedItems = () => {
-    if (readyPreviewItems.length === 0) {
-      return;
-    }
-
-    replaceItemsForSourceDocuments(scannedSourceDocumentIds, readyPreviewItems, replacementScope);
-  };
-
   return (
-    <section className="document-import space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+    <section className="document-import pc-panel space-y-3">
       <div className="document-import__header">
         <h3 className="document-import__title font-semibold text-slate-900">
           {simple ? 'Upload School Documents' : 'Add School Files'}
@@ -758,28 +713,18 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
           className="document-import__folder-input hidden"
           {...directoryPickerProps}
         />
-        <button
-          type="button"
+        <PrimaryButton
           onClick={() => pdfInputRef.current?.click()}
-          className="document-import__choose-pdfs rounded-lg bg-slate-900 px-4 py-2 text-sm text-white"
+          className="document-import__choose-pdfs bg-slate-900 px-4 hover:bg-slate-800"
         >
           Choose PDFs
-        </button>
-        <button
-          type="button"
+        </PrimaryButton>
+        <OutlineButton
           onClick={() => folderInputRef.current?.click()}
-          className="document-import__choose-folder rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="document-import__choose-folder px-4"
         >
           Choose Folder
-        </button>
-        <button
-          type="button"
-          onClick={replaceImportedItems}
-          disabled={readyPreviewItems.length === 0}
-          className="document-import__rebuild rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Rebuild Imported Items
-        </button>
+        </OutlineButton>
       </div>
 
       {isScanning ? (
@@ -838,25 +783,22 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
             ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               {scanTotals.assignmentIssues > 0 || scanTotals.otherIssues > 0 ? (
-                <Link
-                  href="/scan/review"
-                  className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white"
-                >
+                <LinkButton href="/scan/review" className="bg-slate-900 hover:bg-slate-800">
                   Review Exceptions
-                </Link>
+                </LinkButton>
               ) : null}
-              <Link
+              <LinkButton
                 href="/"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
+                className="border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
               >
                 Go to Today
-              </Link>
-              <Link
+              </LinkButton>
+              <LinkButton
                 href="/kids"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
+                className="border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
               >
                 Check Kids
-              </Link>
+              </LinkButton>
             </div>
           </div>
         ) : (

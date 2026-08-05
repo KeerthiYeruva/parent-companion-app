@@ -8,6 +8,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import Link, { usePathname } from '@/components/routing';
+import { SubtleButton } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/components/auth-context';
 import { useAppStore } from '@/store/use-app-store';
 
@@ -70,7 +71,7 @@ export function NavShell({ children }: { children: ReactNode }) {
                   : undefined);
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="pc-page-shell">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4">
           <div>
@@ -111,15 +112,13 @@ export function NavShell({ children }: { children: ReactNode }) {
                 {user.email}
               </span>
             ) : null}
-            <button
-              type="button"
+            <SubtleButton
               onClick={() => {
                 void signOut();
               }}
-              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Sign out
-            </button>
+            </SubtleButton>
           </div>
         </div>
       </header>

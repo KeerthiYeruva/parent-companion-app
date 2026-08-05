@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ItemList } from '@/components/item-list';
+import { ArticleCard, PanelCard } from '@/components/ui/card';
 import { ChildDetailLayout } from '@/features/children/components/child-detail-layout';
 import {
   completionProgress,
@@ -39,7 +40,7 @@ export function ChildOverviewView({ childId }: { childId: string }) {
         />
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <PanelCard>
           <h3 className="mb-2 text-lg font-semibold">This Week To Do</h3>
           <ItemList
             items={openWeekItems}
@@ -47,8 +48,8 @@ export function ChildOverviewView({ childId }: { childId: string }) {
             showChild={false}
             showCategory={false}
           />
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        </PanelCard>
+        <PanelCard>
           <h3 className="mb-2 text-lg font-semibold">Upcoming Tests</h3>
           <ItemList
             items={upcomingTests}
@@ -56,7 +57,7 @@ export function ChildOverviewView({ childId }: { childId: string }) {
             showChild={false}
             showCategory={false}
           />
-        </div>
+        </PanelCard>
       </div>
     </ChildDetailLayout>
   );
@@ -72,12 +73,12 @@ function ChildProgressCard({
   percent: number;
 }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4">
+    <ArticleCard className="p-4">
       <p className="text-sm text-slate-600">{label}</p>
       <p className="text-2xl font-bold text-slate-900">{value}</p>
       <div className="mt-3 h-2 rounded-full bg-slate-100">
         <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${percent}%` }} />
       </div>
-    </article>
+    </ArticleCard>
   );
 }

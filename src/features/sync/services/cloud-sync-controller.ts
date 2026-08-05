@@ -57,9 +57,6 @@ export const createCloudSyncController = ({
     unsubscribeListeners = undefined;
   };
 
-  const isRecoverableListenerError = () =>
-    listenerErrorStatus && listenerErrorStatus !== 'permissionDenied';
-
   const retryPendingCloudData = async () => {
     if (!activeUser) {
       return;

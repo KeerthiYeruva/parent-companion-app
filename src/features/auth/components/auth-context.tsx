@@ -16,6 +16,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const localDevUser: AuthenticatedUser = { uid: 'local-user', email: 'local@parentcompanion.app' };
+const useLocalBypass = import.meta.env.DEV && !isCloudSyncEnabled;
 
 export function AuthProvider({
   children,
@@ -29,7 +30,7 @@ export function AuthProvider({
   const [authError, setAuthError] = useState<string | undefined>();
 
   useEffect(() => {
-    if (!isCloudSyncEnabled) {
+    if (useLocalBypass) {
       setUser(localDevUser);
       setInitializing(false);
       setAuthError(undefined);
@@ -62,7 +63,7 @@ export function AuthProvider({
       authenticated: Boolean(user),
       authError,
       signOut: async () => {
-        if (!isCloudSyncEnabled) {
+        if (useLocalBypass) {
           return;
         }
 

@@ -4,17 +4,21 @@
 
 :root {
   color-scheme: light;
+  --pc-bg-top: #f8fafc;
+  --pc-bg-bottom: #eef2ff;
+  --pc-text: #0f172a;
+  --pc-link: #464feb;
 }
 
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #0f172a;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  color: var(--pc-text);
+  background: linear-gradient(180deg, var(--pc-bg-top) 0%, var(--pc-bg-bottom) 100%);
 }
 
 a {
-  color: #464feb;
+  color: var(--pc-link);
   text-decoration: none;
 }
 
@@ -25,4 +29,58 @@ tr td {
 
 tr th {
   background-color: #f5f5f5;
+}
+
+@layer components {
+  .pc-page-shell {
+    @apply min-h-screen bg-slate-100;
+  }
+
+  .pc-header-card {
+    @apply rounded-xl border border-slate-200 bg-white p-4;
+  }
+
+  .pc-header-title {
+    @apply text-xl font-semibold text-slate-900;
+  }
+
+  .pc-header-subtitle {
+    @apply text-sm text-slate-600;
+  }
+
+  .pc-card {
+    @apply rounded-xl border border-slate-200 bg-white;
+  }
+
+  .pc-panel {
+    @apply rounded-xl border border-slate-200 bg-white p-4;
+  }
+
+  .pc-icon-chip {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700;
+  }
+
+  .pc-link-button {
+    @apply inline-flex items-center rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800;
+  }
+
+  .pc-subtle-button {
+    @apply rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50;
+  }
+
+  .pc-primary-button {
+    @apply inline-flex items-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .pc-outline-button {
+    @apply rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50;
+  }
+
+  .pc-muted-button {
+    @apply rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-200;
+  }
+
+  .pc-danger-button {
+    @apply rounded-lg bg-rose-50 px-3 py-1 text-sm font-medium text-rose-700 hover:bg-rose-100;
+  }
 }

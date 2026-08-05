@@ -1,4 +1,5 @@
 import type { ScanSessionFileRecord } from '@/types/domain';
+import { ArticleCard, HeaderCard } from '@/components/ui/card';
 
 const countByStatus = (files: ScanSessionFileRecord[], status: ScanSessionFileRecord['status']) => {
   return files.filter((file) => file.status === status).length;
@@ -20,30 +21,26 @@ export function ScanSummaryCards({
 
   return (
     <section className="document-import__scan-summary space-y-3">
-      <div className="document-import__scan-summary-header rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="document-import__scan-summary-title text-xl font-semibold text-slate-900">
-          School Files
-        </h2>
-        <p className="document-import__scan-summary-date text-sm text-slate-600">
-          {lastScanAt
+      <HeaderCard
+        title="School Files"
+        subtitle={
+          lastScanAt
             ? `Last import check: ${new Date(lastScanAt).toLocaleString()}`
-            : 'No school files checked yet.'}
-        </p>
-      </div>
+            : 'No school files checked yet.'
+        }
+        className="document-import__scan-summary-header"
+      />
 
       <div className="document-import__scan-summary-cards grid gap-3 md:grid-cols-4">
         {cards.map((card) => (
-          <article
-            key={card.label}
-            className="document-import__scan-summary-card rounded-xl border border-slate-200 bg-white p-4"
-          >
+          <ArticleCard key={card.label} className="document-import__scan-summary-card p-4">
             <p className="document-import__scan-summary-card-label text-sm text-slate-600">
               {card.label}
             </p>
             <p className="document-import__scan-summary-card-value text-3xl font-bold text-slate-900">
               {card.value}
             </p>
-          </article>
+          </ArticleCard>
         ))}
       </div>
     </section>

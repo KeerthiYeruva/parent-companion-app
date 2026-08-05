@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { OutlineButton, PrimaryButton } from '@/components/ui/button';
+import { PanelCard } from '@/components/ui/card';
 import type { DocumentType, ItemCategory, ItemStatus, PlannerBackup } from '@/types/domain';
 import { useAppStore } from '@/store/use-app-store';
 
@@ -210,7 +212,7 @@ export function DataBackupPanel() {
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4">
+    <PanelCard>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-slate-900">Data & Backup</h3>
@@ -219,27 +221,18 @@ export function DataBackupPanel() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={exportData}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
+          <OutlineButton onClick={exportData} className="px-3">
             Export Data
-          </button>
-          <button
-            type="button"
+          </OutlineButton>
+          <PrimaryButton
             onClick={() => inputRef.current?.click()}
-            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+            className="bg-slate-900 px-3 hover:bg-slate-800"
           >
             Import Data
-          </button>
-          <button
-            type="button"
-            onClick={() => void checkStorage()}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
+          </PrimaryButton>
+          <OutlineButton onClick={() => void checkStorage()} className="px-3">
             Check Storage
-          </button>
+          </OutlineButton>
         </div>
       </div>
       <input
@@ -277,6 +270,6 @@ export function DataBackupPanel() {
         </div>
       ) : null}
       {message ? <p className="mt-2 text-sm font-medium text-emerald-700">{message}</p> : null}
-    </section>
+    </PanelCard>
   );
 }

@@ -4,6 +4,8 @@ import { formatSchoolDocumentTitle } from '@/features/documents/services/documen
 import { importPipeline } from '@/features/import';
 import { ReviewRowEditor } from '@/features/scan/components/review-row-editor';
 import { NavShell } from '@/components/nav-shell';
+import { OutlineButton, PrimaryButton } from '@/components/ui/button';
+import { HeaderCard, PanelCard } from '@/components/ui/card';
 import { useAppStore } from '@/store/use-app-store';
 import type { ItemCategory, ReviewDraftRecord, ScanSessionFileRecord } from '@/types/domain';
 
@@ -152,27 +154,21 @@ export function ReviewQueueView() {
   return (
     <NavShell>
       <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-xl font-semibold text-slate-900">Review Exceptions</h2>
-          <p className="text-sm text-slate-600">
-            Most rows should import automatically. This table appears only when child, type,
-            subject, item, or date could not be mapped safely.
-          </p>
-        </div>
+        <HeaderCard
+          title="Review Exceptions"
+          subtitle="Most rows should import automatically. This table appears only when child, type, subject, item, or date could not be mapped safely."
+        />
 
         {filesNeedingReview.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+          <PanelCard className="rounded-xl border-dashed border-slate-300 text-sm text-slate-500">
             No school files need review right now.
-          </div>
+          </PanelCard>
         ) : (
           filesNeedingReview.map((file) => {
             const draftRows = buildDraftRows(file.documentId);
 
             return (
-              <section
-                key={file.documentId}
-                className="space-y-3 rounded-xl border border-slate-200 bg-white p-4"
-              >
+              <PanelCard key={file.documentId} className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="font-semibold text-slate-900">
@@ -203,15 +199,13 @@ export function ReviewQueueView() {
                     ) : null}
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      type="button"
+                    <PrimaryButton
                       onClick={() => revalidateDocument(file.documentId)}
-                      className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white"
+                      className="bg-slate-900 hover:bg-slate-800"
                     >
                       Revalidate
-                    </button>
-                    <button
-                      type="button"
+                    </PrimaryButton>
+                    <PrimaryButton
                       onClick={() => importReviewedDocument(file.documentId)}
                       disabled={
                         (file.importPreviewItems?.length ?? 0) === 0 ||
@@ -219,10 +213,10 @@ export function ReviewQueueView() {
                           (issue) => issue.severity !== 'warning' && issue.severity !== 'info'
                         )
                       }
-                      className="rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      className="bg-emerald-600 hover:bg-emerald-700"
                     >
                       Import Valid Rows
-                    </button>
+                    </PrimaryButton>
                   </div>
                 </div>
 
@@ -233,14 +227,13 @@ export function ReviewQueueView() {
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {children.map((child) => (
-                        <button
+                        <OutlineButton
                           key={child.id}
-                          type="button"
                           onClick={() => assignChildToDocument(file.documentId, child.name)}
-                          className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100"
+                          className="text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100"
                         >
                           {child.name}
-                        </button>
+                        </OutlineButton>
                       ))}
                     </div>
                   </div>
@@ -281,7 +274,7 @@ export function ReviewQueueView() {
                     </table>
                   </div>
                 </details>
-              </section>
+              </PanelCard>
             );
           })
         )}

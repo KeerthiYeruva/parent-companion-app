@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import Link, { usePathname } from '@/components/routing';
 import { NavShell } from '@/components/nav-shell';
+import { LinkButton } from '@/components/ui/button';
+import { ArticleCard, PanelCard } from '@/components/ui/card';
 import {
   childSummary,
   completionProgress,
@@ -32,18 +34,15 @@ export function ChildDetailLayout({
   if (!child) {
     return (
       <NavShell>
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <PanelCard>
           <h2 className="text-xl font-semibold text-slate-900">Loading child profile</h2>
           <p className="text-sm text-slate-600">
             If this profile is not available, open Kids and choose a child.
           </p>
-          <Link
-            href="/kids"
-            className="mt-3 inline-flex rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white"
-          >
+          <LinkButton href="/kids" className="mt-3 bg-blue-600 hover:bg-blue-700">
             Open Kids
-          </Link>
-        </section>
+          </LinkButton>
+        </PanelCard>
       </NavShell>
     );
   }
@@ -57,7 +56,7 @@ export function ChildDetailLayout({
   return (
     <NavShell>
       <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <ArticleCard className="p-4">
           <div className="mb-2 flex items-center gap-2">
             <span className={`h-3 w-3 rounded-full ${child.colorTag}`} />
             <h2 className="text-xl font-semibold text-slate-900">{child.name}</h2>
@@ -71,9 +70,9 @@ export function ChildDetailLayout({
             <p>{weekProgress.label} this week</p>
             <p>{monthProgress.label} this month</p>
           </div>
-        </div>
+        </ArticleCard>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <PanelCard className="p-3">
           <div className="flex flex-wrap gap-2">
             {links.map((link) => {
               const active = pathname === link.href;
@@ -88,7 +87,7 @@ export function ChildDetailLayout({
               );
             })}
           </div>
-        </div>
+        </PanelCard>
 
         {children}
       </section>

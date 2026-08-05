@@ -1,5 +1,6 @@
 import { BookOpenCheck, ClipboardCheck, GraduationCap, NotebookTabs } from 'lucide-react';
 import { NavShell } from '@/components/nav-shell';
+import { ArticleCard, HeaderCard, PanelCard } from '@/components/ui/card';
 import { TestSection } from '@/features/planning/components/test-section';
 import { groupTestsByChild } from '@/features/tests/services/test-groups';
 import { useAppStore } from '@/store/use-app-store';
@@ -12,13 +13,7 @@ export function TestsView() {
   return (
     <NavShell>
       <section className="tests-page space-y-4">
-        <div className="tests-page__header rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="tests-page__title text-xl font-semibold text-slate-900">Tests</h2>
-
-          <p className="tests-page__subtitle text-sm text-slate-600">
-            Class tests, unit tests, and exams by child.
-          </p>
-        </div>
+        <HeaderCard title="Tests" subtitle="Class tests, unit tests, and exams by child." />
 
         <div className="tests-page__children space-y-3">
           {groups.map((group) => {
@@ -29,9 +24,9 @@ export function TestsView() {
             }
 
             return (
-              <article
+              <ArticleCard
                 key={group.child.id}
-                className="tests-page__child rounded-xl border border-slate-200 bg-white p-4"
+                className="tests-page__child p-4"
                 data-child-id={group.child.id}
               >
                 <div className="tests-page__child-header mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -72,7 +67,7 @@ export function TestsView() {
                     <TestSection title="Exams" items={group.exams} icon={GraduationCap} />
                   ) : null}
                 </div>
-              </article>
+              </ArticleCard>
             );
           })}
           {groups.every(
@@ -81,10 +76,10 @@ export function TestsView() {
               group.unitTests.length === 0 &&
               group.exams.length === 0
           ) ? (
-            <p className="tests-page__empty rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+            <PanelCard className="tests-page__empty rounded-lg border-dashed border-slate-300 text-sm text-slate-500">
               <ClipboardCheck aria-hidden="true" className="mb-2 h-5 w-5 text-slate-400" />
               No tests scheduled yet.
-            </p>
+            </PanelCard>
           ) : null}
         </div>
       </section>

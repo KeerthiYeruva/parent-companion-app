@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { PrimaryButton } from '@/components/ui/button';
 import { useAppStore } from '@/store/use-app-store';
 import type { DocumentType } from '@/types/domain';
 
@@ -43,7 +44,7 @@ export function UploadDocumentForm() {
 
   return (
     <form
-      className="space-y-2 rounded-xl border border-slate-200 bg-white p-4"
+      className="pc-panel space-y-2"
       onSubmit={handleSubmit((values) => {
         addDocument(values);
         reset({ childIds: [] });
@@ -65,9 +66,9 @@ export function UploadDocumentForm() {
             </option>
           ))}
         </select>
-        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-white">
+        <PrimaryButton type="submit" className="px-4">
           Save Document
-        </button>
+        </PrimaryButton>
       </div>
 
       <div className="flex flex-wrap gap-2">

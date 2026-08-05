@@ -4,6 +4,8 @@ import { SmartFolderImport } from '@/features/documents/components/smart-folder-
 import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
 import { ScanSummaryCards } from '@/features/scan/components/scan-summary-cards';
 import { NavShell } from '@/components/nav-shell';
+import { LinkButton } from '@/components/ui/button';
+import { PanelCard } from '@/components/ui/card';
 import { useAppStore } from '@/store/use-app-store';
 import type { ItemCategory } from '@/types/domain';
 
@@ -90,24 +92,24 @@ export function ScanInboxView() {
     <NavShell>
       <section className="space-y-3">
         <ScanSummaryCards files={scanQueue} lastScanAt={lastScanAt} />
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+        <PanelCard className="text-sm text-slate-600">
           School folder: {connectedFolderName ?? 'No folder selected yet'}
           <div className="mt-2 flex gap-2">
-            <Link href="/scan/review" className="rounded-lg bg-slate-900 px-3 py-2 text-white">
+            <LinkButton href="/scan/review" className="bg-slate-900 text-white hover:bg-slate-800">
               Assign Items
-            </Link>
-            <Link
+            </LinkButton>
+            <LinkButton
               href="/scan/history"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-slate-900"
+              className="border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
             >
               Import History
-            </Link>
+            </LinkButton>
           </div>
-        </div>
+        </PanelCard>
 
         <SmartFolderImport />
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <PanelCard>
           <h3 className="mb-2 font-semibold text-slate-900">Files Ready for the Family Calendar</h3>
           {scanQueue.length === 0 ? (
             <p className="text-sm text-slate-500">No school files selected yet.</p>
@@ -176,10 +178,10 @@ export function ScanInboxView() {
               ))}
             </ul>
           )}
-        </div>
+        </PanelCard>
 
         {scanHistory.length > 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <PanelCard>
             <h3 className="mb-2 font-semibold text-slate-900">Recent Imports</h3>
             <ul className="space-y-2">
               {scanHistory.slice(0, 5).map((run) => (
@@ -189,7 +191,7 @@ export function ScanInboxView() {
                 </li>
               ))}
             </ul>
-          </div>
+          </PanelCard>
         ) : null}
       </section>
     </NavShell>

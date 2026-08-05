@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { AddChildForm } from '@/components/forms/add-child-form';
 import { NavShell } from '@/components/nav-shell';
+import { DangerButton, MutedButton, OutlineButton, PrimaryButton } from '@/components/ui/button';
+import { ArticleCard, HeaderCard } from '@/components/ui/card';
 import { useAppStore } from '@/store/use-app-store';
 import type { ChildProfile } from '@/types/domain';
 
@@ -8,82 +10,78 @@ const gradeOptions = Array.from({ length: 12 }, (_, index) => String(index + 1))
 const isValidGrade = (grade: string) => /^(?:1[0-2]|[1-9])$/.test(grade.trim());
 
 export function ChildrenManagementView() {
+  return (
+    <NavShell>
+      <ChildrenManagementSection />
+    </NavShell>
+  );
+}
+
+export function ChildrenManagementSection({ showHeader = true }: { showHeader?: boolean }) {
   const children = useAppStore((state) => state.children);
   const updateChild = useAppStore((state) => state.updateChild);
   const deleteChild = useAppStore((state) => state.deleteChild);
   const [editingChildId, setEditingChildId] = useState<string | undefined>();
 
   return (
-    <NavShell>
-      <section className="space-y-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-xl font-semibold">Manage Kids</h2>
+    <section className="space-y-3">
+      {showHeader ? (
+        <HeaderCard title="Manage Kids" subtitle="Add children and update their school details." />
+      ) : null}
 
-          <p className="text-sm text-slate-600">Add children and update their school details.</p>
-        </div>
+      <AddChildForm />
 
-        <AddChildForm />
-
-        <div className="grid gap-3 md:grid-cols-2">
-          {children.map((child) => (
-            <article key={child.id} className="rounded-xl border border-slate-200 bg-white p-4">
-              {editingChildId === child.id ? (
-                <EditChildProfileForm
-                  child={child}
-                  onCancel={() => setEditingChildId(undefined)}
-                  onSave={(updates) => {
-                    updateChild(child.id, updates);
-                    setEditingChildId(undefined);
-                  }}
-                />
-              ) : (
-                <>
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-3 w-3 rounded-full ${child.colorTag}`} />
-                      <h3 className="font-semibold">{child.name}</h3>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditingChildId(child.id)}
-                        className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const confirmed = window.confirm(
-                            `Remove ${child.name}? This will also remove their planner items and child-specific documents.`
-                          );
-
-                          if (confirmed) {
-                            deleteChild(child.id);
-                          }
-                        }}
-                        className="rounded-lg bg-rose-50 px-3 py-1 text-sm font-medium text-rose-700 hover:bg-rose-100"
-                      >
-                        Delete
-                      </button>
-                    </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {children.map((child) => (
+          <ArticleCard key={child.id} className="p-4">
+            {editingChildId === child.id ? (
+              <EditChildProfileForm
+                child={child}
+                onCancel={() => setEditingChildId(undefined)}
+                onSave={(updates) => {
+                  updateChild(child.id, updates);
+                  setEditingChildId(undefined);
+                }}
+              />
+            ) : (
+              <>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-3 w-3 rounded-full ${child.colorTag}`} />
+                    <h3 className="font-semibold">{child.name}</h3>
                   </div>
-                  <p className="text-sm text-slate-600">
-                    Grade {child.grade} • Section {child.section}
+                  <div className="flex flex-wrap gap-2">
+                    <MutedButton onClick={() => setEditingChildId(child.id)}>Edit</MutedButton>
+                    <DangerButton
+                      onClick={() => {
+                        const confirmed = window.confirm(
+                          `Remove ${child.name}? This will also remove their planner items and child-specific documents.`
+                        );
+
+                        if (confirmed) {
+                          deleteChild(child.id);
+                        }
+                      }}
+                    >
+                      Delete
+                    </DangerButton>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-600">
+                  Grade {child.grade} • Section {child.section}
+                </p>
+                {!isValidGrade(child.grade) ? (
+                  <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-sm text-amber-800">
+                    Choose the correct grade before scanning school files.
                   </p>
-                  {!isValidGrade(child.grade) ? (
-                    <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-sm text-amber-800">
-                      Choose the correct grade before scanning school files.
-                    </p>
-                  ) : null}
-                  <p className="text-sm text-slate-600">Academic Year: {child.academicYear}</p>
-                </>
-              )}
-            </article>
-          ))}
-        </div>
-      </section>
-    </NavShell>
+                ) : null}
+                <p className="text-sm text-slate-600">Academic Year: {child.academicYear}</p>
+              </>
+            )}
+          </ArticleCard>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -157,20 +155,10 @@ function EditChildProfileForm({
         />
       </div>
       <div className="flex flex-wrap gap-2">
-        <button
-          type="submit"
-          disabled={!canSave}
-          className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
+        <PrimaryButton type="submit" disabled={!canSave}>
           Save Profile
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700"
-        >
-          Cancel
-        </button>
+        </PrimaryButton>
+        <OutlineButton onClick={onCancel}>Cancel</OutlineButton>
       </div>
     </form>
   );

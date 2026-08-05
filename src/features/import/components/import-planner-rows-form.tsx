@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { OutlineButton, PrimaryButton } from '@/components/ui/button';
 import { importPipeline } from '@/features/import';
 import { parsePastedRows } from '@/features/import/services/parse-pasted-rows';
 import type { ItemCategory } from '@/types/domain';
@@ -73,7 +74,7 @@ export function ImportPlannerRowsForm() {
   };
 
   return (
-    <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+    <section className="pc-panel space-y-3">
       <div>
         <h3 className="font-semibold text-slate-900">Import Planner Rows</h3>
         <p className="text-sm text-slate-600">
@@ -95,29 +96,23 @@ export function ImportPlannerRowsForm() {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={runPreview}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-white"
-        >
+        <PrimaryButton onClick={runPreview} className="bg-slate-900 px-4 hover:bg-slate-800">
           Preview Import
-        </button>
-        <button
-          type="button"
+        </PrimaryButton>
+        <OutlineButton
           onClick={rerunReview}
           disabled={reviewRows.length === 0}
-          className="rounded-lg bg-slate-200 px-4 py-2 text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          className="bg-slate-200 px-4 text-slate-900 hover:bg-slate-300"
         >
           Revalidate Rows
-        </button>
-        <button
-          type="button"
+        </OutlineButton>
+        <PrimaryButton
           onClick={importValidRows}
           disabled={!lastRun || lastRun.items.length === 0}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="px-4"
         >
           Import Valid Items
-        </button>
+        </PrimaryButton>
       </div>
 
       <textarea
