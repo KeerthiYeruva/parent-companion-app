@@ -30,8 +30,16 @@ const formatIssueForParent = (issue: string) => {
     return 'Update the item title.';
   }
 
+  if (/title is not parent-ready/i.test(withoutRow)) {
+    return 'Shorten this item title so it is clear and parent-friendly.';
+  }
+
   if (/subject/i.test(withoutRow)) {
     return 'Check the subject for this item.';
+  }
+
+  if (/parser/i.test(withoutRow)) {
+    return 'Some extracted text needs a quick review.';
   }
 
   return 'Please review and confirm this row.';

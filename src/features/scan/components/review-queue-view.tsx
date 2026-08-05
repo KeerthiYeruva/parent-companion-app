@@ -245,6 +245,12 @@ export function ReviewQueueView() {
             const dueDateIssues = liveResult.issues.filter(
               (issue) => issue.fieldName === 'dueDate'
             ).length;
+            const issueRowIndexes = new Set(
+              liveResult.issues
+                .map((issue) => issue.rowIndex)
+                .filter((index): index is number => typeof index === 'number')
+            );
+            const unresolvedRows = draftRows.filter((row) => issueRowIndexes.has(row.rowIndex));
 
             return (
               <PanelCard key={file.documentId} className="space-y-3">
@@ -339,7 +345,7 @@ export function ReviewQueueView() {
                   open={issueRows > 0}
                 >
                   <summary className="cursor-pointer text-sm font-medium text-slate-800">
-                    Show extracted rows
+                    Show rows that still need confirmation
                   </summary>
                   <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
                     <table className="min-w-full border-collapse bg-white text-left">
@@ -354,7 +360,7 @@ export function ReviewQueueView() {
                         </tr>
                       </thead>
                       <tbody>
-                        {draftRows.map((row) => {
+                        {unresolvedRows.map((row) => {
                           const issues = liveResult.issues
                             .filter((issue) => issue.rowIndex === row.rowIndex)
                             .map((issue) => issue.issue);
@@ -369,6 +375,13 @@ export function ReviewQueueView() {
                             />
                           );
                         })}
+                        {unresolvedRows.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-3 text-sm text-slate-500">
+                              All rows are ready. No manual confirmation needed.
+                            </td>
+                          </tr>
+                        ) : null}
                       </tbody>
                     </table>
                   </div>

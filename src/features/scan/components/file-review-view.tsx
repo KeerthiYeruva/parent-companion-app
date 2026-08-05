@@ -40,11 +40,36 @@ const countExtractedItems = (counts?: Partial<Record<ItemCategory, number>>) => 
 
 const formatIssueForParent = (issue: string) => {
   const withoutRow = issue.replace(/^Row\s+\d+:\s*/i, '');
+
   if (/child could not be matched/i.test(withoutRow)) {
-    return 'Child assignment needed';
+    return 'Choose the child for this item.';
   }
 
-  return withoutRow;
+  if (/due date is invalid or missing|invalid date|date could not be parsed/i.test(withoutRow)) {
+    return 'Add the date for this item.';
+  }
+
+  if (/category is invalid or missing|type is missing|unknown category/i.test(withoutRow)) {
+    return 'Choose the type for this item.';
+  }
+
+  if (/title is missing|title is required|item title/i.test(withoutRow)) {
+    return 'Update the item title.';
+  }
+
+  if (/title is not parent-ready/i.test(withoutRow)) {
+    return 'Shorten this item title so it is clear and parent-friendly.';
+  }
+
+  if (/subject/i.test(withoutRow)) {
+    return 'Check the subject for this item.';
+  }
+
+  if (/parser/i.test(withoutRow)) {
+    return 'Some extracted text needs a quick review.';
+  }
+
+  return 'Please review and confirm this row.';
 };
 
 const formatConfidence = (confidence?: 'high' | 'review' | 'low') => {

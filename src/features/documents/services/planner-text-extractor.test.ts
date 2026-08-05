@@ -290,6 +290,30 @@ describe('extractPlannerRows', () => {
     );
   });
 
+  it('keeps long class-test syllabus continuations in description, not title', () => {
+    const rows = extractPlannerRows({
+      relativePath: 'Grade 5/August/Scholastic Planner.pdf',
+      childNames: ['Grade 5'],
+      contentText: [
+        'SUBJECT & WEEK\t24.08.26 (Monday)',
+        'MATHEMATICS\tCLASS TEST',
+        '\tCHAPTER ADDITION UP TO 20 Adding greater Chapter - 6 Adding Greater Course book Pg.No. 109,110 Home study Pg.No. 112',
+      ].join('\n'),
+    });
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'ClassTest',
+          subject: 'Mathematics',
+          dueDate: '2026-08-24',
+          title: 'Class Test',
+          description: expect.stringContaining('CHAPTER ADDITION UP TO 20'),
+        }),
+      ])
+    );
+  });
+
   it('keeps explicit matrix labels while avoiding chapter/revision context as titles', () => {
     const rows = extractPlannerRows({
       relativePath: 'Grade 5/July/Scholastic Planner.pdf',
@@ -494,6 +518,39 @@ describe('extractPlannerRows', () => {
       ].join('\n'),
     });
 
+
+  it('does not classify home-study fixed tables as unit tests', () => {
+    const rows = extractPlannerRows({
+      relativePath: 'Grade 1/August/Scholastic Planner.pdf',
+      childNames: ['Grade 1'],
+      contentText: [
+        'AUGUST: WEEK 1',
+        'S.NO\tDATE\tDAY\tSUBJECT\tHOMESTUDY',
+        '1\t03.08.2026\tMonday\tMathematics\tChapter2-Practice Pg.No.31 & 32',
+        '2\t04.08.2026\tTuesday\tScience\tRead Course book Pg. No. 29,30',
+        '3\t05.08.2026\tWednesday\tKannada\tNotebook work letter ಒ,ಓ',
+      ].join('\n'),
+    });
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'HomeStudy',
+          subject: 'Mathematics',
+          dueDate: '2026-08-03',
+        }),
+        expect.objectContaining({
+          category: 'HomeStudy',
+          subject: 'Science',
+          dueDate: '2026-08-04',
+        }),
+      ])
+    );
+
+    expect(rows).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ category: 'UnitTest' })])
+    );
+  });
     expect(rows).toEqual([
       expect.objectContaining({
         category: 'ClassTest',

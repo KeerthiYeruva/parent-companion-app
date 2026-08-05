@@ -211,4 +211,125 @@ describe('importPipeline', () => {
     expect(result.items).toHaveLength(2);
     expect(result.items.map((item) => item.dueDate).sort()).toEqual(['2026-07-20', '2026-08-20']);
   });
+
+  it('merges class test rows with same child, subject, and due date', () => {
+    const result = importPipeline.run(
+      [
+        {
+          childName: 'aarav',
+          category: 'ClassTest',
+          subject: 'Science',
+          title: 'Class Test',
+          dueDate: '2026-08-20',
+          description: 'Chapter 3 - Moon',
+        },
+        {
+          childName: 'aarav',
+          category: 'ClassTest',
+          subject: 'Science',
+          title: 'Class Test',
+          dueDate: '2026-08-20',
+          description: 'Stars',
+        },
+        {
+          childName: 'aarav',
+          category: 'ClassTest',
+          subject: 'Science',
+          title: 'Class Test',
+          dueDate: '2026-08-20',
+          description: 'Portions',
+        },
+      ],
+      {
+        sourceType: 'future-pdf',
+        documentId: 'doc-6',
+        childNameToIdMap: { aarav: 'child-1' },
+      }
+    );
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        childId: 'child-1',
+        category: 'ClassTest',
+        subject: 'Science',
+        title: 'Class Test',
+        dueDate: '2026-08-20',
+      })
+    );
+    expect(result.items[0].description).toContain('Chapter 3 - Moon');
+    expect(result.items[0].description).toContain('Stars');
+    expect(result.items[0].description).toContain('Portions');
+  });
+
+  it('merges exam rows with same child, subject, and due date', () => {
+    const result = importPipeline.run(
+      [
+        {
+          childName: 'aarav',
+          category: 'Exam',
+          subject: 'Science',
+          title: 'Science Exam',
+          dueDate: '2026-08-28',
+          description: 'Chapter 7',
+        },
+        {
+          childName: 'aarav',
+          category: 'Exam',
+          subject: 'Science',
+          title: 'Science Exam',
+          dueDate: '2026-08-28',
+          description: 'Chapter 8',
+        },
+      ],
+      {
+        sourceType: 'future-pdf',
+        documentId: 'doc-7',
+        childNameToIdMap: { aarav: 'child-1' },
+      }
+    );
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        childId: 'child-1',
+        category: 'Exam',
+        subject: 'Science',
+        title: 'Science Exam',
+        dueDate: '2026-08-28',
+      })
+    );
+    expect(result.items[0].description).toContain('Chapter 7');
+    expect(result.items[0].description).toContain('Chapter 8');
+  });
+
+  it('accepts class test titles with chapter and portions details', () => {
+    const result = importPipeline.run(
+      [
+        {
+          childName: 'aarav',
+          category: 'ClassTest',
+          subject: 'Science',
+          title: 'CHAPTER - 3 SUN, MOON, STARS Portions',
+          dueDate: '2026-08-20',
+          description: 'Chapter - 3 SUN, MOON, STARS',
+        },
+      ],
+      {
+        sourceType: 'future-pdf',
+        documentId: 'doc-8',
+        childNameToIdMap: { aarav: 'child-1' },
+      }
+    );
+
+    expect(result.issues).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldName: 'title',
+          issue: expect.stringContaining('Title is not parent-ready'),
+        }),
+      ])
+    );
+    expect(result.items).toHaveLength(1);
+  });
 });

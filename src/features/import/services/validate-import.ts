@@ -29,8 +29,23 @@ const hasParentReadyTitle = (record: NormalizedImportRecord) => {
   const title = record.title.trim();
   const normalizedTitle = title.toLowerCase();
   const embeddedFullDates = title.match(/\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/g) ?? [];
+  const isAssessmentCategory = ['ClassTest', 'UnitTest', 'Exam'].includes(record.category ?? '');
 
-  if (title.length < 3 || title.length > 180 || embeddedFullDates.length > 1) {
+  if (title.length < 3 || title.length > (isAssessmentCategory ? 260 : 180)) {
+    return false;
+  }
+
+  if (isAssessmentCategory) {
+    // For test items, chapter/portion-heavy titles are common in school planners.
+    // Keep basic safety checks only to avoid unnecessary parent review friction.
+    if (embeddedFullDates.length > 2) {
+      return false;
+    }
+
+    return !(/^[({[]/.test(title) || /^[.\s-]*\d{1,2}[./-]\d{1,2}/.test(title));
+  }
+
+  if (embeddedFullDates.length > 1) {
     return false;
   }
 

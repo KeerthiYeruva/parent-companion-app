@@ -15,6 +15,8 @@ import {
 } from '@/features/import/services/import-content';
 
 const isUnitTest = (record: NormalizedImportRecord) => record.category === 'UnitTest';
+const isClassTest = (record: NormalizedImportRecord) => record.category === 'ClassTest';
+const isExam = (record: NormalizedImportRecord) => record.category === 'Exam';
 
 const unitTestBaseKey = (
   record: Pick<NormalizedImportRecord, 'childId' | 'subject' | 'canonicalSubject'>
@@ -25,6 +27,22 @@ const unitTestBaseKey = (
 
 const unitTestCycleKey = (record: NormalizedImportRecord) =>
   [unitTestBaseKey(record), record.dueDate ?? 'undated'].join('__');
+
+const classTestCycleKey = (record: NormalizedImportRecord) =>
+  [
+    record.childId,
+    'ClassTest',
+    normalizeSubjectKey(record.canonicalSubject ?? record.subject),
+    record.dueDate ?? 'undated',
+  ].join('__');
+
+const examCycleKey = (record: NormalizedImportRecord) =>
+  [
+    record.childId,
+    'Exam',
+    normalizeSubjectKey(record.canonicalSubject ?? record.subject),
+    record.dueDate ?? 'undated',
+  ].join('__');
 
 const recordRichness = (record: NormalizedImportRecord) => {
   return [record.description, record.chapterNumber, record.chapterName, record.title].filter(
@@ -205,6 +223,8 @@ export const importResolver: ImportResolver = {
     });
 
     const unitTestGroups = new Map<string, NormalizedImportRecord[]>();
+    const classTestGroups = new Map<string, NormalizedImportRecord[]>();
+    const examGroups = new Map<string, NormalizedImportRecord[]>();
     const generalGroups = new Map<string, NormalizedImportRecord[]>();
 
     records.forEach((record) => {
@@ -228,6 +248,22 @@ export const importResolver: ImportResolver = {
         const current = unitTestGroups.get(key) ?? [];
         current.push(record);
         unitTestGroups.set(key, current);
+        return;
+      }
+
+      if (isClassTest(record)) {
+        const key = classTestCycleKey(record);
+        const current = classTestGroups.get(key) ?? [];
+        current.push(record);
+        classTestGroups.set(key, current);
+        return;
+      }
+
+      if (isExam(record)) {
+        const key = examCycleKey(record);
+        const current = examGroups.get(key) ?? [];
+        current.push(record);
+        examGroups.set(key, current);
         return;
       }
 
@@ -266,15 +302,27 @@ export const importResolver: ImportResolver = {
       return merged ? [merged] : [];
     });
 
+    const resolvedClassTests = Array.from(classTestGroups.values()).flatMap((group) => {
+      const merged = mergeGeneralRecords(group);
+      return merged ? [merged] : [];
+    });
+
+    const resolvedExams = Array.from(examGroups.values()).flatMap((group) => {
+      const merged = mergeGeneralRecords(group);
+      return merged ? [merged] : [];
+    });
+
     const resolvedGeneral = Array.from(generalGroups.values()).flatMap((group) => {
       const merged = mergeGeneralRecords(group);
       return merged ? [merged] : [];
     });
 
-    return [...resolvedGeneral, ...resolvedUnitTests].map((record) => ({
-      ...record,
-      subject: record.subject ?? record.canonicalSubject,
-      canonicalSubject: record.canonicalSubject ?? normalizeCanonicalSubject(record.subject),
-    }));
+    return [...resolvedGeneral, ...resolvedClassTests, ...resolvedExams, ...resolvedUnitTests].map(
+      (record) => ({
+        ...record,
+        subject: record.subject ?? record.canonicalSubject,
+        canonicalSubject: record.canonicalSubject ?? normalizeCanonicalSubject(record.subject),
+      })
+    );
   },
 };

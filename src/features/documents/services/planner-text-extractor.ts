@@ -691,6 +691,29 @@ const isSafeMatrixContinuation = (value: string) => {
   );
 };
 
+const shouldAppendToClassTestTitle = (fragment: string, currentTitle?: string) => {
+  const cleaned = cleanTitleFragment(fragment);
+  const titleBase = currentTitle ?? '';
+  if (!cleaned) {
+    return false;
+  }
+
+  // Keep class-test titles concise and move syllabus-like details to description.
+  if (
+    /\b(?:chapter|pg\.?\s*no\.?|page\b|home\s*study|revision|course\s*book|notebook\s*work)\b/i.test(
+      cleaned
+    )
+  ) {
+    return false;
+  }
+
+  if (cleaned.length > 48) {
+    return false;
+  }
+
+  return `${titleBase} ${cleaned}`.replace(/\s+/g, ' ').trim().length <= 90;
+};
+
 const buildMatrixTitle = (cell: string, category: string, contexts: string[] = []) => {
   const cleanedTitle = cleanCellTitle(cell, category);
   if (!isWeakMatrixTitle(cleanedTitle, category)) {
@@ -815,9 +838,14 @@ const extractScholasticMatrixRows = (
           const existing = records.get(activeRecordKey);
           if (existing) {
             const titlePart = cleanTitleFragment(cell);
+            const allowTitleAppend =
+              activeCategory !== 'ClassTest' ||
+              shouldAppendToClassTestTitle(titlePart, existing.title);
 
-            existing.titleParts.push(titlePart);
-            existing.title = existing.titleParts.join(' ').replace(/\s+/g, ' ').trim();
+            if (allowTitleAppend) {
+              existing.titleParts.push(titlePart);
+              existing.title = existing.titleParts.join(' ').replace(/\s+/g, ' ').trim();
+            }
             existing.description = `${existing.description} ${cell}`.trim();
           }
         }
@@ -852,11 +880,19 @@ const extractScholasticMatrixRows = (
       }
 
       const descriptionPart = homeworkParts?.description ?? cell;
+      const isImplicitContinuation = !explicitCategory && Boolean(activeCategory);
 
       const existing = records.get(recordKey);
       if (existing) {
-        existing.titleParts.push(titlePart);
-        existing.title = existing.titleParts.join(' ').replace(/\s+/g, ' ').trim();
+        const allowTitleAppend =
+          !isImplicitContinuation ||
+          category !== 'ClassTest' ||
+          shouldAppendToClassTestTitle(titlePart, existing.title);
+
+        if (allowTitleAppend) {
+          existing.titleParts.push(titlePart);
+          existing.title = existing.titleParts.join(' ').replace(/\s+/g, ' ').trim();
+        }
         existing.description = `${existing.description} ${descriptionPart}`.trim();
         return;
       }
@@ -920,7 +956,13 @@ const getFixedTableKind = (line: string): FixedTableKind | undefined => {
     return 'ClassTest';
   }
 
-  if (/\bdate day\b/.test(header) && /\bsubject\b/.test(header) && !/\bclass test\b/.test(header)) {
+  if (
+    /\bdate day\b/.test(header) &&
+    /\bsubject\b/.test(header) &&
+    !/\bclass test\b/.test(header) &&
+    !/\bhome study\b/.test(header) &&
+    !/\bs no\b/.test(header)
+  ) {
     return 'UnitTest';
   }
 
