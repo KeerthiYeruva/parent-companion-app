@@ -1,3 +1,5 @@
+import { isCloudSyncEnabled } from '@/lib/firebase';
+
 interface LocalThenCloudOptions {
   performLocal: () => Promise<void>;
   performCloud: () => Promise<void>;
@@ -22,18 +24,24 @@ export const runLocalThenCloud = ({
   onCloudFailure,
   onCloudSuccess,
 }: LocalThenCloudOptions) => {
-  void performLocal()
-    .then(
-      () =>
-        void performCloud()
-          .then(() => {
-            onCloudSuccess?.();
-          })
-          .catch(() => {
-            onCloudFailure();
-          })
-    )
-    .catch(() => {
+  if (!isCloudSyncEnabled) {
+    void performLocal().catch(() => {
       onLocalFailure();
+    });
+    return;
+  }
+
+  void performCloud()
+    .then(() => {
+      onCloudSuccess?.();
+      void performLocal().catch(() => {
+        onLocalFailure();
+      });
+    })
+    .catch(() => {
+      onCloudFailure();
+      void performLocal().catch(() => {
+        onLocalFailure();
+      });
     });
 };

@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/firebase', () => ({
+  isCloudSyncEnabled: true,
+}));
+
 import { runLocalThenCloud, warningHandlers } from '@/features/sync/services/entity-sync';
 
 describe('runLocalThenCloud', () => {
-  it('runs local first and then cloud', async () => {
+  it('runs cloud first and then local', async () => {
     const performLocal = vi.fn(async () => undefined);
     const performCloud = vi.fn(async () => undefined);
     const onLocalFailure = vi.fn();
@@ -18,17 +23,17 @@ describe('runLocalThenCloud', () => {
     });
 
     await vi.waitFor(() => expect(performCloud).toHaveBeenCalledTimes(1));
-    expect(performLocal).toHaveBeenCalledTimes(1);
-    expect(onCloudSuccess).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(performLocal).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(onCloudSuccess).toHaveBeenCalledTimes(1));
     expect(onLocalFailure).not.toHaveBeenCalled();
     expect(onCloudFailure).not.toHaveBeenCalled();
   });
 
-  it('does not run cloud when local fails', async () => {
-    const performLocal = vi.fn(async () => {
-      throw new Error('local failed');
+  it('falls back to local persistence when cloud fails', async () => {
+    const performLocal = vi.fn(async () => undefined);
+    const performCloud = vi.fn(async () => {
+      throw new Error('network failed');
     });
-    const performCloud = vi.fn(async () => undefined);
     const onLocalFailure = vi.fn();
     const onCloudFailure = vi.fn();
 
@@ -39,13 +44,15 @@ describe('runLocalThenCloud', () => {
       onCloudFailure,
     });
 
-    await vi.waitFor(() => expect(onLocalFailure).toHaveBeenCalledTimes(1));
-    expect(performCloud).not.toHaveBeenCalled();
-    expect(onCloudFailure).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(onCloudFailure).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(performLocal).toHaveBeenCalledTimes(1));
+    expect(onLocalFailure).not.toHaveBeenCalled();
   });
 
-  it('reports cloud failure after local success', async () => {
-    const performLocal = vi.fn(async () => undefined);
+  it('reports local failure when fallback local persistence fails', async () => {
+    const performLocal = vi.fn(async () => {
+      throw new Error('local failed');
+    });
     const performCloud = vi.fn(async () => {
       throw new Error('cloud failed');
     });
@@ -60,8 +67,8 @@ describe('runLocalThenCloud', () => {
     });
 
     await vi.waitFor(() => expect(onCloudFailure).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(onLocalFailure).toHaveBeenCalledTimes(1));
     expect(performLocal).toHaveBeenCalledTimes(1);
-    expect(onLocalFailure).not.toHaveBeenCalled();
   });
 
   it('creates symmetric local/cloud warning handlers', () => {

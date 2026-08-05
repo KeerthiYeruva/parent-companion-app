@@ -48,10 +48,11 @@ The product is organized around parent action, not document management:
 
 - React + Vite + TypeScript
 - Tailwind CSS
-- Zustand (state)
+- Zustand (app state + slice architecture + persisted UI preferences)
 - React Hook Form + Zod (forms + validation)
 - Dayjs (date handling)
-- Dexie (IndexedDB for document metadata)
+- Dexie (IndexedDB local cache + offline queue/hydration)
+- Firebase Auth + Firestore (production cloud sync and cross-device state distribution)
 - pdfjs-dist (client-side PDF text and coordinate extraction)
 - Static web manifest + service worker registration for local-first PWA support
 
@@ -91,16 +92,18 @@ With these flags:
   - Uses scanned file metadata and extracted rows for local rebuild operations.
   - Does not call Firebase when cloud sync is disabled.
 - Production mode:
-  - Uses the same local-first Dexie model for UI responsiveness and offline support.
-  - Syncs CRUD changes to Firebase Auth and Firestore.
-  - Applies cloud changes from one signed-in device to all other signed-in devices for the same family (phone, tablet, and desktop).
-  - Reconciles local and cloud data through the sync controller.
+  - Uses Firebase (Auth + Firestore) as the authoritative shared data source.
+  - Uses Dexie as a local cache/offline layer for responsiveness and recovery.
+  - Zustand mutations are cloud-first and always attempt Firebase writes via shared sync orchestration.
+  - If cloud/network calls fail, the same change is persisted to Dexie fallback and retried to Firebase from the sync queue.
+  - Cloud listeners apply remote changes from one signed-in device to all other signed-in devices for the same family (phone, tablet, and desktop).
+  - Sync controller reconciles local cache with cloud state and retries pending writes.
 
 ### CRUD Requirements
 
 - Local DB is required in both local and production modes.
-- Create, update, and delete operations write to local DB first.
-- Cloud sync is additive in production mode, not a replacement for local persistence.
+- In production, create, update, and delete operations always attempt cloud writes (even if local persistence fails).
+- Cloud state is authoritative for cross-device consistency; local persistence is a cache/offline support layer.
 
 ## Firebase Setup
 
