@@ -864,11 +864,7 @@ function DashboardTaskSection({
                 </p>
               </div>
               <span className="planner-item__status shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-                {item.prepStatus === 'InProgress'
-                  ? 'In Progress'
-                  : item.status === 'Completed'
-                    ? 'Done'
-                    : 'To Do'}
+                {item.prepStatus === 'InProgress' ? 'In Progress' : itemTimingLabel(item)}
               </span>
             </li>
           ))}

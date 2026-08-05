@@ -6,6 +6,7 @@ import {
   completionButtonLabel,
   isItemCompleted,
   isItemFutureLocked,
+  itemTimingLabel,
 } from '@/features/planning/services/item-completion';
 import type { SchoolItem } from '@/types/domain';
 
@@ -47,6 +48,24 @@ describe('item completion UX helpers', () => {
     expect(completionButtonLabel(baseItem('2026-07-14'), today)).toContain(
       'Available on the due date'
     );
+  });
+
+  it('shows due dates on overdue and completed timing labels', () => {
+    expect(itemTimingLabel(baseItem('2026-07-12'), today)).toBe('Overdue - Sun, 12 Jul');
+    expect(
+      itemTimingLabel(
+        baseItem('2026-07-12', {
+          status: 'Completed',
+          completedAt: '2026-07-13T10:00:00.000Z',
+        }),
+        today
+      )
+    ).toBe('Done - Sun, 12 Jul');
+  });
+
+  it('keeps today and tomorrow labels concise', () => {
+    expect(itemTimingLabel(baseItem('2026-07-13'), today)).toBe('Due today');
+    expect(itemTimingLabel(baseItem('2026-07-14'), today)).toBe('Tomorrow');
   });
 
   it('renders completed state with SVG instead of a text checkmark', () => {

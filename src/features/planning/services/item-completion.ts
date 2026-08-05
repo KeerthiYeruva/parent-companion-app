@@ -30,17 +30,21 @@ export const getItemTiming = (item: SchoolItem, today = dayjs()): ItemTiming => 
   return 'upcoming';
 };
 
+export const formatItemDueDate = (item: Pick<SchoolItem, 'dueDate'>) =>
+  dayjs(item.dueDate).format('ddd, DD MMM');
+
 export const itemTimingLabel = (item: SchoolItem, today = dayjs()) => {
   const timing = getItemTiming(item, today);
+  const dueDateLabel = formatItemDueDate(item);
 
-  if (timing === 'completed') return 'Done';
-  if (timing === 'overdue') return 'Overdue';
+  if (timing === 'completed') return `Done - ${dueDateLabel}`;
+  if (timing === 'overdue') return `Overdue - ${dueDateLabel}`;
   if (timing === 'today') return 'Due today';
   if (dayjs(item.dueDate).startOf('day').isSame(today.add(1, 'day').startOf('day'), 'day')) {
     return 'Tomorrow';
   }
 
-  return dayjs(item.dueDate).format('ddd, DD MMM');
+  return dueDateLabel;
 };
 
 export const itemTimingClasses = (timing: ItemTiming) => {
