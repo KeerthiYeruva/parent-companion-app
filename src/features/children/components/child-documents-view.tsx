@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import { useMemo } from 'react';
 import { PanelCard } from '@/components/ui/card';
 import { ChildDetailLayout } from '@/features/children/components/child-detail-layout';
+import { formatDocumentTypeLabel } from '@/features/documents/services/document-title';
 import { useAppStore } from '@/store/use-app-store';
 
 export function ChildDocumentsView({ childId }: { childId: string }) {
@@ -23,7 +24,7 @@ export function ChildDocumentsView({ childId }: { childId: string }) {
               <li key={doc.id} className="rounded-lg border border-slate-200 p-3">
                 <p className="font-medium text-slate-900">{doc.title}</p>
                 <p className="text-sm text-slate-600">
-                  {doc.type} • {doc.extractedMonth ?? 'Month unknown'} •{' '}
+                  {formatDocumentTypeLabel(doc.type)} • {doc.extractedMonth ?? 'Month unknown'} •{' '}
                   {dayjs(doc.uploadedAt).format('DD MMM YYYY')}
                 </p>
               </li>

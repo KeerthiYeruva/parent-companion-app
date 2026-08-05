@@ -3,7 +3,10 @@ import { useMemo, useRef, useState } from 'react';
 import { LinkButton, OutlineButton, PrimaryButton } from '@/components/ui/button';
 import { buildChildAliasMap } from '@/features/documents/services/child-alias-map';
 import { detectPlannerDocument } from '@/features/documents/services/document-detector';
-import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
+import {
+  formatDocumentTypeLabel,
+  formatSchoolDocumentTitle,
+} from '@/features/documents/services/document-title';
 import { extractPdfText } from '@/features/documents/services/pdf-parser';
 import { extractPlannerRows } from '@/features/documents/services/planner-text-extractor';
 import {
@@ -839,8 +842,8 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                           {formatSchoolDocumentTitle(result.fileName, result.detectedType)}
                         </p>
                         <p className="document-file__metadata text-sm text-slate-600">
-                          {result.detectedType} • {result.monthLabel ?? 'Month unknown'} •{' '}
-                          {result.relativePath}
+                          {formatDocumentTypeLabel(result.detectedType)} •{' '}
+                          {result.monthLabel ?? 'Month unknown'} • {result.relativePath}
                         </p>
                         {result.skippedImportCount ? (
                           <p className="document-file__skipped-rows mt-1 text-sm text-amber-800">
@@ -929,7 +932,7 @@ export function SmartFolderImport({ simple = false }: { simple?: boolean }) {
                   {document.title}
                 </p>
                 <p className="document-file__metadata truncate text-xs text-slate-500">
-                  {document.fileName ?? document.type}
+                  {document.fileName ?? formatDocumentTypeLabel(document.type)}
                 </p>
               </div>
               <button

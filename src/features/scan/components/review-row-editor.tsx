@@ -13,15 +13,28 @@ const categories: ItemCategory[] = [
 
 const formatIssueForParent = (issue: string) => {
   const withoutRow = issue.replace(/^Row\s+\d+:\s*/i, '');
+
   if (/child could not be matched/i.test(withoutRow)) {
     return 'Choose the child for this item.';
   }
 
-  if (/due date is invalid or missing/i.test(withoutRow)) {
+  if (/due date is invalid or missing|invalid date|date could not be parsed/i.test(withoutRow)) {
     return 'Add the date for this item.';
   }
 
-  return withoutRow;
+  if (/category is missing|type is missing|unknown category/i.test(withoutRow)) {
+    return 'Choose the type for this item.';
+  }
+
+  if (/title is missing|title is required|item title/i.test(withoutRow)) {
+    return 'Update the item title.';
+  }
+
+  if (/subject/i.test(withoutRow)) {
+    return 'Check the subject for this item.';
+  }
+
+  return 'Please review and confirm this row.';
 };
 
 export function ReviewRowEditor({
@@ -37,6 +50,8 @@ export function ReviewRowEditor({
   issues: string[];
   onChange: (updates: Partial<ReviewDraftRecord>) => void;
 }) {
+  const hasIssues = issues.length > 0;
+
   return (
     <tr
       className="document-import__row border-t border-slate-200 align-top"
@@ -45,6 +60,8 @@ export function ReviewRowEditor({
       data-subject={draft.subject ?? ''}
       data-child={draft.childName ?? ''}
       data-due-date={draft.dueDate ?? ''}
+      data-review-issue-row={hasIssues ? 'true' : 'false'}
+      id={`review-row-${draft.documentId}-${draft.rowIndex}`}
     >
       <td className="document-import__row-child px-2 py-2">
         <select

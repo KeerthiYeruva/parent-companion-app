@@ -915,12 +915,12 @@ const getFixedTableKind = (line: string): FixedTableKind | undefined => {
     /\bdate\b/.test(header) &&
     /\bday\b/.test(header) &&
     /\bsubject\b/.test(header) &&
-    /\bclass test portions\b/.test(header)
+    /\bclass test(?: and)? portions?\b/.test(header)
   ) {
     return 'ClassTest';
   }
 
-  if (/\bdate day\b/.test(header) && /\bsubject\b/.test(header)) {
+  if (/\bdate day\b/.test(header) && /\bsubject\b/.test(header) && !/\bclass test\b/.test(header)) {
     return 'UnitTest';
   }
 
@@ -1096,12 +1096,20 @@ const extractFixedTableRows = (
       return;
     }
 
+    if (/class\s+test\s+and\s+portions/i.test(normalizeText(line))) {
+      currentKind = 'ClassTest';
+      return;
+    }
+
     if (/unit\s*test\s*[-–]?\s*i\s+exam\s+timetable/i.test(normalizeText(line))) {
       currentKind = 'UnitTest';
       return;
     }
     const nextKind = getFixedTableKind(line);
     if (nextKind) {
+      if (nextKind === 'UnitTest' && currentKind === 'ClassTest') {
+        return;
+      }
       currentKind = nextKind;
       return;
     }

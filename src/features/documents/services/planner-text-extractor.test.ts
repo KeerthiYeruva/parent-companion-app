@@ -516,6 +516,74 @@ describe('extractPlannerRows', () => {
     ]);
   });
 
+  it('does not misclassify class-test fixed table headers as unit tests', () => {
+    const rows = extractPlannerRows({
+      relativePath: 'Grade 1/July/Class Test And Portions.pdf',
+      childNames: ['Grade 1'],
+      contentText: [
+        'JULY MONTH - CLASS TEST AND PORTIONS',
+        'DATE\tDAY\tSUBJECT\tCLASS TEST AND PORTIONS',
+        '06.07.2026\tMonday\tHindi\tSwar & Vyanjan',
+        '10.07.2026\tFriday\tEnglish\tGrammar - Nouns and Punctuation/Sentences',
+      ].join('\n'),
+    });
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'ClassTest',
+          subject: 'Hindi',
+          dueDate: '2026-07-06',
+          title: 'Swar & Vyanjan',
+        }),
+        expect.objectContaining({
+          category: 'ClassTest',
+          subject: 'English',
+          dueDate: '2026-07-10',
+          title: 'Grammar - Nouns and Punctuation/Sentences',
+        }),
+      ])
+    );
+
+    expect(rows).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ category: 'UnitTest' })])
+    );
+  });
+
+  it('keeps class-test section context when scholastic header splits across lines', () => {
+    const rows = extractPlannerRows({
+      relativePath: 'Grade 1/July/Scholastic Planner.pdf',
+      childNames: ['Grade 1'],
+      contentText: [
+        'JULY MONTH - CLASS TEST AND PORTIONS',
+        'DATE\tDAY\tSUBJECT',
+        '06.07.2026\tMonday\tHindi\tSwar & Vyanjan',
+        '10.07.2026\tFriday\tEnglish\tGrammar - Nouns and Punctuation/Sentences',
+      ].join('\n'),
+    });
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'ClassTest',
+          subject: 'Hindi',
+          dueDate: '2026-07-06',
+          title: 'Swar & Vyanjan',
+        }),
+        expect.objectContaining({
+          category: 'ClassTest',
+          subject: 'English',
+          dueDate: '2026-07-10',
+          title: 'Grammar - Nouns and Punctuation/Sentences',
+        }),
+      ])
+    );
+
+    expect(rows).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ category: 'UnitTest' })])
+    );
+  });
+
   it('maps unit-test timetable rows from date-and-subject columns while skipping notes', () => {
     const rows = extractPlannerRows({
       relativePath: 'Grade 1/Unit Test Timetable.pdf',

@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildChildAliasMap } from '@/features/documents/services/child-alias-map';
-import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
+import {
+  formatDocumentTypeLabel,
+  formatSchoolDocumentTitle,
+} from '@/features/documents/services/document-title';
 import { importPipeline } from '@/features/import';
 import { ReviewRowEditor } from '@/features/scan/components/review-row-editor';
 import { NavShell } from '@/components/nav-shell';
@@ -73,6 +76,8 @@ export function ReviewQueueView() {
   const updateScanFile = useAppStore((state) => state.updateScanFile);
   const markDocumentReviewed = useAppStore((state) => state.markDocumentReviewed);
   const importedReviewSignaturesRef = useRef<Record<string, string>>({});
+  const focusKeyRef = useRef('');
+  const [bulkDueDateByDocument, setBulkDueDateByDocument] = useState<Record<string, string>>({});
 
   const childNameToIdMap = useMemo(() => buildChildAliasMap(children), [children]);
   const filesNeedingReview = scanQueue.filter(
@@ -152,10 +157,61 @@ export function ReviewQueueView() {
 
   const assignChildToDocument = (documentId: string, childName: string) => {
     const draftRows = buildDraftRows(documentId);
-    draftRows.forEach((row) => {
-      upsertReviewDraft({ ...row, childName });
-    });
+    draftRows
+      .filter((row) => !row.childName)
+      .forEach((row) => {
+        upsertReviewDraft({ ...row, childName });
+      });
   };
+
+  const assignDueDateToMissingRows = (documentId: string, dueDate: string) => {
+    const draftRows = buildDraftRows(documentId);
+    draftRows
+      .filter((row) => !row.dueDate)
+      .forEach((row) => {
+        upsertReviewDraft({ ...row, dueDate });
+      });
+  };
+
+  useEffect(() => {
+    if (filesNeedingReview.length === 0) {
+      focusKeyRef.current = '';
+      return;
+    }
+
+    const unresolvedKey = filesNeedingReview
+      .map((file) => {
+        const draftRows = buildDraftRows(file.documentId);
+        const liveResult = importPipeline.run(draftRows.map(toRawRow), {
+          sourceType: 'future-pdf',
+          documentId: file.documentId,
+          childNameToIdMap,
+        });
+
+        const firstIssueRowIndex = liveResult.issues.find(
+          (issue): issue is typeof issue & { rowIndex: number } =>
+            typeof issue.rowIndex === 'number'
+        )?.rowIndex;
+
+        return firstIssueRowIndex === undefined ? '' : `${file.documentId}:${firstIssueRowIndex}`;
+      })
+      .find(Boolean);
+
+    if (!unresolvedKey || unresolvedKey === focusKeyRef.current) {
+      return;
+    }
+
+    focusKeyRef.current = unresolvedKey;
+
+    requestAnimationFrame(() => {
+      const firstIssueInput = document.querySelector<HTMLElement>(
+        '[data-review-issue-row="true"] select, [data-review-issue-row="true"] input'
+      );
+
+      firstIssueInput?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstIssueInput?.focus();
+    });
+  }, [childNameToIdMap, filesNeedingReview, reviewDrafts]);
 
   return (
     <NavShell>
@@ -186,6 +242,9 @@ export function ReviewQueueView() {
             const childAssignmentIssues = liveResult.issues.filter(
               (issue) => issue.fieldName === 'childName'
             ).length;
+            const dueDateIssues = liveResult.issues.filter(
+              (issue) => issue.fieldName === 'dueDate'
+            ).length;
 
             return (
               <PanelCard key={file.documentId} className="space-y-3">
@@ -195,7 +254,7 @@ export function ReviewQueueView() {
                       {formatSchoolDocumentTitle(file.fileName, file.detectedType)}
                     </h3>
                     <p className="text-sm text-slate-600">
-                      {file.detectedType} • {file.relativePath}
+                      {formatDocumentTypeLabel(file.detectedType)} • {file.relativePath}
                     </p>
                     <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
                       <p className="rounded-md bg-emerald-50 px-2 py-1 font-medium text-emerald-700">
@@ -226,7 +285,7 @@ export function ReviewQueueView() {
                 {childAssignmentIssues > 0 && children.length > 0 ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                     <p className="mb-2 text-sm font-medium text-amber-900">
-                      Assign all extracted items in this file to:
+                      Assign all rows missing a child to:
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {children.map((child) => (
@@ -242,7 +301,43 @@ export function ReviewQueueView() {
                   </div>
                 ) : null}
 
-                <details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                {dueDateIssues > 0 ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="mb-2 text-sm font-medium text-amber-900">
+                      Set the same date for rows missing a date:
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="date"
+                        value={bulkDueDateByDocument[file.documentId] ?? ''}
+                        onChange={(event) =>
+                          setBulkDueDateByDocument((current) => ({
+                            ...current,
+                            [file.documentId]: event.target.value,
+                          }))
+                        }
+                        className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-amber-900"
+                      />
+                      <OutlineButton
+                        onClick={() =>
+                          assignDueDateToMissingRows(
+                            file.documentId,
+                            bulkDueDateByDocument[file.documentId] ?? ''
+                          )
+                        }
+                        disabled={!bulkDueDateByDocument[file.documentId]}
+                        className="text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100"
+                      >
+                        Apply to Missing Dates
+                      </OutlineButton>
+                    </div>
+                  </div>
+                ) : null}
+
+                <details
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                  open={issueRows > 0}
+                >
                   <summary className="cursor-pointer text-sm font-medium text-slate-800">
                     Show extracted rows
                   </summary>

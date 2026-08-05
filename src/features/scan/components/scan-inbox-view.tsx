@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
 import Link from '@/components/routing';
 import { SmartFolderImport } from '@/features/documents/components/smart-folder-import';
-import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
+import {
+  formatDocumentTypeLabel,
+  formatSchoolDocumentTitle,
+} from '@/features/documents/services/document-title';
 import { ScanSummaryCards } from '@/features/scan/components/scan-summary-cards';
 import { NavShell } from '@/components/nav-shell';
 import { LinkButton } from '@/components/ui/button';
@@ -130,8 +133,8 @@ export function ScanInboxView() {
                               {formatSchoolDocumentTitle(file.fileName, file.detectedType)}
                             </p>
                             <p className="text-sm text-slate-600">
-                              {file.detectedType} | {file.monthLabel ?? 'Month unknown'} |{' '}
-                              {file.relativePath}
+                              {formatDocumentTypeLabel(file.detectedType)} |{' '}
+                              {file.monthLabel ?? 'Month unknown'} | {file.relativePath}
                             </p>
                             <p className="text-sm font-medium text-emerald-700">
                               Items found: {extractedItems}

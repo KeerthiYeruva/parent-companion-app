@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PrimaryButton } from '@/components/ui/button';
+import { formatDocumentTypeLabel } from '@/features/documents/services/document-title';
 import { useAppStore } from '@/store/use-app-store';
 import type { DocumentType } from '@/types/domain';
 
@@ -50,9 +51,6 @@ export function UploadDocumentForm() {
         reset({ childIds: [] });
       })}
     >
-      <p className="text-sm text-slate-700">
-        Documents are references only. Extracted items power the plan.
-      </p>
       <div className="grid gap-2 md:grid-cols-3">
         <input
           className="rounded-lg border border-slate-300 px-3 py-2"
@@ -62,7 +60,7 @@ export function UploadDocumentForm() {
         <select className="rounded-lg border border-slate-300 px-3 py-2" {...register('type')}>
           {documentTypes.map((type) => (
             <option key={type} value={type}>
-              {type}
+              {formatDocumentTypeLabel(type)}
             </option>
           ))}
         </select>

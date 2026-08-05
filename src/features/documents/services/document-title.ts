@@ -12,6 +12,8 @@ const documentTypeLabels: Record<DocumentType | 'Unknown', string> = {
   Unknown: 'School Document',
 };
 
+export const formatDocumentTypeLabel = (type: DocumentType | 'Unknown') => documentTypeLabels[type];
+
 const cleanFileStem = (value: string) => {
   return value
     .replace(/\.[^.]+$/, '')
@@ -40,7 +42,7 @@ export const formatSchoolDocumentTitle = (
   detectedType: DocumentType | 'Unknown'
 ) => {
   const gradeLabel = extractGradeLabel(fileName);
-  const typeLabel = documentTypeLabels[detectedType];
+  const typeLabel = formatDocumentTypeLabel(detectedType);
   const fallback = cleanFileStem(fileName)
     .replace(/\bgrade\s*\d{1,2}\b/gi, '')
     .replace(/\bclass\s*(?:\d{1,2}|i{1,3}|iv|v|vi{0,3}|ix|x|xi|xii)\b/gi, '')

@@ -3,7 +3,10 @@ import Link from '@/components/routing';
 import { NavShell } from '@/components/nav-shell';
 import { LinkButton } from '@/components/ui/button';
 import { HeaderCard, PanelCard } from '@/components/ui/card';
-import { formatSchoolDocumentTitle } from '@/features/documents/services/document-title';
+import {
+  formatDocumentTypeLabel,
+  formatSchoolDocumentTitle,
+} from '@/features/documents/services/document-title';
 import { useAppStore } from '@/store/use-app-store';
 import type { ItemCategory, ScanSessionFileRecord } from '@/types/domain';
 
@@ -99,7 +102,7 @@ export function FileReviewView({ documentId }: { documentId: string }) {
                 {formatSchoolDocumentTitle(file.fileName, file.detectedType)}
               </h3>
               <p className="text-sm text-slate-600">
-                {file.detectedType} • {file.relativePath}
+                {formatDocumentTypeLabel(file.detectedType)} • {file.relativePath}
               </p>
               <p className="text-sm font-medium text-emerald-700">
                 Items found: {countExtractedItems(file.importPreviewCategoryCounts)}
