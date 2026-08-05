@@ -1012,7 +1012,7 @@ const isFixedTableTitle = (line: string) => {
   );
 };
 const startsNewPlannerSection = (line: string) =>
-  /\b(?:JULY\s*:\s*WEEK|ACTIVITIES\s+OF\s+THE\s+MONTH|SUBJECT\s+ACTIVITIES|CO\s*SCHOLASTIC|UNIT\s*TEST|CLASS\s+TEST\s+AND\s+PORTIONS)\b/i.test(
+  /\b(?:(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s*:\s*WEEK\s*\d*|ACTIVITIES\s+OF\s+THE\s+MONTH|SUBJECT\s+ACTIVITIES|CO\s*SCHOLASTIC|UNIT\s*TEST|CLASS\s*TEST(?:\s+AND)?\s+PORTIONS)\b/i.test(
     normalizeText(line)
   );
 
@@ -1265,15 +1265,15 @@ const extractFixedTableRows = (
         return;
       }
 
-      rows.push({
-        childName,
-        category: 'ClassTest',
+          rows.push({
+            childName,
+            category: 'ClassTest',
         subject,
         title,
-        dueDate: dateParts.dueDate,
+            dueDate: dateParts.dueDate,
         description: title,
-        parserIssue: dateParts.parserIssue,
-      });
+            parserIssue: dateParts.parserIssue,
+          });
       return;
     }
     const populatedCells = cells.filter(Boolean);
@@ -1826,6 +1826,10 @@ export const extractPlannerRows = ({
     allowUnitTestRows: unitTestDocument,
   });
   const fixedTableRows = extractFixedTableRows(contentText, inferredChildName);
+  const hasFixedClassTestRows = fixedTableRows.some((row) => row.category === 'ClassTest');
+  const filteredTableRows = hasFixedClassTestRows
+    ? tableRows.filter((row) => row.category !== 'ClassTest')
+    : tableRows;
   const supplementalRows = [
     ...extractCoScholasticRows(contentText, inferredChildName, defaultMonthLabel, defaultYear),
     ...(fixedTableRows.some((row) => row.category === 'UnitTest')
@@ -1839,7 +1843,7 @@ export const extractPlannerRows = ({
       defaultYear
     ),
   ];
-  const structuredRows = [...fixedTableRows, ...tableRows, ...supplementalRows];
+  const structuredRows = [...fixedTableRows, ...filteredTableRows, ...supplementalRows];
 
   if (structuredRows.length > 0) {
     return structuredRows;

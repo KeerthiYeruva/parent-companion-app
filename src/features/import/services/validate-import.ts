@@ -14,12 +14,13 @@ const createIssue = (
   issue: string,
   severity: ImportIssue['severity'] = 'blocking'
 ): ImportIssue => {
+  const sourceRowIndex = record.rowIndex ?? index;
   return {
     id: `import-issue-${crypto.randomUUID()}`,
     documentId: record.sourceDocumentId ?? options.documentId,
-    rowIndex: index,
+    rowIndex: sourceRowIndex,
     fieldName,
-    issue: `Row ${index + 1}: ${issue}`,
+    issue: `Row ${sourceRowIndex + 1}: ${issue}`,
     resolved: false,
     severity,
   };
@@ -49,8 +50,12 @@ const hasParentReadyTitle = (record: NormalizedImportRecord) => {
     return false;
   }
 
-  if (['activity', 'project', 'home study', 'class test', 'unit test'].includes(normalizedTitle)) {
-    return Boolean(record.subject) && ['class test', 'unit test'].includes(normalizedTitle);
+  if (
+    ['activity', 'project', 'home study', 'homework', 'class test', 'unit test'].includes(
+      normalizedTitle
+    )
+  ) {
+    return Boolean(record.subject);
   }
 
   if (/^[({[]/.test(title) || /^[.\s-]*\d{1,2}[./-]\d{1,2}/.test(title)) {
@@ -106,9 +111,10 @@ export const importValidator: ImportValidator = {
         issues.push(createIssue(options, record, index, 'parser', record.parserIssue, 'warning'));
       }
 
+      const sourceRowIndex = record.rowIndex ?? index;
       const hasBlockingIssuesForRecord = issues.some(
         (issue) =>
-          issue.issue.startsWith(`Row ${index + 1}:`) &&
+          issue.rowIndex === sourceRowIndex &&
           issue.severity !== 'warning' &&
           issue.severity !== 'info'
       );

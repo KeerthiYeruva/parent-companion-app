@@ -17,6 +17,7 @@ export interface RawImportRecord {
   sourceDocumentIds?: string[];
   sourceRole?: ImportSourceRole;
   parserIssue?: string;
+  rowIndex?: number;
 }
 
 export interface NormalizedImportRecord {
@@ -35,6 +36,7 @@ export interface NormalizedImportRecord {
   sourceDocumentIds?: string[];
   sourceRole?: ImportSourceRole;
   parserIssue?: string;
+  rowIndex?: number;
 }
 
 export interface ImportPipelineOptions {

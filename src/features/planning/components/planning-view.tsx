@@ -518,9 +518,11 @@ function parentReadyItems(items: SchoolItem[]) {
     }
 
     if (
-      ['activity', 'project', 'home study', 'class test', 'unit test'].includes(normalizedTitle)
+      ['activity', 'project', 'home study', 'homework', 'class test', 'unit test'].includes(
+        normalizedTitle
+      )
     ) {
-      return Boolean(item.subject) && ['class test', 'unit test'].includes(normalizedTitle);
+      return Boolean(item.subject);
     }
 
     if (/^[({[]/.test(title)) {

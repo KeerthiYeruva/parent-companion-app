@@ -65,6 +65,7 @@ export const importNormalizer: ImportNormalizer = {
       const canonicalSubject = normalizeCanonicalSubject(record.subject);
 
       return {
+        rowIndex: record.rowIndex,
         childId: normalizeChildId(rawChildName, options),
         rawChildName,
         category: normalizeCategory(rawCategory),

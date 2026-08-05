@@ -40,6 +40,7 @@ const countExtractedItems = (file: ScanSessionFileRecord) => {
 };
 
 const toRawRow = (draft: ReviewDraftRecord) => ({
+  rowIndex: draft.rowIndex,
   childName: draft.childName,
   category: draft.category,
   subject: draft.subject,
