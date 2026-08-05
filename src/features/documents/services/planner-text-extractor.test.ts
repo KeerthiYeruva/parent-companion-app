@@ -518,7 +518,7 @@ describe('extractPlannerRows', () => {
       ].join('\n'),
     });
 
-    it('does not classify home-study fixed tables as unit tests', () => {
+    {
       const rows = extractPlannerRows({
         relativePath: 'Grade 1/August/Scholastic Planner.pdf',
         childNames: ['Grade 1'],
@@ -549,25 +549,28 @@ describe('extractPlannerRows', () => {
       expect(rows).not.toEqual(
         expect.arrayContaining([expect.objectContaining({ category: 'UnitTest' })])
       );
-    });
+    }
     expect(rows).toEqual([
       expect.objectContaining({
         category: 'ClassTest',
         subject: 'Hindi',
         dueDate: '2026-07-06',
-        title: 'Swar & Vyanjan',
+        title: 'Hindi Class Test',
+        description: 'Swar & Vyanjan',
       }),
       expect.objectContaining({
         category: 'ClassTest',
         subject: 'English',
         dueDate: '2026-07-10',
-        title: 'Grammar - Nouns and Punctuation/Sentences',
+        title: 'English Class Test',
+        description: 'Grammar - Nouns and Punctuation/Sentences',
       }),
       expect.objectContaining({
         category: 'ClassTest',
         subject: 'Mathematics',
         dueDate: '2026-07-13',
-        title: 'Chapter – 5 Numbers up to 100',
+        title: 'Mathematics Class Test',
+        description: expect.stringContaining('Numbers up to 100'),
       }),
     ]);
   });
@@ -590,13 +593,15 @@ describe('extractPlannerRows', () => {
           category: 'ClassTest',
           subject: 'Hindi',
           dueDate: '2026-07-06',
-          title: 'Swar & Vyanjan',
+          title: 'Hindi Class Test',
+          description: 'Swar & Vyanjan',
         }),
         expect.objectContaining({
           category: 'ClassTest',
           subject: 'English',
           dueDate: '2026-07-10',
-          title: 'Grammar - Nouns and Punctuation/Sentences',
+          title: 'English Class Test',
+          description: 'Grammar - Nouns and Punctuation/Sentences',
         }),
       ])
     );
@@ -624,19 +629,85 @@ describe('extractPlannerRows', () => {
           category: 'ClassTest',
           subject: 'Hindi',
           dueDate: '2026-07-06',
-          title: 'Swar & Vyanjan',
+          title: 'Hindi Class Test',
+          description: 'Swar & Vyanjan',
         }),
         expect.objectContaining({
           category: 'ClassTest',
           subject: 'English',
           dueDate: '2026-07-10',
-          title: 'Grammar - Nouns and Punctuation/Sentences',
+          title: 'English Class Test',
+          description: 'Grammar - Nouns and Punctuation/Sentences',
         }),
       ])
     );
 
     expect(rows).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ category: 'UnitTest' })])
+    );
+  });
+
+  it('maps compact class-test date and subject rows for any month', () => {
+    const rows = extractPlannerRows({
+      relativePath: 'Grade 1/August/Class Test And Portions.pdf',
+      childNames: ['Grade 1'],
+      contentText: [
+        'AUGUST MONTH - CLASS TEST AND PORTIONS',
+        'DATE & DAY\tSUBJECT',
+        '03.08.2026 Monday\tHindi',
+      ].join('\n'),
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        category: 'ClassTest',
+        subject: 'Hindi',
+        dueDate: '2026-08-03',
+        title: 'Hindi Class Test',
+        description: '03.08.2026 Monday\tHindi',
+      }),
+    ]);
+  });
+
+  it('maps grade 5 August class-test timetable rows with continuation portions', () => {
+    const rows = extractPlannerRows({
+      relativePath: 'Grade 5/August/Scholastic Planner.pdf',
+      childNames: ['Grade 5'],
+      contentText: [
+        'CLASS TEST - II TIMETABLE AND PORTIONS',
+        'DATE\tDAY\tSUBJECT\t\tCLASSTEST PORTIONS',
+        '17.08.2026\tMONDAY\tSOCIALSTUDIES\tCh apter\t- 3 Movem ents Of the Earth',
+        '\t\t\tChapter 2\t- Types of Software',
+        '20.08.2026\tTHURSDAY\tCOMPUTER SCIENCE',
+        '\t\t\tಪದ್ಯ\t- ೭ ಸಾರುತಿದೆ ಸೃಷ್ಟಿ',
+        '25.08.2026\tTUESDAY\tKANNADA',
+      ].join('\n'),
+    });
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'ClassTest',
+          subject: 'Social Studies',
+          dueDate: '2026-08-17',
+          title: 'Social Studies Class Test',
+          description: 'Ch apter - 3 Movem ents Of the Earth',
+        }),
+        expect.objectContaining({
+          category: 'ClassTest',
+          subject: 'Computer Science',
+          dueDate: '2026-08-20',
+          title: 'Computer Science Class Test',
+          description: expect.stringContaining('Chapter 2 - Types of Software'),
+        }),
+        expect.objectContaining({
+          category: 'ClassTest',
+          subject: 'Kannada',
+          dueDate: '2026-08-25',
+          title: 'Kannada Class Test',
+          description: expect.stringContaining('ಪದ್ಯ - ೭ ಸಾರುತಿದೆ ಸೃಷ್ಟಿ'),
+        }),
+      ])
     );
   });
 
